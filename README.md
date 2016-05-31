@@ -1,1 +1,2 @@
-# stammbaumdervaganten
+# Stammbaum der Vaganten
+stammdervaganten.de
