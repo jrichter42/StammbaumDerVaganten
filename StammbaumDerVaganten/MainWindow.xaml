@@ -5,8 +5,18 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:StammbaumDerVaganten"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="MainWindow" Height="720" Width="1280">
+    <Window.DataContext>
+        <local:Database/>
+    </Window.DataContext>
     <Grid>
-        
+        <Menu x:Name="pfadi_menu" Height="25" Margin="10,10,10,0" VerticalAlignment="Top"/>
+        <DockPanel LastChildFill="False" Margin="10,40,10,10">
+            <DataGrid x:Name="pfadi_list" ItemsSource="{Binding Scout}" AutoGenerateColumns="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Gruppe" Binding="{Binding Path=Data.Scout[0].Group.Name.Value}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
     </Grid>
 </Window>
