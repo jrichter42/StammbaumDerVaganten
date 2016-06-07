@@ -31,17 +31,17 @@ namespace StammbaumDerVaganten
     //Plain old data
     public class DataPiece<T> : DataParticle
     {
-        protected DateTime Timestamp;
-        protected List<DataPiece<T>> History = new List<DataPiece<T>>();
+        protected DateTime timestamp;
+        protected List<DataPiece<T>> history = new List<DataPiece<T>>();
 
         protected T _value;
         public T Value
         {
             set
             {
-                Timestamp = DateTime.Now;
+                timestamp = DateTime.Now;
                 DataPiece<T> copy = this;
-                History.Add(copy);
+                history.Add(copy);
                 _value = value;
             }
             get
@@ -52,7 +52,7 @@ namespace StammbaumDerVaganten
 
         public DataPiece()
         {
-            Timestamp = DateTime.Now;
+            timestamp = DateTime.Now;
         }
 
         public DataPiece(T initValue) : this()
@@ -64,16 +64,57 @@ namespace StammbaumDerVaganten
         //I would love to overwrite the assignment operator so that I don't need this shit but its fucking impossible
         public void Init(T value)
         {
-            Timestamp = DateTime.Now;
+            timestamp = DateTime.Now;
             _value = value;
+        }
+
+        public static implicit operator T(DataPiece<T> obj)
+        {
+            return obj.Value;
         }
     }
 
     public class Date : DataPiece<DateTime>
     {
+        public const int VALUE_INVALID = -1;
+
         public bool YearDefined = false;
         public bool MonthDefined = false;
         public bool DayDefined = false;
+
+        public int Year
+        {
+            get { return YearDefined ? Value.Year : 0; }
+            set { Value = Value.AddYears(value - Value.Year); YearDefined = true; }
+        }
+
+        public int Month
+        {
+            get { return MonthDefined ? Value.Month : 0; }
+            set { Value = Value.AddMonths(value - Value.Month); MonthDefined = true; }
+        }
+
+        public int Day
+        {
+            get { return DayDefined ? Day : 0; }
+            set { Value = Value.AddDays(value - Value.Day); DayDefined = true; }
+        }
+
+        public void Set(int year = VALUE_INVALID, int month = VALUE_INVALID, int day = VALUE_INVALID)
+        {
+            if (year != VALUE_INVALID)
+            {
+                Year = year;
+            }
+            if (month != VALUE_INVALID)
+            {
+                Month = month;
+            }
+            if (day != VALUE_INVALID)
+            {
+                Day = day;
+            }
+        }
     }
 
     public class String : DataPiece<string>

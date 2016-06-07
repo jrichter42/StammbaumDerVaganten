@@ -7,14 +7,19 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="720" Width="1280">
     <Window.DataContext>
-        <local:Database/>
+        <local:MainViewModel/>
     </Window.DataContext>
     <Grid>
         <Menu x:Name="pfadi_menu" Height="25" Margin="10,10,10,0" VerticalAlignment="Top"/>
         <DockPanel LastChildFill="False" Margin="10,40,10,10">
-            <DataGrid x:Name="pfadi_list" ItemsSource="{Binding Scout}" AutoGenerateColumns="False">
+            <DataGrid x:Name="pfadi_list" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Gruppe" Binding="{Binding Path=Data.Scout[0].Group.Name.Value}" />
+                    <DataGridTextColumn Header="Vorname" Binding="{Binding Forename}" />
+                    <DataGridTextColumn Header="Pfadiname" Binding="{Binding Scoutname}" />
+                    <DataGridTextColumn Header="Nachname" Binding="{Binding Lastname}" />
+                    <DataGridTextColumn Header="Geburtsdatum" Binding="{Binding _Birthdate, StringFormat=d, ConverterCulture=de-DE}"/>
+                    <DataGridTextColumn Header="Kontaktinfo" Binding="{Binding ContactInfo}" />
+                    <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}" />
                 </DataGrid.Columns>
             </DataGrid>
         </DockPanel>

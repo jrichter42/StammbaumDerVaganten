@@ -25,16 +25,34 @@ namespace StammbaumDerVaganten
 
     public class Group : DataObject
     {
-        public GroupType Type = new GroupType();
-        public String Name = new String();
+        public GroupType type = new GroupType();
+        public String name = new String();
         public Group ParentGroup = null;
         public List<Group> SubGroups = new List<Group>();
 
-        public String Comment = new String();
+        public String comment = new String();
+
+        public GroupType_Type Type
+        {
+            get { return type.Value; }
+            set { type.Value = value; }
+        }
+
+        public string Name
+        {
+            get { return name.Value; }
+            set { name.Value = value; }
+        }
+
+        public string Comment
+        {
+            get { return comment.Value; }
+            set { comment.Value = value; }
+        }
 
         public Group()
         {
-            Type.Init(GroupType_Type.None);
+            type.Init(GroupType_Type.None);
         }
     }
 }

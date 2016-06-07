@@ -20,17 +20,17 @@ namespace StammbaumDerVaganten
     /// </summary>
     public partial class MainWindow : Window
     {
-        public Database database;
+        MainViewModel vm;
 
         public MainWindow()
         {
             InitializeComponent();
+            vm = new MainViewModel();
+            this.DataContext = vm;
             if (Keyboard.PrimaryDevice.IsKeyDown(Key.Escape))
             {
                 
             }
-            database = new Database();
-            this.DataContext = database;
         }
     }
 }

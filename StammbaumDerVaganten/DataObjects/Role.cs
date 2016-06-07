@@ -31,15 +31,33 @@ namespace StammbaumDerVaganten
 
     public class Role : DataObject
     {
-        public RoleType Type = new RoleType();
-        public String CustomType = new String(); //If Type set to "Custom"
-        public GroupType GroupType = new GroupType(); //This role can be held on Groups of this type
+        RoleType type = new RoleType();
+        String customType = new String(); //If Type set to "Custom"
+        GroupType groupType = new GroupType(); //This role can be held on Groups of this type
 
-        public String Comment = new String();
+        String comment = new String();
+
+        public RoleType_Type Type
+        {
+            get { return type.Value; }
+            set { type.Value = value; }
+        }
+
+        public string CustomType
+        {
+            get { return customType.Value; }
+            set { customType.Value = value; }
+        }
+
+        public GroupType_Type GroupType
+        {
+            get { return groupType.Value; }
+            set { groupType.Value = value; }
+        }
 
         public Role()
         {
-            Type.Init(RoleType_Type.None);
+            type.Init(RoleType_Type.None);
         }
     }
 }
