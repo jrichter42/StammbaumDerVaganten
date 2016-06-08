@@ -84,19 +84,19 @@ namespace StammbaumDerVaganten
 
         public int Year
         {
-            get { return YearDefined ? Value.Year : 0; }
+            get { return YearDefined ? Value.Year : 1; }
             set { Value = Value.AddYears(value - Value.Year); YearDefined = true; }
         }
 
         public int Month
         {
-            get { return MonthDefined ? Value.Month : 0; }
+            get { return MonthDefined ? Value.Month : 1; }
             set { Value = Value.AddMonths(value - Value.Month); MonthDefined = true; }
         }
 
         public int Day
         {
-            get { return DayDefined ? Day : 0; }
+            get { return DayDefined ? Value.Day : 1; }
             set { Value = Value.AddDays(value - Value.Day); DayDefined = true; }
         }
 
