@@ -35,13 +35,9 @@ namespace StammbaumDerVaganten
             string data = "";
             if (FileManager.Instance.Read(ref data))
             {
-                if (Database.Deserialize(data))
-                {
-                    if (Database.Serialize(ref data))
-                    {
-                        FileManager.Instance.Write(data);
-                    }
-                }
+                Database.Deserialize(data);
+                Database.Serialize(ref data);
+                FileManager.Instance.Write(data);
             }
         }
     }

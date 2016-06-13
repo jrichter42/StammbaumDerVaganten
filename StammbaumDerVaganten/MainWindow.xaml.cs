@@ -31,6 +31,7 @@ namespace StammbaumDerVaganten
             {
                 
             }
+            Application.Current.Shutdown();
         }
     }
 }
