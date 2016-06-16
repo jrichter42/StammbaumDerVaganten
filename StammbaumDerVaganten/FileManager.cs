@@ -100,8 +100,9 @@ namespace StammbaumDerVaganten
                     File.Create(filePath);
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                Log.Write(e);
                 return false;
             }
             return true;
@@ -127,8 +128,9 @@ namespace StammbaumDerVaganten
             {
                 outContent = File.ReadAllText(file.FilePath);
             }
-            catch(Exception)
+            catch(Exception e)
             {
+                Log.Write(e);
                 return false;
             }
             return true;
@@ -155,8 +157,9 @@ namespace StammbaumDerVaganten
             {
                 File.WriteAllText(file.FilePath, content);
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                Log.Write(e);
                 return false;
             }
             return true;

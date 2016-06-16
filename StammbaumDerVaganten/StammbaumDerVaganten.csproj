@@ -58,6 +58,8 @@
     </ApplicationDefinition>
     <Compile Include="Database.cs" />
     <Compile Include="DataObjects\DataTypes.cs" />
+    <Compile Include="Log.cs" />
+    <Compile Include="Serializer.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

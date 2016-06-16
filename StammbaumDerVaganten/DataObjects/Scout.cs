@@ -16,14 +16,14 @@ namespace StammbaumDerVaganten
     public class Membership : DataObject
     {
         public Timespan Timespan = new Timespan();
-        public Group Group = new Group();
+        public int Group = ID_INVALID;
     }
 
     public class Activity : DataObject
     {
         public Timespan Timespan = new Timespan();
-        public Role Role = new Role();
-        public Group Group = new Group();
+        public int Role = ID_INVALID;
+        public int Group = ID_INVALID;
     }
 
     public class Scout : DataObject

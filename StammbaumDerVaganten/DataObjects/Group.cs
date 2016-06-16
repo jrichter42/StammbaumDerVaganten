@@ -25,6 +25,18 @@ namespace StammbaumDerVaganten
 
     public class Group : DataObject
     {
+        public static int NEXT_ID = 1;
+
+        protected override int GetNEXTID()
+        {
+            return NEXT_ID;
+        }
+
+        protected override void SetNEXTID(int id)
+        {
+            NEXT_ID = id;
+        }
+
         public GroupType type = new GroupType();
         public String name = new String();
         public Group ParentGroup = null;
@@ -53,6 +65,21 @@ namespace StammbaumDerVaganten
         public Group()
         {
             type.Init(GroupType_Type.None);
+        }
+
+        public Group(bool claimID) : base(claimID)
+        {
+
+        }
+
+        public void ReassignID(int id)
+        {
+            ID = id;
+        }
+
+        public void AssignNewID()
+        {
+            ID = NEXT_ID++;
         }
     }
 }

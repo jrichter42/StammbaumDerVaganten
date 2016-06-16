@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Web.Script.Serialization;
 
 namespace StammbaumDerVaganten
 {
@@ -26,19 +25,19 @@ namespace StammbaumDerVaganten
     {
         public Data Data;
 
-        protected JavaScriptSerializer serializer;
+        public Dictionary<int, Group> GroupIDMap;
+        public Dictionary<int, Role> RoleIDMap;
 
         public Database()
         {
             Data = new Data();
-            serializer = new JavaScriptSerializer();
 
-            Group group = new Group();
+            Group group = new Group(true);
             group.Type = GroupType_Type.Sippe;
             group.Name = "Phönix";
             Data.Groups.Add(group);
 
-            Role role = new Role();
+            Role role = new Role(true);
             role.Type = RoleType_Type.Sippenfuehrung;
             role.GroupType = GroupType_Type.Sippe;
             Data.Roles.Add(role);
@@ -69,110 +68,30 @@ namespace StammbaumDerVaganten
             Data.Scouts.Add(scout);
         }
 
-        public bool Serialize(ref string outData)
+        public bool Load()
         {
-            try
+            string dataStr = "";
+            if (FileManager.Instance.Read(ref dataStr))
             {
-                string result = serializer.Serialize(Data);
-                if (result == null)
+                if (Serializer.Deserialize<Data>(dataStr, ref Data))
                 {
-                    return false;
+                    return true;
                 }
-                outData = FormatOutput(result);
-                //outData = outData.Replace("\r\n", "\n");
             }
-            catch (Exception)
-            {
-                return false;
-            }
-            return true;
+            return false;
         }
 
-        public bool Deserialize(string data)
+        public bool Save(bool humanReadable = true)
         {
-            try
+            string dataStr = "";
+            if (Serializer.Serialize<Data>(ref dataStr, Data, humanReadable))
             {
-                Data result = serializer.Deserialize<Data>(data);
-                if (result == null)
+                if (FileManager.Instance.Write(dataStr))
                 {
-                    return false;
-                }
-                Data = result;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-            return true;
-        }
-
-        public static string FormatOutput(string jsonString)
-        {
-            var stringBuilder = new StringBuilder();
-
-            bool escaping = false;
-            bool inQuotes = false;
-            int indentation = 0;
-
-            foreach (char character in jsonString)
-            {
-                if (escaping)
-                {
-                    escaping = false;
-                    stringBuilder.Append(character);
-                }
-                else
-                {
-                    if (character == '\\')
-                    {
-                        escaping = true;
-                        stringBuilder.Append(character);
-                    }
-                    else if (character == '\"')
-                    {
-                        inQuotes = !inQuotes;
-                        stringBuilder.Append(character);
-                    }
-                    else if (!inQuotes)
-                    {
-                        if (character == ',')
-                        {
-                            stringBuilder.Append(character);
-                            stringBuilder.Append("\r\n");
-                            stringBuilder.Append('\t', indentation);
-                        }
-                        else if (character == '[' || character == '{')
-                        {
-                            stringBuilder.Append("\r\n");
-                            stringBuilder.Append('\t', indentation);
-                            stringBuilder.Append(character);
-                            stringBuilder.Append("\r\n");
-                            stringBuilder.Append('\t', ++indentation);
-                        }
-                        else if (character == ']' || character == '}')
-                        {
-                            stringBuilder.Append("\r\n");
-                            stringBuilder.Append('\t', --indentation);
-                            stringBuilder.Append(character);
-                        }
-                        else if (character == ':')
-                        {
-                            stringBuilder.Append(character);
-                            stringBuilder.Append(' ');
-                        }
-                        else
-                        {
-                            stringBuilder.Append(character);
-                        }
-                    }
-                    else
-                    {
-                        stringBuilder.Append(character);
-                    }
+                    return true;
                 }
             }
-
-            return stringBuilder.ToString();
+            return false;
         }
     }
 }

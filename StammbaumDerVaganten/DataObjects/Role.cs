@@ -31,6 +31,18 @@ namespace StammbaumDerVaganten
 
     public class Role : DataObject
     {
+        public static int NEXT_ID = 1;
+
+        protected override int GetNEXTID()
+        {
+            return NEXT_ID;
+        }
+
+        protected override void SetNEXTID(int id)
+        {
+            NEXT_ID = id;
+        }
+
         RoleType type = new RoleType();
         String customType = new String(); //If Type set to "Custom"
         GroupType groupType = new GroupType(); //This role can be held on Groups of this type
@@ -58,6 +70,11 @@ namespace StammbaumDerVaganten
         public Role()
         {
             type.Init(RoleType_Type.None);
+        }
+
+        public Role(bool claimID) : base(claimID)
+        {
+
         }
     }
 }

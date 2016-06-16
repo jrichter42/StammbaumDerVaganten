@@ -25,7 +25,54 @@ namespace StammbaumDerVaganten
     //Objects without a history
     public class DataObject : DataParticle
     {
-        
+        public static readonly int ID_INVALID = -1;
+
+        protected int id = 0;
+        public int ID
+        {
+            set
+            {
+                id = value;
+                SetNEXTID(Math.Max(id + 1, GetNEXTID()));
+            }
+            get
+            {
+                return id;
+            }
+        }
+
+        protected virtual int GetNEXTID()
+        {
+            return ID_INVALID;
+        }
+
+        protected virtual void SetNEXTID(int id)
+        {
+            
+        }
+
+        protected void ClaimID()
+        {
+            ID = GetNEXTID();
+        }
+
+        public static implicit operator int(DataObject obj)
+        {
+            return obj.id;
+        }
+
+        public DataObject()
+        {
+
+        }
+
+        public DataObject(bool claimID)
+        {
+            if (claimID)
+            {
+                ClaimID();
+            }
+        }
     }
 
     //Plain old data

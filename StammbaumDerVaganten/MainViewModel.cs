@@ -31,13 +31,14 @@ namespace StammbaumDerVaganten
         public MainViewModel()
         {
             Database = new Database();
-
-            string data = "";
-            if (FileManager.Instance.Read(ref data))
+            if (!Database.Load())
             {
-                Database.Deserialize(data);
-                Database.Serialize(ref data);
-                FileManager.Instance.Write(data);
+                int a = 0;
+            }
+
+            if (!Database.Save())
+            {
+                int a = 0;
             }
         }
     }
