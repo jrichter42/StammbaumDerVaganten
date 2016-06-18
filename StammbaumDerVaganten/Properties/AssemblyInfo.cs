@@ -10,9 +10,9 @@ using System.Windows;
 [assembly: AssemblyTitle("StammbaumDerVaganten")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("BdP, LV Hessen, Stamm der Vaganten")]
 [assembly: AssemblyProduct("StammbaumDerVaganten")]
-[assembly: AssemblyCopyright("Copyright ©  2016")]
+[assembly: AssemblyCopyright("Copyright © Jens Richter 2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

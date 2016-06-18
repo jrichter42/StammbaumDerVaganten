@@ -9,17 +9,24 @@
     <Window.DataContext>
         <local:MainViewModel/>
     </Window.DataContext>
+    <Window.CommandBindings>
+        <CommandBinding Command="ApplicationCommands.Open" Executed="Load"/>
+        <CommandBinding Command="ApplicationCommands.Save" Executed="Save"/>
+    </Window.CommandBindings>
     <Grid>
-        <Menu x:Name="pfadi_menu" Height="25" Margin="10,10,10,0" VerticalAlignment="Top"/>
+        <Menu x:Name="pfadi_menu" Height="25" Margin="10,10,10,0" VerticalAlignment="Top">
+            <MenuItem Header="_Load" Command="ApplicationCommands.Open"/>
+            <MenuItem Header="_Save" Command="ApplicationCommands.Save"/>
+        </Menu>
         <DockPanel LastChildFill="False" Margin="10,40,10,10">
-            <DataGrid x:Name="pfadi_list" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False">
+            <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts, Mode=TwoWay, NotifyOnSourceUpdated=True, UpdateSourceTrigger=PropertyChanged}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Vorname" Binding="{Binding Forename}" />
-                    <DataGridTextColumn Header="Pfadiname" Binding="{Binding Scoutname}" />
-                    <DataGridTextColumn Header="Nachname" Binding="{Binding Lastname}" />
-                    <DataGridTextColumn Header="Geburtsdatum" Binding="{Binding _Birthdate, StringFormat=d, ConverterCulture=de-DE}"/>
-                    <DataGridTextColumn Header="Kontaktinfo" Binding="{Binding ContactInfo}" />
-                    <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}" />
+                    <DataGridTextColumn Header="Vorname" Binding="{Binding Forename}"/>
+                    <DataGridTextColumn Header="Pfadiname" Binding="{Binding Scoutname}"/>
+                    <DataGridTextColumn Header="Nachname" Binding="{Binding Lastname}"/>
+                    <DataGridTextColumn Header="Geburtsdatum" Binding="{Binding Birthdate_, StringFormat=d, ConverterCulture=de-DE}"/>
+                    <DataGridTextColumn Header="Kontaktinfo" Binding="{Binding ContactInfo}"/>
+                    <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}"/>
                 </DataGrid.Columns>
             </DataGrid>
         </DockPanel>

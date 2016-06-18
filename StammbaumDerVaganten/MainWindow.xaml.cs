@@ -28,9 +28,19 @@ namespace StammbaumDerVaganten
             vm = (MainViewModel)DataContext;
             if (Keyboard.PrimaryDevice.IsKeyDown(Key.Escape))
             {
-                
+                Application.Current.Shutdown();
             }
-            Application.Current.Shutdown();
+        }
+
+        private void Load(object sender, ExecutedRoutedEventArgs e)
+        {
+            vm.Load();
+            pfadi_scoutlist.ItemsSource = vm.Scouts;
+        }
+
+        private void Save(object sender, ExecutedRoutedEventArgs e)
+        {
+            vm.Save();
         }
     }
 }

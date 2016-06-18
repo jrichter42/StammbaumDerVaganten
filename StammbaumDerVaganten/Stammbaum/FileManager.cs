@@ -65,7 +65,7 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public static readonly FileInfo DefaultFile = new FileInfo(".", "stammbaum", FileExtension.JSON);
+        public static readonly FileInfo DefaultFile = new FileInfo(".", "stammbaum", FileExtension.XML);
 
         public FileInfo CurrentFile;
 
