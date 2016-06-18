@@ -1,24 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
+﻿using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using MahApps.Metro.Controls;
 
 namespace StammbaumDerVaganten
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : MetroWindow
     {
         MainViewModel vm;
 
@@ -35,7 +24,10 @@ namespace StammbaumDerVaganten
         private void Load(object sender, ExecutedRoutedEventArgs e)
         {
             vm.Load();
+            pfadi_grouplist.ItemsSource = vm.Groups;
+            pfadi_rolelist.ItemsSource = vm.Roles;
             pfadi_scoutlist.ItemsSource = vm.Scouts;
+            
         }
 
         private void Save(object sender, ExecutedRoutedEventArgs e)
