@@ -33,7 +33,6 @@ namespace StammbaumDerVaganten
 
     }
 
-    [KnownType(typeof(String))]
     [DataContract]
     public class Role : DataObject, INotifyPropertyChanged
     {

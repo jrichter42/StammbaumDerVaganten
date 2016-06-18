@@ -28,7 +28,6 @@ namespace StammbaumDerVaganten
 
     }
 
-    [KnownType(typeof(String))]
     [DataContract]
     public class Group : DataObject, INotifyPropertyChanged
     {

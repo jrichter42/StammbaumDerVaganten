@@ -253,7 +253,6 @@ namespace StammbaumDerVaganten
         }
     }
 
-    [KnownType(typeof(String))]
     [DataContract]
     public class Scout : DataObject, INotifyPropertyChanged
     {

@@ -17,7 +17,9 @@ namespace StammbaumDerVaganten
             {
                 if (_serializer == null)
                 {
-                    _serializer = new DataContractSerializer(typeof(T));
+                    _serializer = new DataContractSerializer(typeof(T),
+                        new List<Type>() { typeof(String) }
+                        );
                 }
                 return _serializer;
             }
