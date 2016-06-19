@@ -104,7 +104,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Row="0" Grid.Column="0">
+                <DockPanel Grid.Row="0" Grid.Column="0">
                     <TextBlock Text="Gruppen" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
                     <DataGrid x:Name="pfadi_grouplist" ItemsSource="{Binding Groups}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top">
                         <DataGrid.Columns>
@@ -114,9 +114,9 @@
                             <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                </StackPanel>
+                </DockPanel>
                 <GridSplitter Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AccentColorBrush}" Height="4" ResizeBehavior="PreviousAndNext"/>
-                <StackPanel Grid.Row="2" Grid.Column="0" >
+                <DockPanel Grid.Row="2" Grid.Column="0" >
                     <TextBlock Text="Pfadfinder" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
                     <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0">
                         <DataGrid.Columns>
@@ -128,7 +128,7 @@
                             <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                </StackPanel>
+                </DockPanel>
             </Grid>
         </DockPanel>
         <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Background="{DynamicResource AccentColorBrush}" Width="4" ResizeBehavior="PreviousAndNext"/>
