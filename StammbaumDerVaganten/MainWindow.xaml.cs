@@ -27,12 +27,32 @@ namespace StammbaumDerVaganten
             pfadi_grouplist.ItemsSource = vm.Groups;
             pfadi_rolelist.ItemsSource = vm.Roles;
             pfadi_scoutlist.ItemsSource = vm.Scouts;
-            
+            OnScoutSelectionChanged();
         }
 
         private void Save(object sender, ExecutedRoutedEventArgs e)
         {
             vm.Save();
+        }
+
+        private void OnScoutSelectionChanged()
+        {
+            int idx = pfadi_scoutlist.SelectedIndex;
+            if (idx == -1 || vm.Scouts == null || vm.Scouts.Count == 0)
+            {
+                pfadi_membershiplist.ItemsSource = null;
+                pfadi_activitylist.ItemsSource = null;
+                vm.FlushMemberActivityLists();
+                return;
+            }
+            Scout scout = vm.Scouts[idx];
+            if (scout != null)
+            {
+                vm.Memberships = scout.Memberships;
+                vm.Activities = scout.Activities;
+            }
+            pfadi_membershiplist.ItemsSource = vm.Memberships;
+            pfadi_activitylist.ItemsSource = vm.Activities;
         }
 
         private void pfadi_rolelist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
@@ -48,6 +68,26 @@ namespace StammbaumDerVaganten
         private void pfadi_scoutlist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
         {
             e.NewItem = new Scout();
+        }
+
+        private void pfadi_membershiplist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
+        {
+            e.NewItem = new Membership();
+        }
+
+        private void pfadi_activitylist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
+        {
+            e.NewItem = new Activity();
+        }
+
+        private void pfadi_scoutlist_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            OnScoutSelectionChanged();
+        }
+
+        private void pfadi_scoutlist_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            OnScoutSelectionChanged();
         }
     }
 }

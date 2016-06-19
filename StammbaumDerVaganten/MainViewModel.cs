@@ -28,6 +28,27 @@ namespace StammbaumDerVaganten
             get { return Database.Data.Roles; }
             set { Database.Data.Roles = value; }
         }
+
+        protected ObservableCollection<Membership> selectedMemberships = null;
+        protected ObservableCollection<Activity> selectedActivities = null;
+
+        public ObservableCollection<Membership> Memberships
+        {
+            get { return selectedMemberships; }
+            set { selectedMemberships = value; }
+        }
+
+        public ObservableCollection<Activity> Activities
+        {
+            get { return selectedActivities; }
+            set { selectedActivities = value; }
+        }
+
+        public void FlushMemberActivityLists()
+        {
+            Memberships = null;
+            Activities = null;
+        }
         
         public MainViewModel()
         {

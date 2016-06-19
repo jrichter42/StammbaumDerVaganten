@@ -144,6 +144,45 @@ namespace StammbaumDerVaganten
             }
         }
 
+        public DateTime Start_
+        {
+            get { return timespan.Start.Value; }
+            set
+            {
+                if (timespan.Start.Value != value)
+                {
+                    timespan.Start.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public DateTime End_
+        {
+            get { return timespan.End.Value; }
+            set
+            {
+                if (timespan.End.Value != value)
+                {
+                    timespan.End.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool WholeTime_
+        {
+            get { return timespan.WholeTime; }
+            set
+            {
+                if (timespan.WholeTime != value)
+                {
+                    timespan.WholeTime = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
         public int Group
         {
             get { return group; }
@@ -214,6 +253,45 @@ namespace StammbaumDerVaganten
                 if (timespan != value)
                 {
                     timespan = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public DateTime Start_
+        {
+            get { return timespan.Start.Value; }
+            set
+            {
+                if (timespan.Start.Value != value)
+                {
+                    timespan.Start.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public DateTime End_
+        {
+            get { return timespan.End.Value; }
+            set
+            {
+                if (timespan.End.Value != value)
+                {
+                    timespan.End.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool WholeTime_
+        {
+            get { return timespan.WholeTime; }
+            set
+            {
+                if (timespan.WholeTime != value)
+                {
+                    timespan.WholeTime = value;
                     NotifyPropertyChanged();
                 }
             }
