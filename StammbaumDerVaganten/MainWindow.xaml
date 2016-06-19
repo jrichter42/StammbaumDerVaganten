@@ -84,13 +84,12 @@
                 <Expander.Header>
                     <TextBlock Text="Rollen" FontSize="14" FlowDirection="LeftToRight"/>
                 </Expander.Header>
-                <DataGrid x:Name="pfadi_rolelist" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight">
+                <DataGrid x:Name="pfadi_rolelist" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight" AddingNewItem="pfadi_rolelist_AddingNewItem">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="ID" Binding="{Binding ID}" IsReadOnly="True"/>
                         <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource RoleTypes}}" SelectedItemBinding="{Binding Type}"/>
                         <DataGridTextColumn Header="Spezifischer Typ" Binding="{Binding CustomType}"/>
-                        <DataGridComboBoxColumn Header="Gruppen-Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>
-                        <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
+                        <DataGridComboBoxColumn Header="Gruppen-Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding GroupType}"/>
                         <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}"/>
                     </DataGrid.Columns>
                 </DataGrid>
@@ -106,7 +105,7 @@
                 </Grid.ColumnDefinitions>
                 <DockPanel Grid.Row="0" Grid.Column="0">
                     <TextBlock Text="Gruppen" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                    <DataGrid x:Name="pfadi_grouplist" ItemsSource="{Binding Groups}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top">
+                    <DataGrid x:Name="pfadi_grouplist" ItemsSource="{Binding Groups}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_grouplist_AddingNewItem">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="ID" Binding="{Binding ID}" IsReadOnly="True"/>
                             <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>
@@ -118,7 +117,7 @@
                 <GridSplitter Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AccentColorBrush}" Height="4" ResizeBehavior="PreviousAndNext"/>
                 <DockPanel Grid.Row="2" Grid.Column="0" >
                     <TextBlock Text="Pfadfinder" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                    <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0">
+                    <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_scoutlist_AddingNewItem">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Vorname" Binding="{Binding Forename}"/>
                             <DataGridTextColumn Header="Pfadiname" Binding="{Binding Scoutname}"/>

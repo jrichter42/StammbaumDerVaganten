@@ -34,5 +34,20 @@ namespace StammbaumDerVaganten
         {
             vm.Save();
         }
+
+        private void pfadi_rolelist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
+        {
+            e.NewItem = new Role(true);
+        }
+
+        private void pfadi_grouplist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
+        {
+            e.NewItem = new Group(true);
+        }
+
+        private void pfadi_scoutlist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
+        {
+            e.NewItem = new Scout();
+        }
     }
 }
