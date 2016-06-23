@@ -38,7 +38,7 @@ namespace StammbaumDerVaganten
         private void OnScoutSelectionChanged()
         {
             int idx = pfadi_scoutlist.SelectedIndex;
-            if (idx == -1 || vm.Scouts == null || vm.Scouts.Count == 0)
+            if (idx == -1 || vm.Scouts == null || idx >= vm.Scouts.Count)
             {
                 pfadi_membershiplist.ItemsSource = null;
                 pfadi_activitylist.ItemsSource = null;
