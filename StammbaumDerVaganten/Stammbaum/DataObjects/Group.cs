@@ -165,11 +165,19 @@ namespace StammbaumDerVaganten
         public Group() : base()
         {
             type.Init(GroupType_Type.None);
+
+            HookPropertyChanged();
         }
 
         public Group(bool claimID) : base(claimID)
         {
+            HookPropertyChanged();
+        }
 
+        private void HookPropertyChanged()
+        {
+            type.PropertyChanged += PropertyChanged;
+            name.PropertyChanged += PropertyChanged;
         }
 
         public void ReassignID(int id)

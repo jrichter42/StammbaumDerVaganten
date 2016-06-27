@@ -29,7 +29,7 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class DataParticle: INotifyPropertyChanged
+    public class DataParticle : INotifyPropertyChanged
     {
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
@@ -142,7 +142,7 @@ namespace StammbaumDerVaganten
 
         public DataObject() : base()
         {
-
+            HookPropertyChanged();
         }
 
         public DataObject(bool claimID)
@@ -151,6 +151,13 @@ namespace StammbaumDerVaganten
             {
                 ID = GetNEXTID();
             }
+
+            HookPropertyChanged();
+        }
+
+        private void HookPropertyChanged()
+        {
+            base.PropertyChanged += this.PropertyChanged;
         }
     }
 
@@ -158,6 +165,18 @@ namespace StammbaumDerVaganten
     [DataContract(Name = "DP_{0}")]
     public class DataPiece<T> : DataParticle
     {
+        #region INotifyPropertyChanged
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            if (PropertyChanged != null)
+            {
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
+        #endregion
+
         #region Serialization
         [DataMember]
         public DateTime _TS
@@ -202,18 +221,24 @@ namespace StammbaumDerVaganten
 
                 timestamp = DateTime.Now;
                 _value = value;
+
+                NotifyPropertyChanged(); //This will throw all over the place but I cannot compare the value because I cannot constrain T to be sure that is has an == or != operator
             }
         }
         #endregion
 
-        public DataPiece() : base ()
+        public DataPiece() : base()
         {
             timestamp = DateTime.Now;
+
+            HookPropertyChanged();
         }
 
         public DataPiece(T initValue) : this()
         {
             _value = initValue;
+
+            HookPropertyChanged();
         }
 
         //Bypasses creation of history entry
@@ -227,6 +252,11 @@ namespace StammbaumDerVaganten
         public static implicit operator T(DataPiece<T> obj)
         {
             return obj.Value;
+        }
+
+        private void HookPropertyChanged()
+        {
+            base.PropertyChanged += this.PropertyChanged;
         }
     }
 
@@ -282,6 +312,10 @@ namespace StammbaumDerVaganten
                 if (yearDefined != value)
                 {
                     yearDefined = value;
+                    if (!yearDefined)
+                    {
+                        MonthDefined = false;
+                    }
                     NotifyPropertyChanged();
                 }
             }
@@ -295,6 +329,14 @@ namespace StammbaumDerVaganten
                 if (monthDefined != value)
                 {
                     monthDefined = value;
+                    if (monthDefined)
+                    {
+                        YearDefined = true;
+                    }
+                    else
+                    {
+                        DayDefined = false;
+                    }
                     NotifyPropertyChanged();
                 }
             }
@@ -308,6 +350,10 @@ namespace StammbaumDerVaganten
                 if (dayDefined != value)
                 {
                     dayDefined = value;
+                    if (dayDefined)
+                    {
+                        MonthDefined = true;
+                    }
                     NotifyPropertyChanged();
                 }
             }
@@ -371,14 +417,43 @@ namespace StammbaumDerVaganten
                 Day = day;
             }
         }
+
+        public Date() : base()
+        {
+            HookPropertyChanged();
+        }
+
+        private void HookPropertyChanged()
+        {
+            base.PropertyChanged += this.PropertyChanged;
+        }
     }
 
     [DataContract]
-    public class String : DataPiece<string>
+    public class String : DataPiece<string>, INotifyPropertyChanged
     {
-        public String() :base()
+        #region INotifyPropertyChanged
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            if (PropertyChanged != null)
+            {
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
+        #endregion
+
+        public String() : base()
         {
             _value = "";
+
+            HookPropertyChanged();
+        }
+
+        private void HookPropertyChanged()
+        {
+            base.PropertyChanged += this.PropertyChanged;
         }
     }
 }

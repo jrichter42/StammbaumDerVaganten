@@ -150,11 +150,21 @@ namespace StammbaumDerVaganten
         public Role() : base()
         {
             type.Init(RoleType_Type.None);
+
+            HookPropertyChanged();
         }
 
         public Role(bool claimID) : base(claimID)
         {
+            HookPropertyChanged();
+        }
 
+        private void HookPropertyChanged()
+        {
+            type.PropertyChanged += PropertyChanged;
+            customType.PropertyChanged += PropertyChanged;
+            groupType.PropertyChanged += PropertyChanged;
+            comment.PropertyChanged += PropertyChanged;
         }
     }
 }
