@@ -99,7 +99,9 @@ namespace StammbaumDerVaganten
                 if (start.YearDefined != value)
                 {
                     start.YearDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
@@ -112,7 +114,9 @@ namespace StammbaumDerVaganten
                 if (start.MonthDefined != value)
                 {
                     start.MonthDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
@@ -125,13 +129,28 @@ namespace StammbaumDerVaganten
                 if (start.DayDefined != value)
                 {
                     start.DayDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
         #endregion
 
         #region End_
+        public DateTime End_
+        {
+            get { return end.Value; }
+            set
+            {
+                if (end.Value != value)
+                {
+                    end.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
         public bool End_YearDefined
         {
             get { return end.YearDefined; }
@@ -140,7 +159,9 @@ namespace StammbaumDerVaganten
                 if (end.YearDefined != value)
                 {
                     end.YearDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -153,7 +174,9 @@ namespace StammbaumDerVaganten
                 if (end.MonthDefined != value)
                 {
                     end.MonthDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -166,7 +189,9 @@ namespace StammbaumDerVaganten
                 if (end.DayDefined != value)
                 {
                     end.DayDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -261,7 +286,9 @@ namespace StammbaumDerVaganten
                 if (timespan.Start.YearDefined != value)
                 {
                     timespan.Start.YearDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
@@ -274,7 +301,9 @@ namespace StammbaumDerVaganten
                 if (timespan.Start.MonthDefined != value)
                 {
                     timespan.Start.MonthDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
@@ -287,7 +316,9 @@ namespace StammbaumDerVaganten
                 if (timespan.Start.DayDefined != value)
                 {
                     timespan.Start.DayDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
@@ -315,7 +346,9 @@ namespace StammbaumDerVaganten
                 if (timespan.End.YearDefined != value)
                 {
                     timespan.End.YearDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -328,7 +361,9 @@ namespace StammbaumDerVaganten
                 if (timespan.End.MonthDefined != value)
                 {
                     timespan.End.MonthDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -341,7 +376,9 @@ namespace StammbaumDerVaganten
                 if (timespan.End.DayDefined != value)
                 {
                     timespan.End.DayDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -457,7 +494,9 @@ namespace StammbaumDerVaganten
                 if (timespan.Start.YearDefined != value)
                 {
                     timespan.Start.YearDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
@@ -470,7 +509,9 @@ namespace StammbaumDerVaganten
                 if (timespan.Start.MonthDefined != value)
                 {
                     timespan.Start.MonthDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
@@ -483,7 +524,9 @@ namespace StammbaumDerVaganten
                 if (timespan.Start.DayDefined != value)
                 {
                     timespan.Start.DayDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
                 }
             }
         }
@@ -511,7 +554,9 @@ namespace StammbaumDerVaganten
                 if (timespan.End.YearDefined != value)
                 {
                     timespan.End.YearDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -524,7 +569,9 @@ namespace StammbaumDerVaganten
                 if (timespan.End.MonthDefined != value)
                 {
                     timespan.End.MonthDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -537,7 +584,9 @@ namespace StammbaumDerVaganten
                 if (timespan.End.DayDefined != value)
                 {
                     timespan.End.DayDefined = value;
-                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
                 }
             }
         }
@@ -743,7 +792,10 @@ namespace StammbaumDerVaganten
                 if (birthdate.YearDefined != value)
                 {
                     birthdate.YearDefined = value;
-                    NotifyPropertyChanged();
+
+                    NotifyPropertyChanged("Birthdate_DayDefined");
+                    NotifyPropertyChanged("Birthdate_MonthDefined");
+                    NotifyPropertyChanged("Birthdate_YearDefined");
                 }
             }
         }
@@ -756,7 +808,10 @@ namespace StammbaumDerVaganten
                 if (birthdate.MonthDefined != value)
                 {
                     birthdate.MonthDefined = value;
-                    NotifyPropertyChanged();
+
+                    NotifyPropertyChanged("Birthdate_DayDefined");
+                    NotifyPropertyChanged("Birthdate_MonthDefined");
+                    NotifyPropertyChanged("Birthdate_YearDefined");
                 }
             }
         }
@@ -769,7 +824,10 @@ namespace StammbaumDerVaganten
                 if (birthdate.DayDefined != value)
                 {
                     birthdate.DayDefined = value;
-                    NotifyPropertyChanged();
+
+                    NotifyPropertyChanged("Birthdate_DayDefined");
+                    NotifyPropertyChanged("Birthdate_MonthDefined");
+                    NotifyPropertyChanged("Birthdate_YearDefined");
                 }
             }
         }
