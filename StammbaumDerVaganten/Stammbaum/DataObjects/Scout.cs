@@ -176,6 +176,101 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
+        #region Start_
+        public DateTime Start_
+        {
+            get { return start.Value; }
+            set
+            {
+                if (start.Value != value)
+                {
+                    start.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_YearDefined
+        {
+            get { return start.YearDefined; }
+            set
+            {
+                if (start.YearDefined != value)
+                {
+                    start.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_MonthDefined
+        {
+            get { return start.MonthDefined; }
+            set
+            {
+                if (start.MonthDefined != value)
+                {
+                    start.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_DayDefined
+        {
+            get { return start.DayDefined; }
+            set
+            {
+                if (start.DayDefined != value)
+                {
+                    start.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
+
+        #region End_
+        public bool End_YearDefined
+        {
+            get { return end.YearDefined; }
+            set
+            {
+                if (end.YearDefined != value)
+                {
+                    end.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_MonthDefined
+        {
+            get { return end.MonthDefined; }
+            set
+            {
+                if (end.MonthDefined != value)
+                {
+                    end.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_DayDefined
+        {
+            get { return end.DayDefined; }
+            set
+            {
+                if (end.DayDefined != value)
+                {
+                    end.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
+
         public bool WholeTime
         {
             get { return wholeTime; }
