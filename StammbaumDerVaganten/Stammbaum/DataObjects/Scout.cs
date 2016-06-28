@@ -77,6 +77,101 @@ namespace StammbaumDerVaganten
             }
         }
 
+        #region Start_
+        public DateTime Start_
+        {
+            get { return start.Value; }
+            set
+            {
+                if (start.Value != value)
+                {
+                    start.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_YearDefined
+        {
+            get { return start.YearDefined; }
+            set
+            {
+                if (start.YearDefined != value)
+                {
+                    start.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_MonthDefined
+        {
+            get { return start.MonthDefined; }
+            set
+            {
+                if (start.MonthDefined != value)
+                {
+                    start.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_DayDefined
+        {
+            get { return start.DayDefined; }
+            set
+            {
+                if (start.DayDefined != value)
+                {
+                    start.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
+
+        #region End_
+        public bool End_YearDefined
+        {
+            get { return end.YearDefined; }
+            set
+            {
+                if (end.YearDefined != value)
+                {
+                    end.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_MonthDefined
+        {
+            get { return end.MonthDefined; }
+            set
+            {
+                if (end.MonthDefined != value)
+                {
+                    end.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_DayDefined
+        {
+            get { return end.DayDefined; }
+            set
+            {
+                if (end.DayDefined != value)
+                {
+                    end.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
+
         public bool WholeTime
         {
             get { return wholeTime; }
@@ -144,6 +239,7 @@ namespace StammbaumDerVaganten
             }
         }
 
+        #region Start_
         public DateTime Start_
         {
             get { return timespan.Start.Value; }
@@ -157,6 +253,47 @@ namespace StammbaumDerVaganten
             }
         }
 
+        public bool Start_YearDefined
+        {
+            get { return timespan.Start.YearDefined; }
+            set
+            {
+                if (timespan.Start.YearDefined != value)
+                {
+                    timespan.Start.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_MonthDefined
+        {
+            get { return timespan.Start.MonthDefined; }
+            set
+            {
+                if (timespan.Start.MonthDefined != value)
+                {
+                    timespan.Start.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_DayDefined
+        {
+            get { return timespan.Start.DayDefined; }
+            set
+            {
+                if (timespan.Start.DayDefined != value)
+                {
+                    timespan.Start.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
+
+        #region End_
         public DateTime End_
         {
             get { return timespan.End.Value; }
@@ -169,6 +306,46 @@ namespace StammbaumDerVaganten
                 }
             }
         }
+
+        public bool End_YearDefined
+        {
+            get { return timespan.End.YearDefined; }
+            set
+            {
+                if (timespan.End.YearDefined != value)
+                {
+                    timespan.End.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_MonthDefined
+        {
+            get { return timespan.End.MonthDefined; }
+            set
+            {
+                if (timespan.End.MonthDefined != value)
+                {
+                    timespan.End.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_DayDefined
+        {
+            get { return timespan.End.DayDefined; }
+            set
+            {
+                if (timespan.End.DayDefined != value)
+                {
+                    timespan.End.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
 
         public bool WholeTime_
         {
@@ -258,6 +435,7 @@ namespace StammbaumDerVaganten
             }
         }
 
+        #region Start_
         public DateTime Start_
         {
             get { return timespan.Start.Value; }
@@ -271,6 +449,47 @@ namespace StammbaumDerVaganten
             }
         }
 
+        public bool Start_YearDefined
+        {
+            get { return timespan.Start.YearDefined; }
+            set
+            {
+                if (timespan.Start.YearDefined != value)
+                {
+                    timespan.Start.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_MonthDefined
+        {
+            get { return timespan.Start.MonthDefined; }
+            set
+            {
+                if (timespan.Start.MonthDefined != value)
+                {
+                    timespan.Start.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_DayDefined
+        {
+            get { return timespan.Start.DayDefined; }
+            set
+            {
+                if (timespan.Start.DayDefined != value)
+                {
+                    timespan.Start.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
+
+        #region End_
         public DateTime End_
         {
             get { return timespan.End.Value; }
@@ -283,6 +502,46 @@ namespace StammbaumDerVaganten
                 }
             }
         }
+
+        public bool End_YearDefined
+        {
+            get { return timespan.End.YearDefined; }
+            set
+            {
+                if (timespan.End.YearDefined != value)
+                {
+                    timespan.End.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_MonthDefined
+        {
+            get { return timespan.End.MonthDefined; }
+            set
+            {
+                if (timespan.End.MonthDefined != value)
+                {
+                    timespan.End.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_DayDefined
+        {
+            get { return timespan.End.DayDefined; }
+            set
+            {
+                if (timespan.End.DayDefined != value)
+                {
+                    timespan.End.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
 
         public bool WholeTime_
         {
@@ -462,6 +721,7 @@ namespace StammbaumDerVaganten
             }
         }
 
+        #region Birthdate_
         public DateTime Birthdate_
         {
             get { return birthdate.Value; }
@@ -474,6 +734,46 @@ namespace StammbaumDerVaganten
                 }
             }
         }
+
+        public bool Birthdate_YearDefined
+        {
+            get { return birthdate.YearDefined; }
+            set
+            {
+                if (birthdate.YearDefined != value)
+                {
+                    birthdate.YearDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Birthdate_MonthDefined
+        {
+            get { return birthdate.MonthDefined; }
+            set
+            {
+                if (birthdate.MonthDefined != value)
+                {
+                    birthdate.MonthDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Birthdate_DayDefined
+        {
+            get { return birthdate.DayDefined; }
+            set
+            {
+                if (birthdate.DayDefined != value)
+                {
+                    birthdate.DayDefined = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
 
         public string ContactInfo
         {

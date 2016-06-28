@@ -29,7 +29,7 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class DataParticle: INotifyPropertyChanged
+    public class DataParticle : INotifyPropertyChanged
     {
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
@@ -206,7 +206,7 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        public DataPiece() : base ()
+        public DataPiece() : base()
         {
             timestamp = DateTime.Now;
         }
@@ -282,6 +282,10 @@ namespace StammbaumDerVaganten
                 if (yearDefined != value)
                 {
                     yearDefined = value;
+                    if (!yearDefined)
+                    {
+                        MonthDefined = false;
+                    }
                     NotifyPropertyChanged();
                 }
             }
@@ -295,6 +299,14 @@ namespace StammbaumDerVaganten
                 if (monthDefined != value)
                 {
                     monthDefined = value;
+                    if (monthDefined)
+                    {
+                        YearDefined = true;
+                    }
+                    else
+                    {
+                        DayDefined = false;
+                    }
                     NotifyPropertyChanged();
                 }
             }
@@ -308,6 +320,10 @@ namespace StammbaumDerVaganten
                 if (dayDefined != value)
                 {
                     dayDefined = value;
+                    if (dayDefined)
+                    {
+                        MonthDefined = true;
+                    }
                     NotifyPropertyChanged();
                 }
             }
@@ -376,7 +392,7 @@ namespace StammbaumDerVaganten
     [DataContract]
     public class String : DataPiece<string>
     {
-        public String() :base()
+        public String() : base()
         {
             _value = "";
         }

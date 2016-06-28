@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:StammbaumDerVaganten"
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         mc:Ignorable="d"
-        Title="Stammbaum der Vaganten" Height="720" Width="1280"
+        Title="Stammbaum der Vaganten" Height="1000" Width="1920"
         TitleCaps="False"
         BorderBrush="{DynamicResource AccentColorBrush}"
         BorderThickness="1"
@@ -129,6 +129,9 @@
                             <DataGridTextColumn Header="Pfadiname" Binding="{Binding Scoutname}"/>
                             <DataGridTextColumn Header="Nachname" Binding="{Binding Lastname}"/>
                             <DataGridTextColumn Header="Geburtsdatum" Binding="{Binding Birthdate_, StringFormat=d, ConverterCulture=de-DE}"/>
+                            <DataGridCheckBoxColumn Header="T" Binding="{Binding Birthdate_DayDefined}"/>
+                            <DataGridCheckBoxColumn Header="M" Binding="{Binding Birthdate_MonthDefined}"/>
+                            <DataGridCheckBoxColumn Header="J" Binding="{Binding Birthdate_YearDefined}"/>
                             <DataGridTextColumn Header="Kontaktinfo" Binding="{Binding ContactInfo}"/>
                             <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}"/>
                         </DataGrid.Columns>
@@ -162,17 +165,25 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
+                <!--RIGHT BOTTOM LEFT-->
                 <DockPanel Grid.Row="0" Grid.Column="0">
                     <TextBlock Text="Mitgliedschaften" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
                     <DataGrid x:Name="pfadi_membershiplist" ItemsSource="{Binding Memberships}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_membershiplist_AddingNewItem">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Gruppe" Binding="{Binding Group}"/>
                             <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}"/>
+                            <DataGridCheckBoxColumn Header="ST" Binding="{Binding Start_DayDefined}"/>
+                            <DataGridCheckBoxColumn Header="SM" Binding="{Binding Start_MonthDefined}"/>
+                            <DataGridCheckBoxColumn Header="SJ" Binding="{Binding Start_YearDefined}"/>
                             <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}"/>
+                            <DataGridCheckBoxColumn Header="ET" Binding="{Binding End_DayDefined}"/>
+                            <DataGridCheckBoxColumn Header="EM" Binding="{Binding End_MonthDefined}"/>
+                            <DataGridCheckBoxColumn Header="EJ" Binding="{Binding End_YearDefined}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
                 <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Background="{DynamicResource AccentColorBrush}" Width="4" ResizeBehavior="PreviousAndNext"/>
+                <!--RIGHT BOTTOM RIGHT-->
                 <DockPanel Grid.Row="0" Grid.Column="3" >
                     <TextBlock Text="Aktivitäten" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
                     <DataGrid x:Name="pfadi_activitylist" ItemsSource="{Binding Activities}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_activitylist_AddingNewItem">
@@ -180,7 +191,13 @@
                             <DataGridTextColumn Header="Rolle" Binding="{Binding Role}"/>
                             <DataGridTextColumn Header="Gruppe" Binding="{Binding Group}"/>
                             <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}"/>
+                            <DataGridCheckBoxColumn Header="ST" Binding="{Binding Start_DayDefined}"/>
+                            <DataGridCheckBoxColumn Header="SM" Binding="{Binding Start_MonthDefined}"/>
+                            <DataGridCheckBoxColumn Header="SJ" Binding="{Binding Start_YearDefined}"/>
                             <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}"/>
+                            <DataGridCheckBoxColumn Header="ET" Binding="{Binding End_DayDefined}"/>
+                            <DataGridCheckBoxColumn Header="EM" Binding="{Binding End_MonthDefined}"/>
+                            <DataGridCheckBoxColumn Header="EJ" Binding="{Binding End_YearDefined}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
