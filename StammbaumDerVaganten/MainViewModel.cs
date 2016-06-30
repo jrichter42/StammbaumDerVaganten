@@ -9,6 +9,21 @@ namespace StammbaumDerVaganten
 {
     public class MainViewModel
     {
+        public static MainViewModel ActiveVM = null;
+
+        public static Data ActiveData
+        {
+            get
+            {
+                if (ActiveVM == null || ActiveVM.Database == null)
+                {
+                    return null;
+                }
+
+                return ActiveVM.Database.Data;
+            }
+        }
+
         public Database Database;
 
         public ObservableCollection<Scout> Scouts

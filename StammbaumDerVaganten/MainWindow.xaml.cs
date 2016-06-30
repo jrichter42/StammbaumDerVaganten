@@ -15,6 +15,7 @@ namespace StammbaumDerVaganten
         {
             InitializeComponent();
             vm = (MainViewModel)DataContext;
+            MainViewModel.ActiveVM = vm;
             if (Keyboard.PrimaryDevice.IsKeyDown(Key.Escape))
             {
                 Application.Current.Shutdown();

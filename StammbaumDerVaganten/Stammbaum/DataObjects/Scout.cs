@@ -218,7 +218,7 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class Membership : DataObject,  INotifyPropertyChanged
+    public class Participation : DataObject, INotifyPropertyChanged
     {
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
@@ -409,7 +409,115 @@ namespace StammbaumDerVaganten
                 }
             }
         }
-        
+        #endregion
+
+        #region GroupStrings
+        protected List<Group> _filteredGroups;
+        protected List<Group> filteredGroups
+        {
+            get
+            {
+                if (_filteredGroups == null)
+                {
+                    _filteredGroups = new List<Group>();
+                }
+                return _filteredGroups;
+            }
+            set
+            {
+                _filteredGroups = value;
+            }
+        }
+
+        protected virtual void UpdateFilteredGroups()
+        {
+            filteredGroups.Clear();
+
+            MainViewModel vm = MainViewModel.ActiveVM;
+            if (vm == null)
+            {
+                return;
+            }
+
+            ObservableCollection<Group> groups = vm.Groups;
+            if (groups == null)
+            {
+                return;
+            }
+
+            foreach (Group g in groups)
+            {
+                filteredGroups.Add(g);
+            }
+        }
+
+        public ObservableCollection<string> GroupStrings
+        {
+            get
+            {
+                UpdateFilteredGroups();
+
+                ObservableCollection<string> groupStrings = new ObservableCollection<string>();
+                foreach (Group g in filteredGroups)
+                {
+                    groupStrings.Add(g.ToString());
+                }
+
+                return groupStrings;
+            }
+        }
+
+        public int SelectedGroupString
+        {
+            get
+            {
+                if (group == ID_INVALID)
+                {
+                    return 0;
+                }
+
+                int fGroupsSize = filteredGroups.Count;
+                for (int i = 0; i < fGroupsSize; i++)
+                {
+                    if (filteredGroups[i].ID == group)
+                    {
+                        return i;
+                    }
+                }
+
+                return 0;
+            }
+            set
+            {
+                if (value < 0 || value >= filteredGroups.Count)
+                {
+                    return;
+                }
+                group = filteredGroups[value].ID;
+                NotifyPropertyChanged();
+            }
+        }
+        #endregion
+
+        public Participation() : base()
+        {
+
+        }
+    }
+
+    [DataContract]
+    public class Membership : Participation, INotifyPropertyChanged
+    {
+        #region INotifyPropertyChanged
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            if (PropertyChanged != null)
+            {
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
         #endregion
 
         public Membership() : base()
@@ -419,7 +527,7 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class Activity : DataObject, INotifyPropertyChanged
+    public class Activity : Participation, INotifyPropertyChanged
     {
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
@@ -435,176 +543,160 @@ namespace StammbaumDerVaganten
 
         #region Serialization
         [DataMember]
-        public Timespan _TSP
-        {
-            get { return timespan; }
-            set { timespan = value; }
-        }
-        [DataMember]
         public int _R
         {
             get { return role; }
             set { role = value; }
         }
-        [DataMember]
-        public int _G
+        #endregion
+
+        #region GroupStrings & RoleStrings
+        protected override void UpdateFilteredGroups()
         {
-            get { return group; }
-            set { group = value; }
+            filteredGroups.Clear();
+
+            MainViewModel vm = MainViewModel.ActiveVM;
+            if (vm == null)
+            {
+                return;
+            }
+
+            ObservableCollection<Group> groups = vm.Groups;
+            if (groups == null)
+            {
+                return;
+            }
+
+            GroupType_Type groupTypeFilter = GroupType_Type.None;
+            if (role != ID_INVALID)
+            {
+                Data data = MainViewModel.ActiveData;
+                if (data != null)
+                {
+                    Role r = data.GetRoleByID(role);
+                    if (r != null)
+                    {
+                        groupTypeFilter = r.GroupType;
+                    }
+                }
+            }
+
+            foreach (Group g in groups)
+            {
+                if (groupTypeFilter != GroupType_Type.None && g.Type != groupTypeFilter)
+                {
+                    filteredGroups.Add(g);
+                }
+            }
+        }
+
+        protected ObservableCollection<Role> _filteredRoles;
+        protected ObservableCollection<Role> filteredRoles
+        {
+            get
+            {
+                if (_filteredRoles == null)
+                {
+                    _filteredRoles = new ObservableCollection<Role>();
+                }
+                return _filteredRoles;
+            }
+            set
+            {
+                _filteredRoles = value;
+            }
+        }
+
+        protected virtual void UpdateFilteredRoles()
+        {
+            filteredRoles.Clear();
+
+            MainViewModel vm = MainViewModel.ActiveVM;
+            if (vm == null)
+            {
+                return;
+            }
+
+            ObservableCollection<Role> roles = vm.Roles;
+            if (roles == null)
+            {
+                return;
+            }
+
+            GroupType_Type groupTypeFilter = GroupType_Type.None;
+            if (group != ID_INVALID)
+            {
+                Data data = MainViewModel.ActiveData;
+                if (data != null)
+                {
+                    Group g = data.GetGroupByID(role);
+                    if (g != null)
+                    {
+                        groupTypeFilter = g.Type;
+                    }
+                }
+            }
+
+            foreach (Role r in roles)
+            {
+                if (groupTypeFilter != GroupType_Type.None && r.GroupType != groupTypeFilter)
+                {
+                    filteredRoles.Add(r);
+                }
+            }
+        }
+
+        public ObservableCollection<string> RoleStrings
+        {
+            get
+            {
+                UpdateFilteredRoles();
+
+                ObservableCollection<string> roleStrings = new ObservableCollection<string>();
+                foreach (Role g in filteredRoles)
+                {
+                    roleStrings.Add(g.ToString());
+                }
+
+                return roleStrings;
+            }
+        }
+
+        public int SelectedRoleString
+        {
+            get
+            {
+                if (role == ID_INVALID)
+                {
+                    return 0;
+                }
+
+                int fRoleSize = filteredRoles.Count;
+                for (int i = 0; i < fRoleSize; i++)
+                {
+                    if (filteredRoles[i].ID == role)
+                    {
+                        return i;
+                    }
+                }
+
+                return 0;
+            }
+            set
+            {
+                if (value < 0 || value >= filteredRoles.Count)
+                {
+                    return;
+                }
+                role = filteredRoles[value].ID;
+                NotifyPropertyChanged();
+            }
         }
         #endregion
-        
-        protected Timespan timespan = new Timespan();
+
         protected int role = ID_INVALID;
-        protected int group = ID_INVALID;
 
         #region Accessors
-        public Timespan Timespan
-        {
-            get { return timespan; }
-            set
-            {
-                if (timespan != value)
-                {
-                    timespan = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        #region Start_
-        public DateTime Start_
-        {
-            get { return timespan.Start.Value; }
-            set
-            {
-                if (timespan.Start.Value != value)
-                {
-                    timespan.Start.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public bool Start_YearDefined
-        {
-            get { return timespan.Start.YearDefined; }
-            set
-            {
-                if (timespan.Start.YearDefined != value)
-                {
-                    timespan.Start.YearDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-
-        public bool Start_MonthDefined
-        {
-            get { return timespan.Start.MonthDefined; }
-            set
-            {
-                if (timespan.Start.MonthDefined != value)
-                {
-                    timespan.Start.MonthDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-
-        public bool Start_DayDefined
-        {
-            get { return timespan.Start.DayDefined; }
-            set
-            {
-                if (timespan.Start.DayDefined != value)
-                {
-                    timespan.Start.DayDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-        #endregion
-
-        #region End_
-        public DateTime End_
-        {
-            get { return timespan.End.Value; }
-            set
-            {
-                if (timespan.End.Value != value)
-                {
-                    timespan.End.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public bool End_YearDefined
-        {
-            get { return timespan.End.YearDefined; }
-            set
-            {
-                if (timespan.End.YearDefined != value)
-                {
-                    timespan.End.YearDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-
-        public bool End_MonthDefined
-        {
-            get { return timespan.End.MonthDefined; }
-            set
-            {
-                if (timespan.End.MonthDefined != value)
-                {
-                    timespan.End.MonthDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-
-        public bool End_DayDefined
-        {
-            get { return timespan.End.DayDefined; }
-            set
-            {
-                if (timespan.End.DayDefined != value)
-                {
-                    timespan.End.DayDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-        #endregion
-
-        public bool WholeTime_
-        {
-            get { return timespan.WholeTime; }
-            set
-            {
-                if (timespan.WholeTime != value)
-                {
-                    timespan.WholeTime = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
         public int Role
         {
             get { return role; }
@@ -617,20 +709,6 @@ namespace StammbaumDerVaganten
                 }
             }
         }
-
-        public int Group
-        {
-            get { return group; }
-            set
-            {
-                if (group != value)
-                {
-                    group = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
         #endregion
 
         public Activity() : base()

@@ -181,5 +181,15 @@ namespace StammbaumDerVaganten
         {
             ID = NEXT_ID++;
         }
+
+        public override string ToString()
+        {
+            return id.ToString() + " " + type.Value.ToString() + " " + name.Value;
+        }
+
+        public string _ToString
+        {
+            get { return ToString(); }
+        }
     }
 }

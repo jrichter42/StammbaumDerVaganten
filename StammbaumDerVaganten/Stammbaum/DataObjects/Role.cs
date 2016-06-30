@@ -156,5 +156,20 @@ namespace StammbaumDerVaganten
         {
 
         }
+
+        public override string ToString()
+        {
+            string typeString = type.ToString();
+            if (type.Value == RoleType_Type.Custom)
+            {
+                typeString = customType.Value;
+            }
+            return id.ToString() + " " + typeString;
+        }
+
+        public string _ToString
+        {
+            get { return ToString(); }
+        }
     }
 }

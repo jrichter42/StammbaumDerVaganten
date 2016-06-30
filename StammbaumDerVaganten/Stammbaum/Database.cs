@@ -45,6 +45,42 @@ namespace StammbaumDerVaganten
             Groups = new ObservableCollection<Group>();
             Roles = new ObservableCollection<Role>();
         }
+
+        public Group GetGroupByID(int groupID)
+        {
+            if (groupID == Group.ID_INVALID)
+            {
+                return null;
+            }
+
+            foreach (Group g in Groups)
+            {
+                if (g.ID == groupID)
+                {
+                    return g;
+                }
+            }
+
+            return null;
+        }
+
+        public Role GetRoleByID(int roleID)
+        {
+            if (roleID == Role.ID_INVALID)
+            {
+                return null;
+            }
+
+            foreach (Role r in Roles)
+            {
+                if (r.ID == roleID)
+                {
+                    return r;
+                }
+            }
+
+            return null;
+        }
     }
 
     public class Database
