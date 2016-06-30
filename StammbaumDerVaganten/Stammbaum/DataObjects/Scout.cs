@@ -411,26 +411,25 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        #region GroupStrings
-        protected List<Group> _filteredGroups;
-        protected List<Group> filteredGroups
+        #region FilteredGroups
+        protected ObservableCollection<Group> filteredGroups;
+
+        public ObservableCollection<Group> FilteredGroups
         {
             get
             {
-                if (_filteredGroups == null)
-                {
-                    _filteredGroups = new List<Group>();
-                }
-                return _filteredGroups;
-            }
-            set
-            {
-                _filteredGroups = value;
+                UpdateFilteredGroups();
+                return filteredGroups;
             }
         }
 
         protected virtual void UpdateFilteredGroups()
         {
+            if (filteredGroups == null)
+            {
+                filteredGroups = new ObservableCollection<Group>();
+            }
+
             filteredGroups.Clear();
 
             MainViewModel vm = MainViewModel.ActiveVM;
@@ -448,53 +447,6 @@ namespace StammbaumDerVaganten
             foreach (Group g in groups)
             {
                 filteredGroups.Add(g);
-            }
-        }
-
-        public ObservableCollection<string> GroupStrings
-        {
-            get
-            {
-                UpdateFilteredGroups();
-
-                ObservableCollection<string> groupStrings = new ObservableCollection<string>();
-                foreach (Group g in filteredGroups)
-                {
-                    groupStrings.Add(g.ToString());
-                }
-
-                return groupStrings;
-            }
-        }
-
-        public int SelectedGroupString
-        {
-            get
-            {
-                if (group == ID_INVALID)
-                {
-                    return 0;
-                }
-
-                int fGroupsSize = filteredGroups.Count;
-                for (int i = 0; i < fGroupsSize; i++)
-                {
-                    if (filteredGroups[i].ID == group)
-                    {
-                        return i;
-                    }
-                }
-
-                return 0;
-            }
-            set
-            {
-                if (value < 0 || value >= filteredGroups.Count)
-                {
-                    return;
-                }
-                group = filteredGroups[value].ID;
-                NotifyPropertyChanged();
             }
         }
         #endregion
@@ -529,11 +481,20 @@ namespace StammbaumDerVaganten
     [DataContract]
     public class Activity : Participation, INotifyPropertyChanged
     {
-        #region INotifyPropertyChanged
+        #region INotifyPropertyChanged w Filters Hack
         public event PropertyChangedEventHandler PropertyChanged;
 
         private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
         {
+            if (propertyName == "Groups")
+            {
+                NotifyPropertyChanged("FilteredRoles");
+            }
+            else if (propertyName == "Roles")
+            {
+                NotifyPropertyChanged("FilteredGroups");
+            }
+
             if (PropertyChanged != null)
             {
                 PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
@@ -550,9 +511,14 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        #region GroupStrings & RoleStrings
+        #region FilteredGroups & FilteredRoles
         protected override void UpdateFilteredGroups()
         {
+            if (filteredGroups == null)
+            {
+                filteredGroups = new ObservableCollection<Group>();
+            }
+
             filteredGroups.Clear();
 
             MainViewModel vm = MainViewModel.ActiveVM;
@@ -590,25 +556,23 @@ namespace StammbaumDerVaganten
             }
         }
 
-        protected ObservableCollection<Role> _filteredRoles;
-        protected ObservableCollection<Role> filteredRoles
+        protected ObservableCollection<Role> filteredRoles;
+
+        public ObservableCollection<Role> FilteredRoles
         {
             get
             {
-                if (_filteredRoles == null)
-                {
-                    _filteredRoles = new ObservableCollection<Role>();
-                }
-                return _filteredRoles;
-            }
-            set
-            {
-                _filteredRoles = value;
+                UpdateFilteredRoles();
+                return filteredRoles;
             }
         }
-
         protected virtual void UpdateFilteredRoles()
         {
+            if (filteredRoles == null)
+            {
+                filteredRoles = new ObservableCollection<Role>();
+            }
+
             filteredRoles.Clear();
 
             MainViewModel vm = MainViewModel.ActiveVM;
@@ -643,53 +607,6 @@ namespace StammbaumDerVaganten
                 {
                     filteredRoles.Add(r);
                 }
-            }
-        }
-
-        public ObservableCollection<string> RoleStrings
-        {
-            get
-            {
-                UpdateFilteredRoles();
-
-                ObservableCollection<string> roleStrings = new ObservableCollection<string>();
-                foreach (Role g in filteredRoles)
-                {
-                    roleStrings.Add(g.ToString());
-                }
-
-                return roleStrings;
-            }
-        }
-
-        public int SelectedRoleString
-        {
-            get
-            {
-                if (role == ID_INVALID)
-                {
-                    return 0;
-                }
-
-                int fRoleSize = filteredRoles.Count;
-                for (int i = 0; i < fRoleSize; i++)
-                {
-                    if (filteredRoles[i].ID == role)
-                    {
-                        return i;
-                    }
-                }
-
-                return 0;
-            }
-            set
-            {
-                if (value < 0 || value >= filteredRoles.Count)
-                {
-                    return;
-                }
-                role = filteredRoles[value].ID;
-                NotifyPropertyChanged();
             }
         }
         #endregion

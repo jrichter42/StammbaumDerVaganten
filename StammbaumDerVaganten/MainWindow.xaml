@@ -179,8 +179,19 @@
                     <TextBlock Text="Mitgliedschaften" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
                     <DataGrid x:Name="pfadi_membershiplist" ItemsSource="{Binding Memberships}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_membershiplist_AddingNewItem">
                         <DataGrid.Columns>
-                            <DataGridComboBoxColumn Header="Gruppe" ItemsSource="{Binding GroupStrings}" SelectedValueBinding="{Binding SelectedGroupString}" />
-                            <DataGridTextColumn Header="Gruppe" Binding="{Binding Group}"/>
+                            <DataGridComboBoxColumn Header="Gruppe" SelectedValueBinding="{Binding Group}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource" Value="{Binding FilteredGroups, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource" Value="{Binding FilteredGroups, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
+                            <DataGridTextColumn Header="GID" Binding="{Binding Group}"/>
                             <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}"/>
                             <DataGridCheckBoxColumn Header="ST" Binding="{Binding Start_DayDefined}"/>
                             <DataGridCheckBoxColumn Header="SM" Binding="{Binding Start_MonthDefined}"/>
@@ -199,20 +210,32 @@
                     <TextBlock Text="Aktivitäten" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
                     <DataGrid x:Name="pfadi_activitylist" ItemsSource="{Binding Activities}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_activitylist_AddingNewItem">
                         <DataGrid.Columns>
-                            <DataGridComboBoxColumn Header="Rolle" SelectedValueBinding="{Binding SelectedRoleString}">
+                            <DataGridComboBoxColumn Header="Rolle" SelectedValueBinding="{Binding Role}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
                                 <DataGridComboBoxColumn.ElementStyle>
                                     <Style TargetType="ComboBox">
-                                        <Setter Property="ItemsSource" Value="{Binding RoleStrings}" />
+                                        <Setter Property="ItemsSource" Value="{Binding FilteredRoles, UpdateSourceTrigger=PropertyChanged}" />
                                     </Style>
                                 </DataGridComboBoxColumn.ElementStyle>
                                 <DataGridComboBoxColumn.EditingElementStyle>
                                     <Style TargetType="ComboBox">
-                                        <Setter Property="ItemsSource" Value="{Binding RoleStrings}" />
+                                        <Setter Property="ItemsSource" Value="{Binding FilteredRoles, UpdateSourceTrigger=PropertyChanged}" />
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridTextColumn Header="Rolle" Binding="{Binding Role}"/>
-                            <DataGridTextColumn Header="Gruppe" Binding="{Binding Group}"/>
+                            <DataGridTextColumn Header="RID" Binding="{Binding Role}"/>
+                            <DataGridComboBoxColumn Header="Gruppe" SelectedValueBinding="{Binding Group}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource" Value="{Binding FilteredGroups, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource" Value="{Binding FilteredGroups, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
+                            <DataGridTextColumn Header="GID" Binding="{Binding Group}"/>
                             <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}"/>
                             <DataGridCheckBoxColumn Header="ST" Binding="{Binding Start_DayDefined}"/>
                             <DataGridCheckBoxColumn Header="SM" Binding="{Binding Start_MonthDefined}"/>

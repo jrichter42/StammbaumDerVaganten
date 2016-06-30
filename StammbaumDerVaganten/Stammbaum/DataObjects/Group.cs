@@ -187,7 +187,7 @@ namespace StammbaumDerVaganten
             return id.ToString() + " " + type.Value.ToString() + " " + name.Value;
         }
 
-        public string _ToString
+        public string ToString_
         {
             get { return ToString(); }
         }

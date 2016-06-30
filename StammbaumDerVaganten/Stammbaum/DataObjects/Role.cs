@@ -159,7 +159,7 @@ namespace StammbaumDerVaganten
 
         public override string ToString()
         {
-            string typeString = type.ToString();
+            string typeString = type.Value.ToString();
             if (type.Value == RoleType_Type.Custom)
             {
                 typeString = customType.Value;
@@ -167,7 +167,7 @@ namespace StammbaumDerVaganten
             return id.ToString() + " " + typeString;
         }
 
-        public string _ToString
+        public string ToString_
         {
             get { return ToString(); }
         }
