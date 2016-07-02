@@ -138,7 +138,6 @@ namespace StammbaumDerVaganten
             }
         }
 
-        #region Birthdate_
         public DateTime Birthdate_
         {
             get { return birthdate.Value; }
@@ -151,55 +150,6 @@ namespace StammbaumDerVaganten
                 }
             }
         }
-
-        public bool Birthdate_YearDefined
-        {
-            get { return birthdate.YearDefined; }
-            set
-            {
-                if (birthdate.YearDefined != value)
-                {
-                    birthdate.YearDefined = value;
-
-                    NotifyPropertyChanged("Birthdate_DayDefined");
-                    NotifyPropertyChanged("Birthdate_MonthDefined");
-                    NotifyPropertyChanged("Birthdate_YearDefined");
-                }
-            }
-        }
-
-        public bool Birthdate_MonthDefined
-        {
-            get { return birthdate.MonthDefined; }
-            set
-            {
-                if (birthdate.MonthDefined != value)
-                {
-                    birthdate.MonthDefined = value;
-
-                    NotifyPropertyChanged("Birthdate_DayDefined");
-                    NotifyPropertyChanged("Birthdate_MonthDefined");
-                    NotifyPropertyChanged("Birthdate_YearDefined");
-                }
-            }
-        }
-
-        public bool Birthdate_DayDefined
-        {
-            get { return birthdate.DayDefined; }
-            set
-            {
-                if (birthdate.DayDefined != value)
-                {
-                    birthdate.DayDefined = value;
-
-                    NotifyPropertyChanged("Birthdate_DayDefined");
-                    NotifyPropertyChanged("Birthdate_MonthDefined");
-                    NotifyPropertyChanged("Birthdate_YearDefined");
-                }
-            }
-        }
-        #endregion
 
         public string ContactInfo
         {

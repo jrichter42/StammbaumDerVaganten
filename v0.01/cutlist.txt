@@ -1,0 +1,4 @@
+Cut List Stammbau der Vaganten v0.01
+
+done DayDefined, MonthDefined, YearDefined
+Raw editing DateTime

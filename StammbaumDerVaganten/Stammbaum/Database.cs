@@ -138,14 +138,12 @@ namespace StammbaumDerVaganten
 
             Membership ms = new Membership();
             ms.Timespan.Start.Value.AddYears(2006);
-            ms.Timespan.Start.YearDefined = true;
             ms.Group = group;
 
             scout.Memberships.Add(ms);
 
             Activity a = new Activity();
             a.Timespan.Start.Value.AddYears(2006);
-            a.Timespan.Start.YearDefined = true;
             a.Group = group;
             a.Role = role;
 

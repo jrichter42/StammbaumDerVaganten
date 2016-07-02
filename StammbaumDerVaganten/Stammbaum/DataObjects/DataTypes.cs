@@ -242,138 +242,19 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        #region Serialization
-        [DataMember]
-        public bool _Y
-        {
-            get { return yearDefined; }
-            set { yearDefined = value; }
-        }
-        [DataMember]
-        public bool _M
-        {
-            get { return monthDefined; }
-            set { monthDefined = value; }
-        }
-        [DataMember]
-        public bool _D
-        {
-            get { return dayDefined; }
-            set { dayDefined = value; }
-        }
-        #endregion
-
         public const int VALUE_INVALID = 0;
-        protected const int VALUE_UNDEFINED = 1;
-        protected const int VALUE_UNDEFINED_YEAR = 2000;
-
-        protected bool yearDefined = false;
-        protected bool monthDefined = false;
-        protected bool dayDefined = false;
+        protected const int DEFAULT_VALUE = 1;
+        protected const int DEFAULT_VALUE_YEAR = 2000;
 
         #region Accessors
-        public bool YearDefined
-        {
-            get { return yearDefined; }
-            set
-            {
-                if (yearDefined != value)
-                {
-                    yearDefined = value;
-                    if (!yearDefined)
-                    {
-                        MonthDefined = false;
-                    }
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public bool MonthDefined
-        {
-            get { return monthDefined; }
-            set
-            {
-                if (monthDefined != value)
-                {
-                    monthDefined = value;
-                    if (monthDefined)
-                    {
-                        YearDefined = true;
-                    }
-                    else
-                    {
-                        DayDefined = false;
-                    }
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public bool DayDefined
-        {
-            get { return dayDefined; }
-            set
-            {
-                if (dayDefined != value)
-                {
-                    dayDefined = value;
-                    if (dayDefined)
-                    {
-                        MonthDefined = true;
-                    }
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        #region All/NoneDefined
-        public bool AllDefined
-        {
-            get
-            {
-                return dayDefined && monthDefined && yearDefined;
-            }
-            set
-            {
-                if (value == true && !AllDefined)
-                {
-                    DayDefined = true;
-                    MonthDefined = true;
-                    YearDefined = true;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public bool NoneDefined
-        {
-            get
-            {
-                return !dayDefined && !monthDefined && !yearDefined;
-            }
-            set
-            {
-                if (value == true && !NoneDefined)
-                {
-                    DayDefined = false;
-                    MonthDefined = false;
-                    YearDefined = false;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-        #endregion
-
         public int Year
         {
-            get { return yearDefined ? Value.Year : VALUE_UNDEFINED_YEAR; }
+            get { return Value.Year; }
             set
             {
                 if (Value.Year != value)
                 {
                     Value = Value.AddYears(value - Value.Year);
-                    yearDefined = true;
                     NotifyPropertyChanged();
                 }
             }
@@ -381,13 +262,12 @@ namespace StammbaumDerVaganten
 
         public int Month
         {
-            get { return monthDefined ? Value.Month : VALUE_UNDEFINED; }
+            get { return Value.Month; }
             set
             {
                 if (Value.Month != value)
                 {
                     Value = Value.AddMonths(value - Value.Month);
-                    monthDefined = true;
                     NotifyPropertyChanged();
                 }
             }
@@ -395,13 +275,12 @@ namespace StammbaumDerVaganten
 
         public int Day
         {
-            get { return dayDefined ? Value.Day : VALUE_UNDEFINED; }
+            get { return Value.Day; }
             set
             {
                 if (Value.Day != value)
                 {
                     Value = Value.AddDays(value - Value.Day);
-                    dayDefined = true;
                     NotifyPropertyChanged();
                 }
             }
@@ -426,7 +305,7 @@ namespace StammbaumDerVaganten
         
         public Date()
         {
-            Value = Value.AddYears(VALUE_UNDEFINED_YEAR - Value.Year);
+            Value = Value.AddYears(DEFAULT_VALUE_YEAR - Value.Year);
         }
     }
 

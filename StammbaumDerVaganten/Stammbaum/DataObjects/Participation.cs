@@ -66,7 +66,6 @@ namespace StammbaumDerVaganten
             }
         }
 
-        #region Start_
         public DateTime Start_
         {
             get { return start.Value; }
@@ -80,53 +79,6 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public bool Start_YearDefined
-        {
-            get { return start.YearDefined; }
-            set
-            {
-                if (start.YearDefined != value)
-                {
-                    start.YearDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-
-        public bool Start_MonthDefined
-        {
-            get { return start.MonthDefined; }
-            set
-            {
-                if (start.MonthDefined != value)
-                {
-                    start.MonthDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-
-        public bool Start_DayDefined
-        {
-            get { return start.DayDefined; }
-            set
-            {
-                if (start.DayDefined != value)
-                {
-                    start.DayDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-        #endregion
-
-        #region End_
         public DateTime End_
         {
             get { return end.Value; }
@@ -135,69 +87,6 @@ namespace StammbaumDerVaganten
                 if (end.Value != value)
                 {
                     end.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public bool End_YearDefined
-        {
-            get { return end.YearDefined; }
-            set
-            {
-                if (end.YearDefined != value)
-                {
-                    end.YearDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-
-        public bool End_MonthDefined
-        {
-            get { return end.MonthDefined; }
-            set
-            {
-                if (end.MonthDefined != value)
-                {
-                    end.MonthDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-
-        public bool End_DayDefined
-        {
-            get { return end.DayDefined; }
-            set
-            {
-                if (end.DayDefined != value)
-                {
-                    end.DayDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-        #endregion
-
-        public bool WholeTime
-        {
-            get
-            {
-                return start.NoneDefined && end.NoneDefined;
-            }
-            set
-            {
-                if (value == true && (!start.NoneDefined || !end.NoneDefined))
-                {
-                    start.NoneDefined = true;
-                    end.NoneDefined = true;
                     NotifyPropertyChanged();
                 }
             }
@@ -258,7 +147,6 @@ namespace StammbaumDerVaganten
             }
         }
 
-        #region Start_
         public DateTime Start_
         {
             get { return timespan.Start.Value; }
@@ -272,53 +160,6 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public bool Start_YearDefined
-        {
-            get { return timespan.Start.YearDefined; }
-            set
-            {
-                if (timespan.Start.YearDefined != value)
-                {
-                    timespan.Start.YearDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-
-        public bool Start_MonthDefined
-        {
-            get { return timespan.Start.MonthDefined; }
-            set
-            {
-                if (timespan.Start.MonthDefined != value)
-                {
-                    timespan.Start.MonthDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-
-        public bool Start_DayDefined
-        {
-            get { return timespan.Start.DayDefined; }
-            set
-            {
-                if (timespan.Start.DayDefined != value)
-                {
-                    timespan.Start.DayDefined = value;
-                    NotifyPropertyChanged("Start_DayDefined");
-                    NotifyPropertyChanged("Start_MonthDefined");
-                    NotifyPropertyChanged("Start_YearDefined");
-                }
-            }
-        }
-        #endregion
-
-        #region End_
         public DateTime End_
         {
             get { return timespan.End.Value; }
@@ -327,65 +168,6 @@ namespace StammbaumDerVaganten
                 if (timespan.End.Value != value)
                 {
                     timespan.End.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public bool End_YearDefined
-        {
-            get { return timespan.End.YearDefined; }
-            set
-            {
-                if (timespan.End.YearDefined != value)
-                {
-                    timespan.End.YearDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-
-        public bool End_MonthDefined
-        {
-            get { return timespan.End.MonthDefined; }
-            set
-            {
-                if (timespan.End.MonthDefined != value)
-                {
-                    timespan.End.MonthDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-
-        public bool End_DayDefined
-        {
-            get { return timespan.End.DayDefined; }
-            set
-            {
-                if (timespan.End.DayDefined != value)
-                {
-                    timespan.End.DayDefined = value;
-                    NotifyPropertyChanged("End_DayDefined");
-                    NotifyPropertyChanged("End_MonthDefined");
-                    NotifyPropertyChanged("End_YearDefined");
-                }
-            }
-        }
-        #endregion
-
-        public bool WholeTime_
-        {
-            get { return timespan.WholeTime; }
-            set
-            {
-                if (timespan.WholeTime != value)
-                {
-                    timespan.WholeTime = value;
                     NotifyPropertyChanged();
                 }
             }
