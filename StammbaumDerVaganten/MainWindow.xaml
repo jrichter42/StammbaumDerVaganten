@@ -168,11 +168,7 @@
             <!--RIGHT TOP-->
             <!--Visualisierung-->
             <DockPanel Grid.Row="0" Grid.Column="0">
-                <Canvas x:Name="pfadi_visualization">
-                    <Canvas.DataContext>
-                        <local:VisualizationViewModel/>
-                    </Canvas.DataContext>
-                </Canvas>
+                
             </DockPanel>
             <GridSplitter Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AccentColorBrush}" Height="4" ResizeBehavior="PreviousAndNext"/>
             <!--RIGHT BOTTOM-->

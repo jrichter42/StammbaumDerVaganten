@@ -87,7 +87,6 @@
     <Compile Include="Stammbaum\DataObjects\Participation.cs" />
     <Compile Include="Stammbaum\Log.cs" />
     <Compile Include="Stammbaum\Serializer.cs" />
-    <Compile Include="VisualizationViewModel.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
