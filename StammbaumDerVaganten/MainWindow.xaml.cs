@@ -10,12 +10,15 @@ namespace StammbaumDerVaganten
     public partial class MainWindow : MetroWindow
     {
         MainViewModel vm;
+        VisualizationViewModel visVM;
 
         public MainWindow()
         {
             InitializeComponent();
             vm = (MainViewModel)DataContext;
+            visVM = (VisualizationViewModel)pfadi_visualization.DataContext;
             MainViewModel.ActiveVM = vm;
+            Load(this, null);
             if (Keyboard.PrimaryDevice.IsKeyDown(Key.Escape))
             {
                 Application.Current.Shutdown();

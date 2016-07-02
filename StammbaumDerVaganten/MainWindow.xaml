@@ -10,7 +10,7 @@
         TitleCaps="False"
         BorderBrush="{DynamicResource AccentColorBrush}"
         BorderThickness="1"
-        WindowStartupLocation="CenterScreen" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch">
+        WindowStartupLocation="CenterScreen" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" WindowState="Maximized">
     <!--DataContext-->
     <Controls:MetroWindow.DataContext>
         <local:MainViewModel/>
@@ -59,7 +59,7 @@
                             <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_inbox_out}" />
                         </Rectangle.OpacityMask>
                     </Rectangle>
-                    <TextBlock Margin="4 0 0 0" VerticalAlignment="Center" Text="Load" />
+                    <TextBlock Margin="4 0 0 0" VerticalAlignment="Center" Text="Laden" />
                 </StackPanel>
             </Button>
             <Button Command="ApplicationCommands.Save">
@@ -69,7 +69,7 @@
                             <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_inbox_in}" />
                         </Rectangle.OpacityMask>
                     </Rectangle>
-                    <TextBlock Margin="4 0 0 0" VerticalAlignment="Center" Text="Save" />
+                    <TextBlock Margin="4 0 0 0" VerticalAlignment="Center" Text="Speichern" />
                 </StackPanel>
             </Button>
         </Controls:WindowCommands>
@@ -121,6 +121,14 @@
                             <DataGridTextColumn Header="ID" Binding="{Binding ID}" IsReadOnly="True"/>
                             <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Header="Von" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}"/>
+                            <DataGridCheckBoxColumn Header="VT" Binding="{Binding Start_DayDefined, Mode=TwoWay}"/>
+                            <DataGridCheckBoxColumn Header="VM" Binding="{Binding Start_MonthDefined, Mode=TwoWay}"/>
+                            <DataGridCheckBoxColumn Header="VJ" Binding="{Binding Start_YearDefined, Mode=TwoWay}"/>
+                            <DataGridTextColumn Header="Bis" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}"/>
+                            <DataGridCheckBoxColumn Header="BT" Binding="{Binding End_DayDefined}"/>
+                            <DataGridCheckBoxColumn Header="BM" Binding="{Binding End_MonthDefined}"/>
+                            <DataGridCheckBoxColumn Header="BJ" Binding="{Binding End_YearDefined}"/>
                             <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}"/>
                         </DataGrid.Columns>
                     </DataGrid>
@@ -160,7 +168,11 @@
             <!--RIGHT TOP-->
             <!--Visualisierung-->
             <DockPanel Grid.Row="0" Grid.Column="0">
-                
+                <Canvas x:Name="pfadi_visualization">
+                    <Canvas.DataContext>
+                        <local:VisualizationViewModel/>
+                    </Canvas.DataContext>
+                </Canvas>
             </DockPanel>
             <GridSplitter Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AccentColorBrush}" Height="4" ResizeBehavior="PreviousAndNext"/>
             <!--RIGHT BOTTOM-->
@@ -191,7 +203,6 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridTextColumn Header="GID" Binding="{Binding Group}"/>
                             <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}"/>
                             <DataGridCheckBoxColumn Header="ST" Binding="{Binding Start_DayDefined}"/>
                             <DataGridCheckBoxColumn Header="SM" Binding="{Binding Start_MonthDefined}"/>
@@ -222,7 +233,6 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridTextColumn Header="RID" Binding="{Binding Role}"/>
                             <DataGridComboBoxColumn Header="Gruppe" SelectedValueBinding="{Binding Group}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
                                 <DataGridComboBoxColumn.ElementStyle>
                                     <Style TargetType="ComboBox">
@@ -235,7 +245,6 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridTextColumn Header="GID" Binding="{Binding Group}"/>
                             <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}"/>
                             <DataGridCheckBoxColumn Header="ST" Binding="{Binding Start_DayDefined}"/>
                             <DataGridCheckBoxColumn Header="SM" Binding="{Binding Start_MonthDefined}"/>

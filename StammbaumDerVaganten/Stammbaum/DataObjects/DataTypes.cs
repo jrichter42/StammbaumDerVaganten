@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace StammbaumDerVaganten
 {
@@ -268,6 +265,7 @@ namespace StammbaumDerVaganten
 
         public const int VALUE_INVALID = 0;
         protected const int VALUE_UNDEFINED = 1;
+        protected const int VALUE_UNDEFINED_YEAR = 2000;
 
         protected bool yearDefined = false;
         protected bool monthDefined = false;
@@ -329,9 +327,47 @@ namespace StammbaumDerVaganten
             }
         }
 
+        #region All/NoneDefined
+        public bool AllDefined
+        {
+            get
+            {
+                return dayDefined && monthDefined && yearDefined;
+            }
+            set
+            {
+                if (value == true && !AllDefined)
+                {
+                    DayDefined = true;
+                    MonthDefined = true;
+                    YearDefined = true;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool NoneDefined
+        {
+            get
+            {
+                return !dayDefined && !monthDefined && !yearDefined;
+            }
+            set
+            {
+                if (value == true && !NoneDefined)
+                {
+                    DayDefined = false;
+                    MonthDefined = false;
+                    YearDefined = false;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+        #endregion
+
         public int Year
         {
-            get { return yearDefined ? Value.Year : VALUE_UNDEFINED; }
+            get { return yearDefined ? Value.Year : VALUE_UNDEFINED_YEAR; }
             set
             {
                 if (Value.Year != value)
@@ -386,6 +422,11 @@ namespace StammbaumDerVaganten
             {
                 Day = day;
             }
+        }
+        
+        public Date()
+        {
+            Value = Value.AddYears(VALUE_UNDEFINED_YEAR - Value.Year);
         }
     }
 

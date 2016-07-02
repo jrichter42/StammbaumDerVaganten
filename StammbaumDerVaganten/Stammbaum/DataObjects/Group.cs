@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace StammbaumDerVaganten
 {
@@ -69,16 +64,10 @@ namespace StammbaumDerVaganten
             set { name = value; }
         }
         [DataMember]
-        public int _PG
+        public Timespan _TSP
         {
-            get { return ParentGroup; }
-            set { ParentGroup = value; }
-        }
-        [DataMember]
-        public ObservableCollection<int> _SG
-        {
-            get { return SubGroups; }
-            set { SubGroups = value; }
+            get { return timespan; }
+            set { timespan = value; }
         }
         [DataMember]
         public String _C
@@ -87,11 +76,10 @@ namespace StammbaumDerVaganten
             set { comment = value; }
         }
         #endregion
-
+        
         protected GroupType type = new GroupType();
         protected String name = new String();
-        protected int parentGroup = Group.ID_INVALID;
-        protected ObservableCollection<int> subGroups = new ObservableCollection<int>();
+        protected Timespan timespan = new Timespan();
         
         protected String comment = new String();
 
@@ -122,27 +110,147 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public int ParentGroup
+        public Timespan Timespan
         {
-            get { return parentGroup; }
+            get { return timespan; }
             set
             {
-                if (parentGroup != value)
+                if (timespan != value)
                 {
-                    parentGroup = value;
+                    timespan = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public ObservableCollection<int> SubGroups
+        #region Start_
+        public DateTime Start_
         {
-            get { return subGroups; }
+            get { return timespan.Start.Value; }
             set
             {
-                if (subGroups != value)
+                if (timespan.Start.Value != value)
                 {
-                    subGroups = value;
+                    timespan.Start.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool Start_YearDefined
+        {
+            get { return timespan.Start.YearDefined; }
+            set
+            {
+                if (timespan.Start.YearDefined != value)
+                {
+                    timespan.Start.YearDefined = value;
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
+                }
+            }
+        }
+
+        public bool Start_MonthDefined
+        {
+            get { return timespan.Start.MonthDefined; }
+            set
+            {
+                if (timespan.Start.MonthDefined != value)
+                {
+                    timespan.Start.MonthDefined = value;
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
+                }
+            }
+        }
+
+        public bool Start_DayDefined
+        {
+            get { return timespan.Start.DayDefined; }
+            set
+            {
+                if (timespan.Start.DayDefined != value)
+                {
+                    timespan.Start.DayDefined = value;
+                    NotifyPropertyChanged("Start_DayDefined");
+                    NotifyPropertyChanged("Start_MonthDefined");
+                    NotifyPropertyChanged("Start_YearDefined");
+                }
+            }
+        }
+        #endregion
+
+        #region End_
+        public DateTime End_
+        {
+            get { return timespan.End.Value; }
+            set
+            {
+                if (timespan.End.Value != value)
+                {
+                    timespan.End.Value = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public bool End_YearDefined
+        {
+            get { return timespan.End.YearDefined; }
+            set
+            {
+                if (timespan.End.YearDefined != value)
+                {
+                    timespan.End.YearDefined = value;
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
+                }
+            }
+        }
+
+        public bool End_MonthDefined
+        {
+            get { return timespan.End.MonthDefined; }
+            set
+            {
+                if (timespan.End.MonthDefined != value)
+                {
+                    timespan.End.MonthDefined = value;
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
+                }
+            }
+        }
+
+        public bool End_DayDefined
+        {
+            get { return timespan.End.DayDefined; }
+            set
+            {
+                if (timespan.End.DayDefined != value)
+                {
+                    timespan.End.DayDefined = value;
+                    NotifyPropertyChanged("End_DayDefined");
+                    NotifyPropertyChanged("End_MonthDefined");
+                    NotifyPropertyChanged("End_YearDefined");
+                }
+            }
+        }
+        #endregion
+
+        public bool WholeTime_
+        {
+            get { return timespan.WholeTime; }
+            set
+            {
+                if (timespan.WholeTime != value)
+                {
+                    timespan.WholeTime = value;
                     NotifyPropertyChanged();
                 }
             }
