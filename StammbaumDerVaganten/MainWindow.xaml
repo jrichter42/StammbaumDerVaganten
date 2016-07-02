@@ -168,7 +168,7 @@
             <!--RIGHT TOP-->
             <!--Visualisierung-->
             <DockPanel Grid.Row="0" Grid.Column="0">
-                
+                <TextBlock Text="Visualisierung" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </DockPanel>
             <GridSplitter Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AccentColorBrush}" Height="4" ResizeBehavior="PreviousAndNext"/>
             <!--RIGHT BOTTOM-->
