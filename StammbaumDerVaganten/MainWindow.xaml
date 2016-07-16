@@ -92,7 +92,7 @@
                 <Expander.Header>
                     <TextBlock Text="Rollen" FontSize="14" FlowDirection="LeftToRight"/>
                 </Expander.Header>
-                <DataGrid x:Name="pfadi_rolelist" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight" AddingNewItem="pfadi_rolelist_AddingNewItem">
+                <DataGrid x:Name="pfadi_rolelist" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight" AddingNewItem="pfadi_rolelist_AddingNewItem" SelectionMode="Single">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="ID" Binding="{Binding ID}" IsReadOnly="True"/>
                         <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource RoleTypes}}" SelectedItemBinding="{Binding Type}"/>
@@ -107,7 +107,7 @@
                 <Expander.Header>
                     <TextBlock Text="Zeitpunkte" FontSize="14" FlowDirection="LeftToRight"/>
                 </Expander.Header>
-                <DataGrid x:Name="pfadi_timepointlist" ItemsSource="{Binding Timepoints}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight" AddingNewItem="pfadi_timepointlist_AddingNewItem">
+                <DataGrid x:Name="pfadi_timepointlist" ItemsSource="{Binding Timepoints}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight" AddingNewItem="pfadi_timepointlist_AddingNewItem" SelectionMode="Single">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="ID" Binding="{Binding ID}" IsReadOnly="True"/>
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
@@ -129,7 +129,7 @@
                 <!--Gruppen-->
                 <DockPanel Grid.Row="0" Grid.Column="0">
                     <TextBlock Text="Gruppen" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                    <DataGrid x:Name="pfadi_grouplist" ItemsSource="{Binding Groups}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_grouplist_AddingNewItem">
+                    <DataGrid x:Name="pfadi_grouplist" ItemsSource="{Binding Groups}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_grouplist_AddingNewItem" SelectionMode="Single">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="ID" Binding="{Binding ID}" IsReadOnly="True"/>
                             <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>
@@ -147,8 +147,7 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridCheckBoxColumn Header="CustomS" Binding="{Binding UseStartTimepoint_}"/>
-                            <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding UseStartTimepoint_}"/>
+                            <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding StartTimepointUsed_}"/>
                             <DataGridComboBoxColumn Header="Endpunkt" SelectedValueBinding="{Binding EndTimepoint_}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
                                 <DataGridComboBoxColumn.ElementStyle>
                                     <Style TargetType="ComboBox">
@@ -161,8 +160,7 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridCheckBoxColumn Header="CustomE" Binding="{Binding UseEndTimepoint_}"/>
-                            <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding UseEndTimepoint_}"/>
+                            <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding EndTimepointUsed_}"/>
                             <!---->
                             <DataGridTextColumn Header="Kommentar" Binding="{Binding Comment}"/>
                         </DataGrid.Columns>
@@ -171,7 +169,7 @@
                                 <Border BorderThickness="5" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" Padding="5">
                                     <DockPanel>
                                         <TextBlock Text="Weitere Phasen der Gruppe" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                                        <DataGrid x:Name="pfadi_additionalphaseslist" ItemsSource="{Binding AdditionalPhases}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_additionalphaseslist_AddingNewItem">
+                                        <DataGrid x:Name="pfadi_additionalphaseslist" ItemsSource="{Binding AdditionalPhases}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_additionalphaseslist_AddingNewItem" SelectionMode="Single">
                                             <DataGrid.Columns>
                                                 <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>
                                                 <DataGridComboBoxColumn Header="Startpunkt" SelectedValueBinding="{Binding StartTimepoint_}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
@@ -186,8 +184,7 @@
                                                         </Style>
                                                     </DataGridComboBoxColumn.EditingElementStyle>
                                                 </DataGridComboBoxColumn>
-                                                <DataGridCheckBoxColumn Header="CustomS" Binding="{Binding UseStartTimepoint_}"/>
-                                                <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding UseStartTimepoint_}"/>
+                                                <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding StartTimepointUsed_}"/>
                                                 <DataGridComboBoxColumn Header="Endpunkt" SelectedValueBinding="{Binding EndTimepoint_}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
                                                     <DataGridComboBoxColumn.ElementStyle>
                                                         <Style TargetType="ComboBox">
@@ -200,8 +197,7 @@
                                                         </Style>
                                                     </DataGridComboBoxColumn.EditingElementStyle>
                                                 </DataGridComboBoxColumn>
-                                                <DataGridCheckBoxColumn Header="CustomE" Binding="{Binding UseEndTimePoint_}"/>
-                                                <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding UseEndTimepoint_}"/>
+                                                <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding EndTimepointUsed_}"/>
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </DockPanel>
@@ -215,7 +211,7 @@
                 <!--Pfadfinder-->
                 <DockPanel Grid.Row="2" Grid.Column="0">
                     <TextBlock Text="Pfadfinder" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                    <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_scoutlist_AddingNewItem" DataContextChanged="pfadi_scoutlist_DataContextChanged" SelectionChanged="pfadi_scoutlist_SelectionChanged">
+                    <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_scoutlist_AddingNewItem" DataContextChanged="pfadi_scoutlist_DataContextChanged" SelectionChanged="pfadi_scoutlist_SelectionChanged" SelectionMode="Single">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Pfadiname" Binding="{Binding Scoutname}"/>
                             <DataGridTextColumn Header="Vorname" Binding="{Binding Forename}"/>
@@ -259,7 +255,7 @@
                 <!--Mitgliedschaften-->
                 <DockPanel Grid.Row="0" Grid.Column="0">
                     <TextBlock Text="Mitgliedschaften" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                    <DataGrid x:Name="pfadi_membershiplist" ItemsSource="{Binding Memberships}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_membershiplist_AddingNewItem">
+                    <DataGrid x:Name="pfadi_membershiplist" ItemsSource="{Binding Memberships}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_membershiplist_AddingNewItem" SelectionMode="Single">
                         <DataGrid.Columns>
                             <DataGridComboBoxColumn Header="Gruppe" SelectedValueBinding="{Binding Group}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
                                 <DataGridComboBoxColumn.ElementStyle>
@@ -286,8 +282,7 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridCheckBoxColumn Header="CustomS" Binding="{Binding UseStartTimepoint_}"/>
-                            <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding UseStartTimepoint_}"/>
+                            <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding StartTimepointUsed_}"/>
                             <DataGridComboBoxColumn Header="Endpunkt" SelectedValueBinding="{Binding EndTimepoint_}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
                                 <DataGridComboBoxColumn.ElementStyle>
                                     <Style TargetType="ComboBox">
@@ -300,8 +295,7 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridCheckBoxColumn Header="CustomE" Binding="{Binding UseEndTimepoint_}"/>
-                            <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding UseEndTimepoint_}"/>
+                            <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding EndTimepointUsed_}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
@@ -310,7 +304,7 @@
                 <!--Aktivitäten-->
                 <DockPanel Grid.Row="0" Grid.Column="3" >
                     <TextBlock Text="Aktivitäten" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                    <DataGrid x:Name="pfadi_activitylist" ItemsSource="{Binding Activities}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_activitylist_AddingNewItem">
+                                <DataGrid x:Name="pfadi_activitylist" ItemsSource="{Binding Activities}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_activitylist_AddingNewItem" SelectionMode="Single">
                         <DataGrid.Columns>
                             <DataGridComboBoxColumn Header="Rolle" SelectedValueBinding="{Binding Role}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
                                 <DataGridComboBoxColumn.ElementStyle>
@@ -349,8 +343,7 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridCheckBoxColumn Header="CustomS" Binding="{Binding UseStartTimepoint_}"/>
-                            <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding UseStartTimepoint_}"/>
+                            <DataGridTextColumn Header="Start" Binding="{Binding Start_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding StartTimepointUsed_}"/>
                             <DataGridComboBoxColumn Header="Endpunkt" SelectedValueBinding="{Binding EndTimepoint_}" DisplayMemberPath="ToString_" SelectedValuePath="ID">
                                 <DataGridComboBoxColumn.ElementStyle>
                                     <Style TargetType="ComboBox">
@@ -363,8 +356,7 @@
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridCheckBoxColumn Header="CustomE" Binding="{Binding UseEndTimepoint_}"/>
-                            <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding UseEndTimepoint_}"/>
+                            <DataGridTextColumn Header="End" Binding="{Binding End_, StringFormat=d, ConverterCulture=de-DE}" IsReadOnly="{Binding EndTimepointUsed_}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>

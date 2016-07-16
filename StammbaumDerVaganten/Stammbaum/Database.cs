@@ -45,11 +45,6 @@ namespace StammbaumDerVaganten
             Groups = new ObservableCollection<Group>();
             Roles = new ObservableCollection<Role>();
             Timepoints = new ObservableCollection<Timepoint>();
-            Timepoint invalidTP = new Timepoint();
-            invalidTP.ReassignID(Timepoint.ID_INVALID); //NEVER DO THIS!!! unless you know what you are doing
-            invalidTP.Date.Year = 1;
-            invalidTP.Name = "RESET";
-            Timepoints.Add(invalidTP);
         }
 
         #region GetStuffByID

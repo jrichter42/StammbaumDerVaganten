@@ -64,7 +64,7 @@ namespace StammbaumDerVaganten
                 {
                     timespan.StartTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("UseStartTimepoint_");
+                    NotifyPropertyChanged("StartTimepointUsed_");
                 }
             }
         }
@@ -78,41 +78,19 @@ namespace StammbaumDerVaganten
                 {
                     timespan.EndTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("UseEndTimepoint_");
+                    NotifyPropertyChanged("EndTimepointUsed_");
                 }
             }
         }
 
-        //Sets start timepoint id to invalid
-        public bool UseStartTimepoint_
+        public bool StartTimepointUsed_
         {
-            get { return timespan.StartTimepoint == Timepoint.ID_INVALID; }
-            set
-            {
-                if (value == false && UseStartTimepoint_ != value)
-                {
-                    timespan.StartTimepoint = Timepoint.ID_INVALID;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("StartTimepoint_");
-                    NotifyPropertyChanged("Start_");
-                }
-            }
+            get { return timespan.StartTimepoint != Timepoint.ID_INVALID; }
         }
 
-        //Sets end timepoint id to invalid
-        public bool UseEndTimepoint_
+        public bool EndTimepointUsed_
         {
-            get { return timespan.EndTimepoint == Timepoint.ID_INVALID; }
-            set
-            {
-                if (value == false && UseEndTimepoint_ != value)
-                {
-                    timespan.EndTimepoint = Timepoint.ID_INVALID;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("EndTimepoint_");
-                    NotifyPropertyChanged("End_");
-                }
-            }
+            get { return timespan.EndTimepoint != Timepoint.ID_INVALID; }
         }
 
         public DateTime Start_
@@ -217,24 +195,23 @@ namespace StammbaumDerVaganten
         #endregion
 
         #region FilteredTimepoints
-        protected ObservableCollection<Timepoint> filteredTimepoints;
+        protected ObservableCollection<Timepoint> filteredTimepoints = new ObservableCollection<Timepoint>();
 
         public ObservableCollection<Timepoint> FilteredTimepoints
         {
             get
             {
-                UpdateFilteredTimepoints();
+                Data data = MainViewModel.ActiveData;
+                if (data != null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
+                {
+                    UpdateFilteredTimepoints();
+                }
                 return filteredTimepoints;
             }
         }
 
         protected virtual void UpdateFilteredTimepoints()
         {
-            if (filteredTimepoints == null)
-            {
-                filteredTimepoints = new ObservableCollection<Timepoint>();
-            }
-
             filteredTimepoints.Clear();
 
             MainViewModel vm = MainViewModel.ActiveVM;
@@ -273,6 +250,13 @@ namespace StammbaumDerVaganten
                 }
                 filteredTimepoints.Move(i, newIdx);
             }
+
+            //Insert reset item
+            Timepoint invalidTP = new Timepoint();
+            invalidTP.ReassignID(Timepoint.ID_INVALID); //NEVER DO THIS!!! unless you know what you are doing
+            invalidTP.Date.Year = 42;
+            invalidTP.Name = "RESET";
+            filteredTimepoints.Insert(0, invalidTP);
         }
         #endregion
 

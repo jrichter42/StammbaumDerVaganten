@@ -170,7 +170,7 @@ namespace StammbaumDerVaganten
                 {
                     startTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("UseStartTimepoint");
+                    NotifyPropertyChanged("StartTimepointUsed_");
                 }
             }
         }
@@ -184,43 +184,19 @@ namespace StammbaumDerVaganten
                 {
                     endTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("UseEndTimepoint");
+                    NotifyPropertyChanged("EndTimepointUsed_");
                 }
             }
         }
 
-        //Sets start timepoint id to invalid
-        public bool UseStartTimepoint
+        public bool StartTimepointUsed_
         {
             get { return startTimepoint != Timepoint.ID_INVALID; }
-            set
-            {
-                if (value == false && UseStartTimepoint != value)
-                {
-                    startTimepoint = Timepoint.ID_INVALID;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("StartTimepoint");
-                    NotifyPropertyChanged("Start");
-                    NotifyPropertyChanged("Start_");
-                }
-            }
         }
 
-        //Sets end timepoint id to invalid
-        public bool UseEndTimepoint
+        public bool EndTimepointUsed_
         {
             get { return endTimepoint != Timepoint.ID_INVALID; }
-            set
-            {
-                if (value == false && UseEndTimepoint != value)
-                {
-                    endTimepoint = Timepoint.ID_INVALID;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("EndTimepoint");
-                    NotifyPropertyChanged("End");
-                    NotifyPropertyChanged("End_");
-                }
-            }
         }
 
         public Date Start
