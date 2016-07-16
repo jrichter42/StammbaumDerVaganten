@@ -44,6 +44,12 @@ namespace StammbaumDerVaganten
             set { Database.Data.Roles = value; }
         }
 
+        public ObservableCollection<Timepoint> Timepoints
+        {
+            get { return Database.Data.Timepoints; }
+            set { Database.Data.Timepoints = value; }
+        }
+
         protected ObservableCollection<Membership> selectedMemberships = null;
         protected ObservableCollection<Activity> selectedActivities = null;
 
@@ -64,7 +70,20 @@ namespace StammbaumDerVaganten
             Memberships = null;
             Activities = null;
         }
-        
+
+        protected ObservableCollection<GroupPhase> selectedGroupPhases = null;
+
+        public ObservableCollection<GroupPhase> GroupPhases
+        {
+            get { return selectedGroupPhases; }
+            set { selectedGroupPhases = value; }
+        }
+
+        public void FlushGroupPhases()
+        {
+            GroupPhases = null;
+        }
+
         public MainViewModel()
         {
             Database = new Database();

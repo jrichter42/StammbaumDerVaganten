@@ -159,7 +159,7 @@ namespace StammbaumDerVaganten
             {
                 typeString = customType.Value;
             }
-            return id.ToString() + " " + typeString;
+            return typeString + " [" + id.ToString() + "]";
         }
 
         public string ToString_

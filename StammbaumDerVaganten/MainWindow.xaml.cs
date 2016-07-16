@@ -26,8 +26,9 @@ namespace StammbaumDerVaganten
         private void Load(object sender, ExecutedRoutedEventArgs e)
         {
             vm.Load();
-            pfadi_grouplist.ItemsSource = vm.Groups;
             pfadi_rolelist.ItemsSource = vm.Roles;
+            pfadi_timepointlist.ItemsSource = vm.Timepoints;
+            pfadi_grouplist.ItemsSource = vm.Groups;
             pfadi_scoutlist.ItemsSource = vm.Scouts;
             OnScoutSelectionChanged();
         }
@@ -62,9 +63,19 @@ namespace StammbaumDerVaganten
             e.NewItem = new Role(true);
         }
 
+        private void pfadi_timepointlist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
+        {
+            e.NewItem = new Timepoint(true);
+        }
+
         private void pfadi_grouplist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
         {
             e.NewItem = new Group(true);
+        }
+
+        private void pfadi_additionalphaseslist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
+        {
+            e.NewItem = new GroupPhase();
         }
 
         private void pfadi_scoutlist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)

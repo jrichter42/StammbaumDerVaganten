@@ -7,99 +7,6 @@ using System.Runtime.Serialization;
 namespace StammbaumDerVaganten
 {
     [DataContract]
-    public class Timespan : INotifyPropertyChanged
-    {
-        #region INotifyPropertyChanged
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
-        {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-            }
-        }
-        #endregion
-
-        #region Serialization
-        [DataMember]
-        public Date _S
-        {
-            get { return start; }
-            set { start = value; }
-        }
-        [DataMember]
-        public Date _E
-        {
-            get { return end; }
-            set { end = value; }
-        }
-        #endregion
-
-        protected Date start = new Date();
-        protected Date end = new Date();
-
-        #region Accessors
-        public Date Start
-        {
-            get { return start; }
-            set
-            {
-                if (start != value)
-                {
-                    start = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public Date End
-        {
-            get { return end; }
-            set
-            {
-                if (end != value)
-                {
-                    end = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public DateTime Start_
-        {
-            get { return start.Value; }
-            set
-            {
-                if (start.Value != value)
-                {
-                    start.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public DateTime End_
-        {
-            get { return end.Value; }
-            set
-            {
-                if (end.Value != value)
-                {
-                    end.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-        #endregion
-
-        public Timespan() : base()
-        {
-
-        }
-    }
-
-    [DataContract]
     public class Participation : DataObject, INotifyPropertyChanged
     {
         #region INotifyPropertyChanged
@@ -134,6 +41,7 @@ namespace StammbaumDerVaganten
         protected int group = ID_INVALID;
 
         #region Accessors
+        #region Timespan
         public Timespan Timespan
         {
             get { return timespan; }
@@ -143,6 +51,66 @@ namespace StammbaumDerVaganten
                 {
                     timespan = value;
                     NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public int StartTimepoint_
+        {
+            get { return timespan.StartTimepoint; }
+            set
+            {
+                if (timespan.StartTimepoint != value)
+                {
+                    timespan.StartTimepoint = value;
+                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("UseStartTimepoint_");
+                }
+            }
+        }
+
+        public int EndTimepoint_
+        {
+            get { return timespan.EndTimepoint; }
+            set
+            {
+                if (timespan.EndTimepoint != value)
+                {
+                    timespan.EndTimepoint = value;
+                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("UseEndTimepoint_");
+                }
+            }
+        }
+
+        //Sets start timepoint id to invalid
+        public bool UseStartTimepoint_
+        {
+            get { return timespan.StartTimepoint == Timepoint.ID_INVALID; }
+            set
+            {
+                if (value == false && UseStartTimepoint_ != value)
+                {
+                    timespan.StartTimepoint = Timepoint.ID_INVALID;
+                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("StartTimepoint_");
+                    NotifyPropertyChanged("Start_");
+                }
+            }
+        }
+
+        //Sets end timepoint id to invalid
+        public bool UseEndTimepoint_
+        {
+            get { return timespan.EndTimepoint == Timepoint.ID_INVALID; }
+            set
+            {
+                if (value == false && UseEndTimepoint_ != value)
+                {
+                    timespan.EndTimepoint = Timepoint.ID_INVALID;
+                    NotifyPropertyChanged();
+                    NotifyPropertyChanged("EndTimepoint_");
+                    NotifyPropertyChanged("End_");
                 }
             }
         }
@@ -172,6 +140,7 @@ namespace StammbaumDerVaganten
                 }
             }
         }
+        #endregion
 
         public int Group
         {
@@ -226,6 +195,83 @@ namespace StammbaumDerVaganten
                 {
                     filteredGroups.Add(g);
                 }
+            }
+
+            //Sort by start year, youngest group first
+            int newIdx;
+            for (int i = 1; i < groups.Count; i++)
+            {
+                newIdx = i - 1;
+                //Quit if our year is already smaller or equal to the year before us
+                if (groups[i].Timespan.Start.Year <= groups[newIdx].Timespan.Start.Year)
+                {
+                    continue;
+                }
+                while (newIdx > 0 && groups[i].Timespan.Start.Year > groups[newIdx-1].Timespan.Start.Year)
+                {
+                    newIdx--;
+                }
+                groups.Move(i, newIdx);
+            }
+        }
+        #endregion
+
+        #region FilteredTimepoints
+        protected ObservableCollection<Timepoint> filteredTimepoints;
+
+        public ObservableCollection<Timepoint> FilteredTimepoints
+        {
+            get
+            {
+                UpdateFilteredTimepoints();
+                return filteredTimepoints;
+            }
+        }
+
+        protected virtual void UpdateFilteredTimepoints()
+        {
+            if (filteredTimepoints == null)
+            {
+                filteredTimepoints = new ObservableCollection<Timepoint>();
+            }
+
+            filteredTimepoints.Clear();
+
+            MainViewModel vm = MainViewModel.ActiveVM;
+            if (vm == null)
+            {
+                return;
+            }
+
+            ObservableCollection<Timepoint> timepoints = vm.Timepoints;
+            if (timepoints == null)
+            {
+                return;
+            }
+
+            foreach (Timepoint t in timepoints)
+            {
+                if (t.Date_ >= timespan.Start_ && t.Date_ <= timespan.End_)
+                {
+                    filteredTimepoints.Add(t);
+                }
+            }
+
+            //Sort by date, youngest timepoint first
+            int newIdx;
+            for (int i = 1; i < filteredTimepoints.Count; i++)
+            {
+                newIdx = i - 1;
+                //Quit if our year is already smaller or equal to the year before us
+                if (filteredTimepoints[i].Date.Year <= filteredTimepoints[newIdx].Date.Year)
+                {
+                    continue;
+                }
+                while (newIdx > 0 && filteredTimepoints[i].Date.Year > filteredTimepoints[newIdx - 1].Date.Year)
+                {
+                    newIdx--;
+                }
+                filteredTimepoints.Move(i, newIdx);
             }
         }
         #endregion
