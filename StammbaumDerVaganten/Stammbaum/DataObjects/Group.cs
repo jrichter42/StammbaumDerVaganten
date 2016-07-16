@@ -129,9 +129,9 @@ namespace StammbaumDerVaganten
             get { return timespan.Start.Value; }
             set
             {
-                if (timespan.Start.Value != value)
+                if (timespan.Start_ != value)
                 {
-                    timespan.Start.Value = value;
+                    timespan.Start_ = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -142,9 +142,9 @@ namespace StammbaumDerVaganten
             get { return timespan.End.Value; }
             set
             {
-                if (timespan.End.Value != value)
+                if (timespan.End_ != value)
                 {
-                    timespan.End.Value = value;
+                    timespan.End_ = value;
                     NotifyPropertyChanged();
                 }
             }

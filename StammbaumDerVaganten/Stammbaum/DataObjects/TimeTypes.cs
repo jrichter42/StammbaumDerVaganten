@@ -256,7 +256,7 @@ namespace StammbaumDerVaganten
                         }
                     }
                 }
-                return start;
+                return end;
             }
             set
             {
@@ -283,27 +283,83 @@ namespace StammbaumDerVaganten
 
         public DateTime Start_
         {
-            get { return Start.Value; }
+            get
+            {
+                if (startTimepoint != Timepoint.ID_INVALID)
+                {
+                    Data data = MainViewModel.ActiveData;
+                    if (data != null)
+                    {
+                        Timepoint tp = data.GetTimepointyID(startTimepoint);
+                        if (tp != null)
+                        {
+                            return tp.Date_;
+                        }
+                    }
+                }
+                return start.Value;
+            }
             set
             {
-                if (Start.Value != value)
+                if (startTimepoint != Timepoint.ID_INVALID)
                 {
-                    Start.Value = value;
-                    NotifyPropertyChanged();
+                    Data data = MainViewModel.ActiveData;
+                    if (data != null)
+                    {
+                        Timepoint tp = data.GetTimepointyID(startTimepoint);
+                        if (tp != null)
+                        {
+                            if (tp.Date_ != value)
+                            {
+                                tp.Date_ = value;
+                                NotifyPropertyChanged();
+                                return;
+                            }
+                        }
+                    }
                 }
+                Log.Write(Log_Level.Exception, "Wasn't able set Timespan.Start value in Timepoint");
             }
         }
 
         public DateTime End_
         {
-            get { return End.Value; }
+            get
+            {
+                if (endTimepoint != Timepoint.ID_INVALID)
+                {
+                    Data data = MainViewModel.ActiveData;
+                    if (data != null)
+                    {
+                        Timepoint tp = data.GetTimepointyID(endTimepoint);
+                        if (tp != null)
+                        {
+                            return tp.Date_;
+                        }
+                    }
+                }
+                return end.Value;
+            }
             set
             {
-                if (End.Value != value)
+                if (endTimepoint != Timepoint.ID_INVALID)
                 {
-                    End.Value = value;
-                    NotifyPropertyChanged();
+                    Data data = MainViewModel.ActiveData;
+                    if (data != null)
+                    {
+                        Timepoint tp = data.GetTimepointyID(endTimepoint);
+                        if (tp != null)
+                        {
+                            if (tp.Date_ != value)
+                            {
+                                tp.Date_ = value;
+                                NotifyPropertyChanged();
+                                return;
+                            }
+                        }
+                    }
                 }
+                Log.Write(Log_Level.Exception, "Wasn't able set Timespan.End value in Timepoint");
             }
         }
         #endregion
