@@ -93,6 +93,13 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
+        protected static Timepoint invalid = new Timepoint { id = Timepoint.ID_INVALID, Name = "Custom", date = new Date { Year = 1 } };
+
+        public static Timepoint INVALID
+        {
+            get { return invalid; }
+        }
+
         public Timepoint() : base()
         {
 
@@ -102,7 +109,7 @@ namespace StammbaumDerVaganten
         {
 
         }
-
+        
         public void ReassignID(int id)
         {
             ID = id;
@@ -141,6 +148,18 @@ namespace StammbaumDerVaganten
 
         #region Serialization
         [DataMember]
+        public int _SP
+        {
+            get { return startTimepoint; }
+            set { startTimepoint = value; }
+        }
+        [DataMember]
+        public int _EP
+        {
+            get { return endTimepoint; }
+            set { endTimepoint = value; }
+        }
+        [DataMember]
         public Date _S
         {
             get { return start; }
@@ -170,7 +189,7 @@ namespace StammbaumDerVaganten
                 {
                     startTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("StartTimepointUsed_");
+                    NotifyPropertyChanged("CustomStart_");
                 }
             }
         }
@@ -184,19 +203,19 @@ namespace StammbaumDerVaganten
                 {
                     endTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("EndTimepointUsed_");
+                    NotifyPropertyChanged("CustomEnd_");
                 }
             }
         }
 
-        public bool StartTimepointUsed_
+        public bool CustomStart_
         {
-            get { return startTimepoint != Timepoint.ID_INVALID; }
+            get { return startTimepoint == Timepoint.ID_INVALID; }
         }
 
-        public bool EndTimepointUsed_
+        public bool CustomEnd_
         {
-            get { return endTimepoint != Timepoint.ID_INVALID; }
+            get { return endTimepoint == Timepoint.ID_INVALID; }
         }
 
         public Date Start

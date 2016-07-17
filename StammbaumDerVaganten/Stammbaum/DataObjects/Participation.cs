@@ -7,7 +7,7 @@ using System.Runtime.Serialization;
 namespace StammbaumDerVaganten
 {
     [DataContract]
-    public class Participation : DataObject, INotifyPropertyChanged
+    public class Participation : DataParticle, INotifyPropertyChanged
     {
         #region INotifyPropertyChanged
         public virtual event PropertyChangedEventHandler PropertyChanged;
@@ -38,7 +38,7 @@ namespace StammbaumDerVaganten
         #endregion
 
         protected Timespan timespan = new Timespan();
-        protected int group = ID_INVALID;
+        protected int group = StammbaumDerVaganten.Group.ID_INVALID;
 
         #region Accessors
         #region Timespan
@@ -64,7 +64,7 @@ namespace StammbaumDerVaganten
                 {
                     timespan.StartTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("StartTimepointUsed_");
+                    NotifyPropertyChanged("CustomStart_");
                 }
             }
         }
@@ -78,19 +78,19 @@ namespace StammbaumDerVaganten
                 {
                     timespan.EndTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("EndTimepointUsed_");
+                    NotifyPropertyChanged("CustomEnd_");
                 }
             }
         }
 
-        public bool StartTimepointUsed_
+        public bool CustomStart_
         {
-            get { return timespan.StartTimepoint != Timepoint.ID_INVALID; }
+            get { return timespan.CustomStart_; }
         }
 
-        public bool EndTimepointUsed_
+        public bool CustomEnd_
         {
-            get { return timespan.EndTimepoint != Timepoint.ID_INVALID; }
+            get { return timespan.CustomEnd_; }
         }
 
         public DateTime Start_
@@ -252,11 +252,7 @@ namespace StammbaumDerVaganten
             }
 
             //Insert reset item
-            Timepoint invalidTP = new Timepoint();
-            invalidTP.ReassignID(Timepoint.ID_INVALID); //NEVER DO THIS!!! unless you know what you are doing
-            invalidTP.Date.Year = 42;
-            invalidTP.Name = "RESET";
-            filteredTimepoints.Insert(0, invalidTP);
+            filteredTimepoints.Insert(0, Timepoint.INVALID);
         }
         #endregion
 
@@ -326,7 +322,7 @@ namespace StammbaumDerVaganten
             }
 
             GroupType_Type groupTypeFilter = GroupType_Type.None;
-            if (role != ID_INVALID)
+            if (role != StammbaumDerVaganten.Role.ID_INVALID)
             {
                 Data data = MainViewModel.ActiveData;
                 if (data != null)
@@ -405,7 +401,7 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        protected int role = ID_INVALID;
+        protected int role = StammbaumDerVaganten.Role.ID_INVALID;
 
         #region Accessors
         public int Role

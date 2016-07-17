@@ -8,7 +8,7 @@ namespace StammbaumDerVaganten
 {
 
     [DataContract]
-    public class Scout : DataObject, INotifyPropertyChanged
+    public class Scout : DataParticle, INotifyPropertyChanged
     {
         #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;

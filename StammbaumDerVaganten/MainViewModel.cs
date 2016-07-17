@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace StammbaumDerVaganten
 {
@@ -69,19 +70,6 @@ namespace StammbaumDerVaganten
         {
             Memberships = null;
             Activities = null;
-        }
-
-        protected ObservableCollection<GroupPhase> selectedGroupPhases = null;
-
-        public ObservableCollection<GroupPhase> GroupPhases
-        {
-            get { return selectedGroupPhases; }
-            set { selectedGroupPhases = value; }
-        }
-
-        public void FlushGroupPhases()
-        {
-            GroupPhases = null;
         }
 
         public MainViewModel()

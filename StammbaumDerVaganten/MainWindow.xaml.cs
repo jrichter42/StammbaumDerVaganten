@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Input;
 using MahApps.Metro.Controls;
+using System.Windows.Controls;
 
 namespace StammbaumDerVaganten
 {
@@ -21,6 +22,30 @@ namespace StammbaumDerVaganten
             {
                 Application.Current.Shutdown();
             }
+            pfadi_log.ItemsSource = Log.History;
+
+            Log.EntryAdded += HandleLogEntryAdded;
+            HandleLogEntryAdded(this.ToString(), Log.HistoryTop);
+        }
+
+        private void HandleLogEntryAdded(string author, string entry)
+        {
+            if (pfadi_logexpander == null)
+            {
+                return;
+            }
+
+            TextBlock text = (TextBlock)pfadi_logexpander.Header;
+            if (text == null)
+            {
+                return;
+            }
+
+            if (pfadi_logexpander.IsExpanded)
+            {
+                text.Text = "Log";
+            }
+            text.Text = entry;
         }
 
         private void Load(object sender, ExecutedRoutedEventArgs e)
@@ -101,6 +126,30 @@ namespace StammbaumDerVaganten
         private void pfadi_scoutlist_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             OnScoutSelectionChanged();
+        }
+
+        bool manualCommit = false;
+        private void pfadi_list_CellEditEnding(object sender, System.Windows.Controls.DataGridCellEditEndingEventArgs e)
+        {
+            if (!manualCommit)
+            {
+                manualCommit = true;
+                DataGrid grid = (DataGrid)sender;
+                grid.CommitEdit(DataGridEditingUnit.Row, true);
+                manualCommit = false;
+            }
+        }
+
+        private void pfadi_timepointlist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            pfadi_list_CellEditEnding(sender, e);
+
+            //Hack to make different levels of PropertyChanged update each other without resolving the acutal issue
+            if ((string)e.Column.Header == "Datum")
+            {
+                pfadi_grouplist.ItemsSource = vm.Groups;
+                OnScoutSelectionChanged();
+            }
         }
     }
 }

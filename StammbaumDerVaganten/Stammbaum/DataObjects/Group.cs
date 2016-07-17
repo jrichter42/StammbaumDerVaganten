@@ -25,7 +25,7 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class GroupPhase : DataObject, INotifyPropertyChanged
+    public class GroupPhase : INotifyPropertyChanged
     {
         #region INotifyPropertyChanged
         public virtual event PropertyChangedEventHandler PropertyChanged;
@@ -95,7 +95,8 @@ namespace StammbaumDerVaganten
                 {
                     timespan.StartTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("StartTimepointUsed_");
+                    NotifyPropertyChanged("Start_");
+                    NotifyPropertyChanged("CustomStart_");
                 }
             }
         }
@@ -109,19 +110,20 @@ namespace StammbaumDerVaganten
                 {
                     timespan.EndTimepoint = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("EndTimepointUsed_");
+                    NotifyPropertyChanged("End_");
+                    NotifyPropertyChanged("CustomEnd_");
                 }
             }
         }
 
-        public bool StartTimepointUsed_
+        public bool CustomStart_
         {
-            get { return timespan.StartTimepoint != Timepoint.ID_INVALID; }
+            get { return timespan.CustomStart_; }
         }
 
-        public bool EndTimepointUsed_
+        public bool CustomEnd_
         {
-            get { return timespan.EndTimepoint != Timepoint.ID_INVALID; }
+            get { return timespan.CustomEnd_; }
         }
 
         public DateTime Start_
@@ -153,12 +155,17 @@ namespace StammbaumDerVaganten
         #endregion
 
         #region FilteredTimepoints
-        protected ObservableCollection<Timepoint> filteredTimepoints = new ObservableCollection<Timepoint>();
+        protected ObservableCollection<Timepoint> filteredTimepoints;
 
         public ObservableCollection<Timepoint> FilteredTimepoints
         {
             get
             {
+                if (filteredTimepoints == null)
+                {
+                    filteredTimepoints = new ObservableCollection<Timepoint>();
+                }
+
                 Data data = MainViewModel.ActiveData;
                 if (data != null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
                 {
@@ -207,11 +214,7 @@ namespace StammbaumDerVaganten
             }
 
             //Insert reset item
-            Timepoint invalidTP = new Timepoint();
-            invalidTP.ReassignID(Timepoint.ID_INVALID); //NEVER DO THIS!!! unless you know what you are doing
-            invalidTP.Date.Year = 42;
-            invalidTP.Name = "RESET";
-            filteredTimepoints.Insert(0, invalidTP);
+            filteredTimepoints.Insert(0, Timepoint.INVALID);
         }
         #endregion
 
@@ -336,7 +339,8 @@ namespace StammbaumDerVaganten
                 {
                     mainPhase.StartTimepoint_ = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("UseStartTimepoint_");
+                    NotifyPropertyChanged("Start_");
+                    NotifyPropertyChanged("CustomStart_");
                 }
             }
         }
@@ -350,41 +354,20 @@ namespace StammbaumDerVaganten
                 {
                     mainPhase.EndTimepoint_ = value;
                     NotifyPropertyChanged();
-                    NotifyPropertyChanged("UseEndTimepoint_");
-                }
-            }
-        }
-
-        //Sets start timepoint id to invalid
-        public bool UseStartTimepoint_
-        {
-            get { return mainPhase.StartTimepoint_ == Timepoint.ID_INVALID; }
-            set
-            {
-                if (value == false && UseStartTimepoint_ != value)
-                {
-                    mainPhase.StartTimepoint_ = Timepoint.ID_INVALID;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("StartTimepoint_");
-                    NotifyPropertyChanged("Start_");
-                }
-            }
-        }
-
-        //Sets end timepoint id to invalid
-        public bool UseEndTimepoint_
-        {
-            get { return mainPhase.EndTimepoint_ == Timepoint.ID_INVALID; }
-            set
-            {
-                if (value == false && UseEndTimepoint_ != value)
-                {
-                    mainPhase.EndTimepoint_ = Timepoint.ID_INVALID;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("EndTimepoint_");
                     NotifyPropertyChanged("End_");
+                    NotifyPropertyChanged("CustomEnd_");
                 }
             }
+        }
+
+        public bool CustomStart_
+        {
+            get { return mainPhase.CustomStart_; }
+        }
+
+        public bool CustomEnd_
+        {
+            get { return mainPhase.CustomEnd_; }
         }
 
         public DateTime Start_
@@ -438,6 +421,13 @@ namespace StammbaumDerVaganten
                     NotifyPropertyChanged();
                 }
             }
+        }
+        #endregion
+
+        #region FilteredTimepoints
+        public ObservableCollection<Timepoint> FilteredTimepoints
+        {
+            get { return mainPhase.FilteredTimepoints; }
         }
         #endregion
 

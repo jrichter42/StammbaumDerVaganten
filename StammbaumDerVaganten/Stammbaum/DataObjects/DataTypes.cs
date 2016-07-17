@@ -72,7 +72,7 @@ namespace StammbaumDerVaganten
         }
     }
 
-    //Objects without a history
+    //Objects without a history but with an id
     [DataContract]
     public class DataObject : DataParticle, INotifyPropertyChanged
     {
