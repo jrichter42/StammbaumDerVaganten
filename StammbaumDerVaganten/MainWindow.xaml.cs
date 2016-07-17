@@ -56,6 +56,10 @@ namespace StammbaumDerVaganten
             pfadi_grouplist.ItemsSource = vm.Groups;
             pfadi_scoutlist.ItemsSource = vm.Scouts;
             OnScoutSelectionChanged();
+
+            pfadi_basic_timepointlist.ItemsSource = vm.Timepoints;
+            pfadi_basic_grouplist.ItemsSource = vm.Groups;
+
         }
 
         private void Save(object sender, ExecutedRoutedEventArgs e)
@@ -93,7 +97,17 @@ namespace StammbaumDerVaganten
             e.NewItem = new Timepoint(true);
         }
 
+        private void pfadi_basic_timepointlist_AddingNewItem(object sender, AddingNewItemEventArgs e)
+        {
+            e.NewItem = new Timepoint(true);
+        }
+
         private void pfadi_grouplist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
+        {
+            e.NewItem = new Group(true);
+        }
+
+        private void pfadi_basic_grouplist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
             e.NewItem = new Group(true);
         }
@@ -148,6 +162,20 @@ namespace StammbaumDerVaganten
             if ((string)e.Column.Header == "Datum")
             {
                 pfadi_grouplist.ItemsSource = vm.Groups;
+                pfadi_basic_grouplist.ItemsSource = vm.Groups;
+                OnScoutSelectionChanged();
+            }
+        }
+
+        private void pfadi_basic_timepointlist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            pfadi_list_CellEditEnding(sender, e);
+
+            //Hack to make different levels of PropertyChanged update each other without resolving the acutal issue
+            if ((string)e.Column.Header == "Datum")
+            {
+                pfadi_grouplist.ItemsSource = vm.Groups;
+                pfadi_basic_grouplist.ItemsSource = vm.Groups;
                 OnScoutSelectionChanged();
             }
         }
