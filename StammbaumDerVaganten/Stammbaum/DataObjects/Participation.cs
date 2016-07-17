@@ -195,12 +195,17 @@ namespace StammbaumDerVaganten
         #endregion
 
         #region FilteredTimepoints
-        protected ObservableCollection<Timepoint> filteredTimepoints = new ObservableCollection<Timepoint>();
+        protected ObservableCollection<Timepoint> filteredTimepoints;
 
         public ObservableCollection<Timepoint> FilteredTimepoints
         {
             get
             {
+                if (filteredTimepoints == null)
+                {
+                    filteredTimepoints = new ObservableCollection<Timepoint>();
+                }
+
                 Data data = MainViewModel.ActiveData;
                 if (data != null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
                 {

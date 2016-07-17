@@ -84,6 +84,10 @@ namespace StammbaumDerVaganten
             {
                 Log.Write(Log_Level.Error, "Failed to load Database");
             }
+            else
+            {
+                Log.Write(Log_Level.Message, "Loaded Data");
+            }
         }
 
         public void Save()
@@ -92,6 +96,10 @@ namespace StammbaumDerVaganten
             if (!Database.Save())
             {
                 Log.Write(Log_Level.Error, "Failed to save Database");
+            }
+            else
+            {
+                Log.Write(Log_Level.Message, "Saved Data");
             }
         }
     }
