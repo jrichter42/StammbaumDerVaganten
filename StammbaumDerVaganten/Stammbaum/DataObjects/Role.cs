@@ -29,7 +29,7 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class Role : DataObject, INotifyPropertyChanged
+    public class Role : DataObject
     {
         protected static int NEXT_ID = 1;
 
@@ -42,18 +42,6 @@ namespace StammbaumDerVaganten
         {
             NEXT_ID = id;
         }
-
-        #region INotifyPropertyChanged
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
-        {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-            }
-        }
-        #endregion
 
         #region Serialization
         [DataMember]
@@ -89,56 +77,28 @@ namespace StammbaumDerVaganten
         protected String comment = new String();
 
         #region Accessors
-        public RoleType_Type Type
+        public RoleType Type
         {
-            get { return type.Value; }
-            set
-            {
-                if (type.Value != value)
-                {
-                    type.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return type; }
+            set { type = value; }
         }
 
-        public string CustomType
+        public String CustomType
         {
-            get { return customType.Value; }
-            set
-            {
-                if (customType.Value != value)
-                {
-                    customType.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return customType; }
+            set { customType = value; }
         }
 
-        public GroupType_Type GroupType
+        public GroupType GroupType
         {
-            get { return groupType.Value; }
-            set
-            {
-                if (groupType.Value != value)
-                {
-                    groupType.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return groupType; }
+            set { groupType = value; }
         }
 
-        public string Comment
+        public String Comment
         {
-            get { return comment.Value; }
-            set
-            {
-                if (comment.Value != value)
-                {
-                    comment.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return comment; }
+            set { comment = value; }
         }
         #endregion
 
