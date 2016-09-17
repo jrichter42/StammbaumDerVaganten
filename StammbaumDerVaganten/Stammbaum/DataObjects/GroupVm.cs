@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -95,6 +96,9 @@ namespace StammbaumDerVaganten
 
     public class GroupVm : Viewmodel<Group>
     {
+        protected GroupPhaseVm mainPhase;
+        protected ObservableCollection<GroupPhaseVm> additionalPhases;
+
         public GroupType_Type Type
         {
             get { return model.Type.Value; }
@@ -129,12 +133,13 @@ namespace StammbaumDerVaganten
             {
                 if (model.Timespan != value)
                 {
-                    mainPhase.Timespan = value;
+                    model.Timespan = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
+        #region MainPhaseVm
         public int StartTimepoint_
         {
             get { return mainPhase.StartTimepoint_; }
@@ -204,18 +209,18 @@ namespace StammbaumDerVaganten
 
         public string Comment
         {
-            get { return comment.Value; }
+            get { return model.Comment.Value; }
             set
             {
-                if (comment.Value != value)
+                if (model.Comment.Value != value)
                 {
-                    comment.Value = value;
+                    model.Comment.Value = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public ObservableCollection<GroupPhase> AdditionalPhases
+        public ObservableCollection<GroupPhaseVm> AdditionalPhases
         {
             get { return additionalPhases; }
             set
@@ -238,7 +243,16 @@ namespace StammbaumDerVaganten
 
         public GroupVm(ref Group group) : base(ref group)
         {
+            GroupPhase mainPhase = group.MainPhase;
+            this.mainPhase = new GroupPhaseVm(ref mainPhase);
 
+            additionalPhases = new ObservableCollection<GroupPhaseVm>();
+            for (int i = 0; i < group.AdditionalPhases.Count; i++)
+            {
+                GroupPhase phase = group.AdditionalPhases[i];
+                GroupPhaseVm phaseVm = new GroupPhaseVm(ref phase);
+                additionalPhases.Add(phaseVm);
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -82,125 +83,56 @@ namespace StammbaumDerVaganten
         protected String contactInfo = new String();
         protected String comment = new String();
 
-        protected ObservableCollection<Membership> memberships = new ObservableCollection<Membership>();
-        protected ObservableCollection<Activity> activities = new ObservableCollection<Activity>();
+        protected List<Membership> memberships = new List<Membership>();
+        protected List<Activity> activities = new List<Activity>();
 
         #region Accessors
-        public string Forename
+        public String Forename
         {
-            get { return forename.Value; }
-            set
-            {
-                if (forename.Value != value)
-                {
-                    forename.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return forename; }
+            set { forename = value; }
         }
 
-        public string Lastname
+        public String Lastname
         {
-            get { return lastname.Value; }
-            set
-            {
-                if (lastname.Value != value)
-                {
-                    lastname.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return lastname; }
+            set { lastname = value; }
         }
 
-        public string Scoutname
+        public String Scoutname
         {
-            get { return scoutname.Value; }
-            set
-            {
-                if (scoutname.Value != value)
-                {
-                    scoutname.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return scoutname; }
+            set { scoutname = value; }
         }
 
         public Date Birthdate
         {
             get { return birthdate; }
-            set
-            {
-                if (birthdate != value)
-                {
-                    birthdate = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            set { birthdate = value; }
         }
 
-        public DateTime Birthdate_
+        public String ContactInfo
         {
-            get { return birthdate.Value; }
-            set
-            {
-                if (birthdate.Value != value)
-                {
-                    birthdate.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return contactInfo; }
+            set { contactInfo = value; }
         }
 
-        public string ContactInfo
+        public String Comment
         {
-            get { return contactInfo.Value; }
-            set
-            {
-                if (contactInfo.Value != value)
-                {
-                    contactInfo.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            get { return comment; }
+            set { comment = value; }
         }
 
-        public string Comment
-        {
-            get { return comment.Value; }
-            set
-            {
-                if (comment.Value != value)
-                {
-                    comment.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public ObservableCollection<Membership> Memberships
+        public List<Membership> Memberships
         {
             get { return memberships; }
-            set
-            {
-                if (memberships != value)
-                {
-                    memberships = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            set { memberships = value; }
         }
 
-        public ObservableCollection<Activity> Activities
+        public List<Activity> Activities
         {
             get { return activities; }
-            set
-            {
-                if (activities != value)
-                {
-                    activities = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            set { activities = value; }
         }
         #endregion
 

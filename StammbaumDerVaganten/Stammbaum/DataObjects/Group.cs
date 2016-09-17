@@ -1,7 +1,6 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 
 namespace StammbaumDerVaganten
@@ -112,13 +111,20 @@ namespace StammbaumDerVaganten
         #endregion
 
         protected GroupPhase mainPhase = new GroupPhase();
-        protected ObservableCollection<GroupPhase> additionalPhases = new ObservableCollection<GroupPhase>();
+        protected List<GroupPhase> additionalPhases = new List<GroupPhase>();
         
         protected String name = new String();
         
         protected String comment = new String();
 
         #region Accessors
+
+        public GroupPhase MainPhase
+        {
+            get { return mainPhase; }
+            set { mainPhase = value; }  
+        }
+
         public GroupType Type
         {
             get { return mainPhase.Type; }
@@ -143,7 +149,7 @@ namespace StammbaumDerVaganten
             set { comment = value; }
         }
 
-        public ObservableCollection<GroupPhase> AdditionalPhases
+        public List<GroupPhase> AdditionalPhases
         {
             get { return additionalPhases; }
             set { additionalPhases = value; }
