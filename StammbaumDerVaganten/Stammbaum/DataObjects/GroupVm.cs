@@ -52,43 +52,112 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public bool CustomStart_
+        public bool CustomStart
         {
-            get { return model.Timespan.CustomStart_; }
+            get { return model.Timespan.StartIsCustom(); }
         }
 
-        public bool CustomEnd_
+        public bool CustomEnd
         {
-            get { return model.Timespan.CustomEnd_; }
+            get { return model.Timespan.EndIsCustom(); }
         }
 
-        public DateTime Start_
+        public DateTime Start
         {
             get { return model.Timespan.Start.Value; }
             set
             {
-                if (model.Timespan.Start_ != value)
+                if (model.Timespan.Start.Value != value)
                 {
-                    model.Timespan.Start_ = value;
+                    model.Timespan.Start.Value = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public DateTime End_
+        public DateTime End
         {
             get { return model.Timespan.End.Value; }
             set
             {
-                if (model.Timespan.End_ != value)
+                if (model.Timespan.End.Value != value)
                 {
-                    model.Timespan.End_ = value;
+                    model.Timespan.End.Value = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public GroupPhaseVm(ref GroupPhase groupPhase) : base(ref groupPhase)
+        #region FilteredTimepoints
+        protected ObservableCollection<TimepointVm> filteredTimepoints;
+
+        public ObservableCollection<TimepointVm> FilteredTimepoints
+        {
+            get
+            {
+                if (filteredTimepoints == null)
+                {
+                    filteredTimepoints = new ObservableCollection<TimepointVm>();
+                }
+
+                Data data = MainViewModel.ActiveData;
+                if (data != null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
+                {
+                    UpdateFilteredTimepoints();
+                }
+                return filteredTimepoints;
+            }
+        }
+
+        protected virtual void UpdateFilteredTimepoints()
+        {
+            filteredTimepoints.Clear();
+
+            MainViewModel vm = MainViewModel.ActiveVM;
+            if (vm == null)
+            {
+                return;
+            }
+
+            ObservableCollection<TimepointVm> timepoints = vm.Timepoints;
+            if (timepoints == null)
+            {
+                return;
+            }
+
+            foreach (TimepointVm t in timepoints)
+            {
+                filteredTimepoints.Add(t);
+            }
+
+            //Sort by date, youngest timepoint first
+            int newIdx;
+            for (int i = 1; i < filteredTimepoints.Count; i++)
+            {
+                newIdx = i - 1;
+                //Quit if our year is already smaller or equal to the year before us
+                if (filteredTimepoints[i].Date.Year <= filteredTimepoints[newIdx].Date.Year)
+                {
+                    continue;
+                }
+                while (newIdx > 0 && filteredTimepoints[i].Date.Year > filteredTimepoints[newIdx - 1].Date.Year)
+                {
+                    newIdx--;
+                }
+                filteredTimepoints.Move(i, newIdx);
+            }
+
+            //Insert reset item
+            filteredTimepoints.Insert(0, TimepointVm.INVALID);
+        }
+        #endregion
+
+        public GroupPhaseVm() : base()
+        {
+
+        }
+
+        public GroupPhaseVm(GroupPhase groupPhase) : base(groupPhase)
         {
 
         }
@@ -98,6 +167,11 @@ namespace StammbaumDerVaganten
     {
         protected GroupPhaseVm mainPhase;
         protected ObservableCollection<GroupPhaseVm> additionalPhases;
+
+        public int ID
+        {
+            get { return model.ID; }
+        }
 
         public GroupType_Type Type
         {
@@ -125,22 +199,8 @@ namespace StammbaumDerVaganten
             }
         }
 
-        #region Timespan
-        public Timespan Timespan
-        {
-            get { return model.Timespan; }
-            set
-            {
-                if (model.Timespan != value)
-                {
-                    model.Timespan = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
         #region MainPhaseVm
-        public int StartTimepoint_
+        public int StartTimepoint
         {
             get { return mainPhase.StartTimepoint_; }
             set
@@ -155,7 +215,7 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public int EndTimepoint_
+        public int EndTimepoint
         {
             get { return mainPhase.EndTimepoint_; }
             set
@@ -170,37 +230,37 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public bool CustomStart_
+        public bool CustomStart
         {
-            get { return mainPhase.CustomStart_; }
+            get { return mainPhase.CustomStart; }
         }
 
-        public bool CustomEnd_
+        public bool CustomEnd
         {
-            get { return mainPhase.CustomEnd_; }
+            get { return mainPhase.CustomEnd; }
         }
 
-        public DateTime Start_
+        public DateTime Start
         {
-            get { return mainPhase.Start_; }
+            get { return mainPhase.Start; }
             set
             {
-                if (mainPhase.Start_ != value)
+                if (mainPhase.Start != value)
                 {
-                    mainPhase.Start_ = value;
+                    mainPhase.Start = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public DateTime End_
+        public DateTime End
         {
-            get { return mainPhase.End_; }
+            get { return mainPhase.End; }
             set
             {
-                if (mainPhase.End_ != value)
+                if (mainPhase.End != value)
                 {
-                    mainPhase.End_ = value;
+                    mainPhase.End = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -234,25 +294,41 @@ namespace StammbaumDerVaganten
         }
 
         #region FilteredTimepoints
-        public ObservableCollection<Timepoint> FilteredTimepoints
+        public ObservableCollection<TimepointVm> FilteredTimepoints
         {
-            get { return model.MainPhase.FilteredTimepoints; }
+            get { return mainPhase.FilteredTimepoints; }
         }
         #endregion
 
-
-        public GroupVm(ref Group group) : base(ref group)
+        public GroupVm() : base()
         {
-            GroupPhase mainPhase = group.MainPhase;
-            this.mainPhase = new GroupPhaseVm(ref mainPhase);
+
+        }
+
+        public GroupVm(ref Group group) : base(group)
+        {
+            
+        }
+
+        protected override void AfterSetModel()
+        {
+            base.AfterSetModel();
+
+            GroupPhase mainPhase = model.MainPhase;
+            this.mainPhase = new GroupPhaseVm(mainPhase);
 
             additionalPhases = new ObservableCollection<GroupPhaseVm>();
-            for (int i = 0; i < group.AdditionalPhases.Count; i++)
+            for (int i = 0; i < model.AdditionalPhases.Count; i++)
             {
-                GroupPhase phase = group.AdditionalPhases[i];
-                GroupPhaseVm phaseVm = new GroupPhaseVm(ref phase);
+                GroupPhase phase = model.AdditionalPhases[i];
+                GroupPhaseVm phaseVm = new GroupPhaseVm(phase);
                 additionalPhases.Add(phaseVm);
             }
+        }
+
+        protected static new Group CreateModelInternal()
+        {
+            return new Group(true);
         }
     }
 }

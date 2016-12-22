@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.Serialization;
 
@@ -65,7 +64,7 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class Group : DataObject, INotifyPropertyChanged
+    public class Group : DataObject
     {
         public static int NEXT_ID = 1;
 
@@ -89,7 +88,7 @@ namespace StammbaumDerVaganten
         }
 
         [DataMember]
-        public ObservableCollection<GroupPhase> _AP
+        public List<GroupPhase> _AP
         {
             get { return additionalPhases; }
             set { additionalPhases = value; }
@@ -118,7 +117,6 @@ namespace StammbaumDerVaganten
         protected String comment = new String();
 
         #region Accessors
-
         public GroupPhase MainPhase
         {
             get { return mainPhase; }

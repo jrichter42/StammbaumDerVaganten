@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace StammbaumDerVaganten
 {
@@ -116,21 +112,32 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public ScoutVm(ref Scout scout) : base(ref scout)
+        public ScoutVm() : base()
         {
+
+        }
+
+        public ScoutVm(Scout scout) : base(scout)
+        {
+            
+        }
+
+        protected override void AfterSetModel()
+        {
+            base.AfterSetModel();
+
             memberships = new ObservableCollection<MembershipVm>();
-            for (int i = 0; i < scout.Memberships.Count; i++)
+            for (int i = 0; i < model.Memberships.Count; i++)
             {
-                Membership membership = scout.Memberships [i];
-                MembershipVm membershipVm = new MembershipVm(ref membership);
+                Membership membership = model.Memberships[i];
+                MembershipVm membershipVm = new MembershipVm(membership);
                 memberships.Add(membershipVm);
             }
 
             activities = new ObservableCollection<ActivityVm>();
-            for (int i = 0; i < scout.Activities.Count; i++)
+            for (int i = 0; i < model.Activities.Count; i++)
             {
-                Activity activity = scout.Activities[i];
-                ActivityVm activityVm = new ActivityVm(ref activity);
+                ActivityVm activityVm = new ActivityVm(model.Activities[i]);
                 activities.Add(activityVm);
             }
         }

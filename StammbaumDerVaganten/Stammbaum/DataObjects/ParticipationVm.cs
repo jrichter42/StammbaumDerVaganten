@@ -5,9 +5,9 @@ using System.Runtime.CompilerServices;
 namespace StammbaumDerVaganten
 {
 
-    public class ParticipationVm<T> : Viewmodel<T> where T : Participation
+    public class ParticipationVm<T> : Viewmodel<T> where T : Participation, new()
     {
-        public int StartTimepoint_
+        public int StartTimepoint
         {
             get { return model.Timespan.StartTimepoint; }
             set
@@ -21,7 +21,7 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public int EndTimepoint_
+        public int EndTimepoint
         {
             get { return model.Timespan.EndTimepoint; }
             set
@@ -35,37 +35,37 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public bool CustomStart_
+        public bool CustomStart
         {
-            get { return model.Timespan.CustomStart_; }
+            get { return model.Timespan.StartIsCustom(); }
         }
 
-        public bool CustomEnd_
+        public bool CustomEnd
         {
-            get { return model.Timespan.CustomEnd_; }
+            get { return model.Timespan.EndIsCustom(); }
         }
 
-        public DateTime Start_
+        public DateTime Start
         {
             get { return model.Timespan.Start.Value; }
             set
             {
-                if (model.Timespan.Start_ != value)
+                if (model.Timespan.Start.Value != value)
                 {
-                    model.Timespan.Start_ = value;
+                    model.Timespan.Start.Value = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public DateTime End_
+        public DateTime End
         {
             get { return model.Timespan.End.Value; }
             set
             {
-                if (model.Timespan.End_ != value)
+                if (model.Timespan.End.Value != value)
                 {
-                    model.Timespan.End_ = value;
+                    model.Timespan.End.Value = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -86,9 +86,9 @@ namespace StammbaumDerVaganten
 
 
         #region FilteredGroups
-        protected ObservableCollection<Group> filteredGroups;
+        protected ObservableCollection<GroupVm> filteredGroups;
 
-        public ObservableCollection<Group> FilteredGroups
+        public ObservableCollection<GroupVm> FilteredGroups
         {
             get
             {
@@ -101,7 +101,7 @@ namespace StammbaumDerVaganten
         {
             if (filteredGroups == null)
             {
-                filteredGroups = new ObservableCollection<Group>();
+                filteredGroups = new ObservableCollection<GroupVm>();
             }
 
             filteredGroups.Clear();
@@ -112,13 +112,13 @@ namespace StammbaumDerVaganten
                 return;
             }
 
-            ObservableCollection<Group> groups = vm.Groups;
+            ObservableCollection<GroupVm> groups = vm.Groups;
             if (groups == null)
             {
                 return;
             }
 
-            foreach (Group g in groups)
+            foreach (GroupVm g in groups)
             {
                 if (g.Type != GroupType_Type.None)
                 {
@@ -132,11 +132,11 @@ namespace StammbaumDerVaganten
             {
                 newIdx = i - 1;
                 //Quit if our year is already smaller or equal to the year before us
-                if (groups[i].Timespan.Start.Year <= groups[newIdx].Timespan.Start.Year)
+                if (groups[i].Start.Year <= groups[newIdx].Start.Year)
                 {
                     continue;
                 }
-                while (newIdx > 0 && groups[i].Timespan.Start.Year > groups[newIdx - 1].Timespan.Start.Year)
+                while (newIdx > 0 && groups[i].Start.Year > groups[newIdx - 1].Start.Year)
                 {
                     newIdx--;
                 }
@@ -146,15 +146,15 @@ namespace StammbaumDerVaganten
         #endregion
 
         #region FilteredTimepoints
-        protected ObservableCollection<Timepoint> filteredTimepoints;
+        protected ObservableCollection<TimepointVm> filteredTimepoints;
 
-        public ObservableCollection<Timepoint> FilteredTimepoints
+        public ObservableCollection<TimepointVm> FilteredTimepoints
         {
             get
             {
                 if (filteredTimepoints == null)
                 {
-                    filteredTimepoints = new ObservableCollection<Timepoint>();
+                    filteredTimepoints = new ObservableCollection<TimepointVm>();
                 }
 
                 Data data = MainViewModel.ActiveData;
@@ -176,15 +176,15 @@ namespace StammbaumDerVaganten
                 return;
             }
 
-            ObservableCollection<Timepoint> timepoints = vm.Timepoints;
+            ObservableCollection<TimepointVm> timepoints = vm.Timepoints;
             if (timepoints == null)
             {
                 return;
             }
 
-            foreach (Timepoint t in timepoints)
+            foreach (TimepointVm t in timepoints)
             {
-                if (t.Date_ >= model.Timespan.Start_ && t.Date_ <= model.Timespan.End_)
+                if (t.Date >= Start && t.Date <= End)
                 {
                     filteredTimepoints.Add(t);
                 }
@@ -208,11 +208,16 @@ namespace StammbaumDerVaganten
             }
 
             //Insert reset item
-            filteredTimepoints.Insert(0, Timepoint.INVALID);
+            filteredTimepoints.Insert(0, TimepointVm.INVALID);
         }
         #endregion
 
-        public ParticipationVm(ref T participation) : base(ref participation)
+        public ParticipationVm() : base()
+        {
+
+        }
+
+        public ParticipationVm(T participation) : base(participation)
         {
 
         }
@@ -220,8 +225,12 @@ namespace StammbaumDerVaganten
 
     public class MembershipVm : ParticipationVm<Membership>
     {
+        public MembershipVm() : base()
+        {
 
-        public MembershipVm(ref Membership membership) : base(ref membership)
+        }
+
+        public MembershipVm(Membership membership) : base(membership)
         {
 
         }
@@ -249,6 +258,7 @@ namespace StammbaumDerVaganten
             {
                 NotifyPropertyChanged("FilteredRoles");
             }
+            //Not needed because its called on ourselve, not on our base class
             /*else if (propertyName == "Roles")
             {
                 NotifyPropertyChanged("FilteredGroups");
@@ -263,7 +273,7 @@ namespace StammbaumDerVaganten
         {
             if (filteredGroups == null)
             {
-                filteredGroups = new ObservableCollection<Group>();
+                filteredGroups = new ObservableCollection<GroupVm>();
             }
 
             filteredGroups.Clear();
@@ -274,7 +284,7 @@ namespace StammbaumDerVaganten
                 return;
             }
 
-            ObservableCollection<Group> groups = vm.Groups;
+            ObservableCollection<GroupVm> groups = vm.Groups;
             if (groups == null)
             {
                 return;
@@ -294,7 +304,7 @@ namespace StammbaumDerVaganten
                 }
             }
 
-            foreach (Group g in groups)
+            foreach (GroupVm g in groups)
             {
                 if (groupTypeFilter == GroupType_Type.None
                     || g.Type == groupTypeFilter
@@ -305,9 +315,9 @@ namespace StammbaumDerVaganten
             }
         }
 
-        protected ObservableCollection<Role> filteredRoles;
+        protected ObservableCollection<RoleVm> filteredRoles;
 
-        public ObservableCollection<Role> FilteredRoles
+        public ObservableCollection<RoleVm> FilteredRoles
         {
             get
             {
@@ -319,7 +329,7 @@ namespace StammbaumDerVaganten
         {
             if (filteredRoles == null)
             {
-                filteredRoles = new ObservableCollection<Role>();
+                filteredRoles = new ObservableCollection<RoleVm>();
             }
 
             filteredRoles.Clear();
@@ -330,7 +340,7 @@ namespace StammbaumDerVaganten
                 return;
             }
 
-            ObservableCollection<Role> roles = vm.Roles;
+            ObservableCollection<RoleVm> roles = vm.Roles;
             if (roles == null)
             {
                 return;
@@ -350,7 +360,7 @@ namespace StammbaumDerVaganten
                 }
             }*/
 
-            foreach (Role r in roles)
+            foreach (RoleVm r in roles)
             {
                 /*if (groupTypeFilter == GroupType_Type.None || r.GroupType == groupTypeFilter)
                 {*/
@@ -360,7 +370,12 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        public ActivityVm(ref Activity activity) : base(ref activity)
+        public ActivityVm() : base()
+        {
+
+        }
+
+        public ActivityVm(Activity activity) : base(activity)
         {
 
         }

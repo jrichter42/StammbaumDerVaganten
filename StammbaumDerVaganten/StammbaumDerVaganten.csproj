@@ -89,10 +89,45 @@
     <Compile Include="Stammbaum\DataObjects\ParticipationVm.cs" />
     <Compile Include="Stammbaum\DataObjects\RoleVm.cs" />
     <Compile Include="Stammbaum\DataObjects\ScoutVm.cs" />
-    <Compile Include="Stammbaum\DataObjects\TimeTypes.cs" />
+    <Compile Include="Stammbaum\DataObjects\Timepoint.cs" />
+    <Compile Include="Stammbaum\DataObjects\TimepointVm.cs" />
+    <Compile Include="Stammbaum\DataObjects\Timespan.cs" />
     <Compile Include="Stammbaum\Log.cs" />
     <Compile Include="Stammbaum\Serializer.cs" />
     <Compile Include="Stammbaum\Viewmodel.cs" />
+    <Compile Include="UserControls\Lists\ActivityList.xaml.cs">
+      <DependentUpon>ActivityList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Lists\BasicGroupList.xaml.cs">
+      <DependentUpon>BasicGroupList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Lists\BasicTimepointList.xaml.cs">
+      <DependentUpon>BasicTimepointList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Lists\GroupList.xaml.cs">
+      <DependentUpon>GroupList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Lists\MembershipList.xaml.cs">
+      <DependentUpon>MembershipList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Lists\RoleList.xaml.cs">
+      <DependentUpon>RoleList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Lists\ScoutList.xaml.cs">
+      <DependentUpon>ScoutList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Lists\TimepointList.xaml.cs">
+      <DependentUpon>TimepointList.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\LogExpander.xaml.cs">
+      <DependentUpon>LogExpander.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Tabs\AdvancedTab.xaml.cs">
+      <DependentUpon>AdvancedTab.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\Tabs\BasicTab.xaml.cs">
+      <DependentUpon>BasicTab.xaml</DependentUpon>
+    </Compile>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -116,6 +151,50 @@
     <Page Include="Resources\IconsNonShared.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="UserControls\Lists\ActivityList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Lists\BasicGroupList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Lists\BasicTimepointList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Lists\GroupList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Lists\MembershipList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Lists\RoleList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Lists\ScoutList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Lists\TimepointList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\LogExpander.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Tabs\AdvancedTab.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UserControls\Tabs\BasicTab.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
   <ItemGroup>

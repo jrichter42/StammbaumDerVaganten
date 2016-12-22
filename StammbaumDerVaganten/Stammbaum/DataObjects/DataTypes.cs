@@ -26,20 +26,8 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class DataParticle : INotifyPropertyChanged
+    public class DataParticle
     {
-        #region INotifyPropertyChanged
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
-        {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-            }
-        }
-        #endregion
-
         #region Serialization
         [DataMember]
         public CertaintyLevel _CL
@@ -47,7 +35,7 @@ namespace StammbaumDerVaganten
             get { return certainty; }
             set { certainty = value; }
         }
-    #endregion
+        #endregion
 
         protected CertaintyLevel certainty;
 
@@ -55,14 +43,7 @@ namespace StammbaumDerVaganten
         public CertaintyLevel Certainty
         {
             get { return certainty; }
-            set
-            {
-                if (certainty != value)
-                {
-                    certainty = value;
-                    NotifyPropertyChanged();
-                }
-            }
+            set { certainty = value; }
         }
         #endregion
 
@@ -74,7 +55,7 @@ namespace StammbaumDerVaganten
 
     //Objects without a history but with an id
     [DataContract]
-    public class DataObject : DataParticle, INotifyPropertyChanged
+    public class DataObject : DataParticle
     {
         public static readonly int ID_INVALID = -1;
 
@@ -92,18 +73,6 @@ namespace StammbaumDerVaganten
         {
             SetNEXTID(Math.Max(id + 1, GetNEXTID()));
         }
-
-        #region INotifyPropertyChanged
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
-        {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-            }
-        }
-        #endregion
 
         #region Serialization
         [DataMember]
@@ -126,7 +95,6 @@ namespace StammbaumDerVaganten
                 {
                     id = value;
                     UpdateNEXTID();
-                    NotifyPropertyChanged();
                 }
             }
         }
@@ -228,20 +196,8 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class Date : DataPiece<DateTime>, INotifyPropertyChanged
+    public class Date : DataPiece<DateTime>
     {
-        #region INotifyPropertyChanged
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
-        {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-            }
-        }
-        #endregion
-
         public const int VALUE_INVALID = 0;
         protected const int DEFAULT_VALUE = 1;
         protected const int DEFAULT_VALUE_YEAR = 2000;
@@ -255,7 +211,6 @@ namespace StammbaumDerVaganten
                 if (Value.Year != value)
                 {
                     Value = Value.AddYears(value - Value.Year);
-                    NotifyPropertyChanged();
                 }
             }
         }
@@ -268,7 +223,6 @@ namespace StammbaumDerVaganten
                 if (Value.Month != value)
                 {
                     Value = Value.AddMonths(value - Value.Month);
-                    NotifyPropertyChanged();
                 }
             }
         }
@@ -281,7 +235,6 @@ namespace StammbaumDerVaganten
                 if (Value.Day != value)
                 {
                     Value = Value.AddDays(value - Value.Day);
-                    NotifyPropertyChanged();
                 }
             }
         }
@@ -315,6 +268,10 @@ namespace StammbaumDerVaganten
         public String() : base()
         {
             _value = "";
+        }
+
+        public String(string initValue) : base(initValue)
+        {
         }
     }
 }

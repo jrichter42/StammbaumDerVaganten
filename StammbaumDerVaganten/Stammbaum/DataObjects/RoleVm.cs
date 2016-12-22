@@ -60,9 +60,19 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public RoleVm(ref Role role) : base(ref role)
+        public RoleVm() : base()
         {
 
+        }
+
+        public RoleVm(Role role) : base(role)
+        {
+
+        }
+
+        protected static new Role CreateModelInternal()
+        {
+            return new Role(true);
         }
     }
 }

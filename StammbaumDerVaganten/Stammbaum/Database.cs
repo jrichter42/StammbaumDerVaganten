@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Runtime.Serialization;
 
 namespace StammbaumDerVaganten
@@ -9,42 +8,42 @@ namespace StammbaumDerVaganten
     {
         #region Serialization
         [DataMember]
-        public ObservableCollection<Scout> _SCOUTS
+        public List<Scout> _SCOUTS
         {
             get { return Scouts; }
             set { Scouts = value; }
         }
         [DataMember]
-        public ObservableCollection<Group> _GROUPS
+        public List<Group> _GROUPS
         {
             get { return Groups; }
             set { Groups = value; }
         }
         [DataMember]
-        public ObservableCollection<Role> _ROLES
+        public List<Role> _ROLES
         {
             get { return Roles; }
             set { Roles = value; }
         }
         [DataMember]
-        public ObservableCollection<Timepoint> _TIMEPOINTS
+        public List<Timepoint> _TIMEPOINTS
         {
             get { return Timepoints; }
             set { Timepoints = value; }
         }
         #endregion
 
-        public ObservableCollection<Scout> Scouts;
-        public ObservableCollection<Group> Groups;
-        public ObservableCollection<Role> Roles;
-        public ObservableCollection<Timepoint> Timepoints;
+        public List<Scout> Scouts;
+        public List<Group> Groups;
+        public List<Role> Roles;
+        public List<Timepoint> Timepoints;
 
         public Data()
         {
-            Scouts = new ObservableCollection<Scout>();
-            Groups = new ObservableCollection<Group>();
-            Roles = new ObservableCollection<Role>();
-            Timepoints = new ObservableCollection<Timepoint>();
+            Scouts = new List<Scout>();
+            Groups = new List<Group>();
+            Roles = new List<Role>();
+            Timepoints = new List<Timepoint>();
         }
 
         #region GetStuffByID

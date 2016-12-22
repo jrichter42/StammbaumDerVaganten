@@ -1,28 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 
 namespace StammbaumDerVaganten
 {
 
     [DataContract]
-    public class Scout : DataParticle, INotifyPropertyChanged
+    public class Scout : DataParticle
     {
-        #region INotifyPropertyChanged
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
-        {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-            }
-        }
-        #endregion
-
         #region Serialization
         [DataMember]
         public String _FN
@@ -61,13 +47,13 @@ namespace StammbaumDerVaganten
             set { comment = value; }
         }
         [DataMember]
-        public ObservableCollection<Membership> _M
+        public List<Membership> _M
         {
             get { return memberships; }
             set { memberships = value; }
         }
         [DataMember]
-        public ObservableCollection<Activity> _A
+        public List<Activity> _A
         {
             get { return activities; }
             set { activities = value; }
@@ -144,7 +130,6 @@ namespace StammbaumDerVaganten
         #region Retrieve Memberships and Activities
         public Membership GetFirstMembershipByGroup(Group group)
         {
-            ObservableCollection<Membership> result = new ObservableCollection<Membership>();
             foreach (Membership ms in memberships)
             {
                 if (ms.Group == group)
@@ -167,9 +152,9 @@ namespace StammbaumDerVaganten
             return null;
         }
 
-        public ObservableCollection<Membership> GetMembershipsInGroup(Group group)
+        public List<Membership> GetMembershipsInGroup(Group group)
         {
-            ObservableCollection<Membership> result = new ObservableCollection<Membership>();
+            List<Membership> result = new List<Membership>();
             foreach (Membership ms in memberships)
             {
                 if (ms.Group == group)
@@ -180,9 +165,9 @@ namespace StammbaumDerVaganten
             return result;
         }
 
-        public ObservableCollection<Activity> GetActivitiesInGroup(Group group)
+        public List<Activity> GetActivitiesInGroup(Group group)
         {
-            ObservableCollection<Activity> result = new ObservableCollection<Activity>();
+            List<Activity> result = new List<Activity>();
             foreach (Activity a in activities)
             {
                 if (a.Group == group)
@@ -193,6 +178,5 @@ namespace StammbaumDerVaganten
             return result;
         }
         #endregion
-
     }
 }

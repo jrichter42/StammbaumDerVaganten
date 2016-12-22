@@ -17,36 +17,16 @@ namespace StammbaumDerVaganten
             InitializeComponent();
             vm = (MainViewModel)DataContext;
             MainViewModel.ActiveVM = vm;
+
             Load(this, null);
+
             if (Keyboard.PrimaryDevice.IsKeyDown(Key.Escape))
             {
                 Application.Current.Shutdown();
             }
-            pfadi_log.ItemsSource = Log.History;
-
-            Log.EntryAdded += HandleLogEntryAdded;
-            HandleLogEntryAdded(this.ToString(), Log.HistoryTop);
         }
 
-        private void HandleLogEntryAdded(string author, string entry)
-        {
-            if (pfadi_logexpander == null)
-            {
-                return;
-            }
-
-            TextBlock text = (TextBlock)pfadi_logexpander.Header;
-            if (text == null)
-            {
-                return;
-            }
-
-            if (pfadi_logexpander.IsExpanded)
-            {
-                text.Text = "Log";
-            }
-            text.Text = entry;
-        }
+       
 
         private void Load(object sender, ExecutedRoutedEventArgs e)
         {
@@ -54,7 +34,8 @@ namespace StammbaumDerVaganten
             pfadi_rolelist.ItemsSource = vm.Roles;
             pfadi_timepointlist.ItemsSource = vm.Timepoints;
             pfadi_grouplist.ItemsSource = vm.Groups;
-            pfadi_scoutlist.ItemsSource = vm.Scouts;
+
+            advanced_scoutlist.pfadi_scoutlist.ItemsSource = vm.Scouts;
             OnScoutSelectionChanged();
 
             pfadi_basic_timepointlist.ItemsSource = vm.Timepoints;
@@ -69,47 +50,37 @@ namespace StammbaumDerVaganten
 
         private void OnScoutSelectionChanged()
         {
-            int idx = pfadi_scoutlist.SelectedIndex;
-            if (idx == -1 || vm.Scouts == null || idx >= vm.Scouts.Count)
-            {
-                pfadi_membershiplist.ItemsSource = null;
-                pfadi_activitylist.ItemsSource = null;
-                vm.FlushMemberActivityLists();
-                return;
-            }
-            Scout scout = vm.Scouts[idx];
-            if (scout != null)
-            {
-                vm.Memberships = scout.Memberships;
-                vm.Activities = scout.Activities;
-            }
+            /*ScoutVm scout = GetSelectedScout();
+
+            vm.RebuildSelectedScoutViewmodels(scout);
+
             pfadi_membershiplist.ItemsSource = vm.Memberships;
-            pfadi_activitylist.ItemsSource = vm.Activities;
+            pfadi_activitylist.ItemsSource = vm.Activities;*/
         }
 
         private void pfadi_rolelist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
         {
-            e.NewItem = new Role(true);
+            e.NewItem = vm.CreateRole();
         }
 
         private void pfadi_timepointlist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
         {
-            e.NewItem = new Timepoint(true);
+            e.NewItem = vm.CreateTimepoint();
         }
 
         private void pfadi_basic_timepointlist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = new Timepoint(true);
+            e.NewItem = vm.CreateTimepoint();
         }
 
         private void pfadi_grouplist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
         {
-            e.NewItem = new Group(true);
+            e.NewItem = vm.CreateGroup();
         }
 
         private void pfadi_basic_grouplist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = new Group(true);
+            e.NewItem = vm.CreateGroup();
         }
 
         private void pfadi_additionalphaseslist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
@@ -119,17 +90,17 @@ namespace StammbaumDerVaganten
 
         private void pfadi_scoutlist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
         {
-            e.NewItem = new Scout();
+            e.NewItem = vm.CreateScout();
         }
 
         private void pfadi_membershiplist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
         {
-            e.NewItem = new Membership();
+            //e.NewItem = vm.CreateMembership(GetSelectedScout());
         }
 
         private void pfadi_activitylist_AddingNewItem(object sender, System.Windows.Controls.AddingNewItemEventArgs e)
         {
-            e.NewItem = new Activity();
+            //e.NewItem = vm.CreateActivity(GetSelectedScout());
         }
 
         private void pfadi_scoutlist_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -158,7 +129,7 @@ namespace StammbaumDerVaganten
         {
             pfadi_list_CellEditEnding(sender, e);
 
-            //Hack to make different levels of PropertyChanged update each other without resolving the acutal issue
+            //Hack to make different levels of PropertyChanged update each other without resolving the actual issue
             if ((string)e.Column.Header == "Datum")
             {
                 pfadi_grouplist.ItemsSource = vm.Groups;
@@ -171,7 +142,7 @@ namespace StammbaumDerVaganten
         {
             pfadi_list_CellEditEnding(sender, e);
 
-            //Hack to make different levels of PropertyChanged update each other without resolving the acutal issue
+            //Hack to make different levels of PropertyChanged update each other without resolving the actual issue
             if ((string)e.Column.Header == "Datum")
             {
                 pfadi_grouplist.ItemsSource = vm.Groups;
