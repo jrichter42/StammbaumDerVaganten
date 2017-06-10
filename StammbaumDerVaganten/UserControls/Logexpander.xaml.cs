@@ -23,7 +23,6 @@ namespace StammbaumDerVaganten
         public LogExpander()
         {
             InitializeComponent();
-
             pfadi_log.ItemsSource = Log.History;
             Log.EntryAdded += HandleLogEntryAdded;
             HandleLogEntryAdded(this.ToString(), Log.HistoryTop);

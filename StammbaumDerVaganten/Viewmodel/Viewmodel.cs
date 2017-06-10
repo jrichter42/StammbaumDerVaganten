@@ -60,11 +60,11 @@ namespace StammbaumDerVaganten
             return new T();
         }
 
-        //Needed to reduce duplicated code for creating viewmodel with object and inserting it into database and viewmodel collections at the same time
-        public static Viewmodel<T> Create<TVm>(List<T> databaseList, ObservableCollection<TVm> viewmodelCollection) where TVm : Viewmodel<T>, new()
+        //Needed to reduce duplicated code for creating viewmodel with object and inserting it into data and viewmodel collections at the same time
+        public static Viewmodel<T> Create<TVm>(List<T> dataList, ObservableCollection<TVm> viewmodelCollection) where TVm : Viewmodel<T>, new()
         {
             T model = CreateModelInternal();
-            databaseList.Add(model);
+            dataList.Add(model);
             TVm vm = new TVm();
             vm.SetModel(model);
             viewmodelCollection.Add(vm);

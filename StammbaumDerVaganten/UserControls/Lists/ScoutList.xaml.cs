@@ -20,16 +20,25 @@ namespace StammbaumDerVaganten
     /// </summary>
     public partial class Scoutlist : UserControl
     {
+        protected ScoutVm selectedScout;
+
+        public ScoutVm SelectedScout
+        {
+            get { return selectedScout; }
+            set { selectedScout = value; }
+        }
+
         public Scoutlist()
         {
             InitializeComponent();
+            pfadi_scoutlist.ItemsSource = MainViewmodel.ActiveVm.Scouts;
         }
-
+        
         private ScoutVm GetSelectedScout()
         {
             ScoutVm scout = null;
 
-            MainViewModel vm = MainViewModel.ActiveVM;
+            MainViewmodel vm = MainViewmodel.ActiveVm;
 
             int idx = pfadi_scoutlist.SelectedIndex;
             if (vm != null && vm.Scouts != null && idx != -1 && vm.Scouts != null && idx < vm.Scouts.Count)
@@ -40,24 +49,31 @@ namespace StammbaumDerVaganten
             return scout;
         }
 
+        private void OnSelectedScoutChanged()
+        {
+            ScoutVm scout = GetSelectedScout();
+            //pfadi_membershiplist.Scout = scout;
+            //pfadi_activitylist.Scout = scout;
+        }
+
         private void pfadi_scoutlist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-
+            e.NewItem = MainViewmodel.ActiveVm.CreateScout();
         }
 
         private void pfadi_scoutlist_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-
+            OnSelectedScoutChanged();
         }
 
         private void pfadi_scoutlist_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-
+            OnSelectedScoutChanged();
         }
 
-        private void pfadi_list_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        private void pfadi_scoutlist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
-
+            ListHelper.DataGrid_CellEditEnding(sender, e);
         }
     }
 }

@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:StammbaumDerVaganten"
-             mc:Ignorable="d" 
+             mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="600">
     <UserControl.Resources>
         <ObjectDataProvider x:Key="GroupTypes" MethodName="GetValues" ObjectType="{x:Type local:GroupType_Type}">
@@ -13,7 +13,7 @@
             </ObjectDataProvider.MethodParameters>
         </ObjectDataProvider>
     </UserControl.Resources>
-    <DataGrid x:Name="pfadi_basic_grouplist" ItemsSource="{Binding Groups}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_basic_grouplist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_list_CellEditEnding">
+    <DataGrid x:Name="pfadi_basic_grouplist" ItemsSource="{Binding Groups}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_basic_grouplist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_basic_grouplist_CellEditEnding">
         <DataGrid.Columns>
             <!--Typ-->
             <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>
@@ -53,7 +53,7 @@
                 <Border BorderThickness="5" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" Padding="5">
                     <DockPanel>
                         <TextBlock Text="Gruppenmitglieder" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                        <DataGrid x:Name="pfadi_additionalphaseslist" ItemsSource="{Binding AdditionalPhases}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_additionalphaseslist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_list_CellEditEnding">
+                        <DataGrid x:Name="pfadi_additionalphaseslist" ItemsSource="{Binding AdditionalPhases}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_additionalphaseslist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_additionalphaseslist_CellEditEnding">
                             <DataGrid.Columns>
                                 <!---ID-->
                                 <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>

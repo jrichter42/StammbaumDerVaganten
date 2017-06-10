@@ -77,7 +77,6 @@
             </DockPanel>
             <GridSplitter Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AccentColorBrush}" Height="4" ResizeBehavior="PreviousAndNext"/>
             <!--___RIGHT BOTTOM___-->
-            
         </Grid>
     </Grid>
 </UserControl>

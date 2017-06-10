@@ -141,5 +141,15 @@ namespace StammbaumDerVaganten
                 activities.Add(activityVm);
             }
         }
+
+        public ActivityVm CreateActivity()
+        {
+            return ActivityVm.Create(model.Activities, activities) as ActivityVm;
+        }
+
+        public MembershipVm CreateMembership()
+        {
+            return MembershipVm.Create(model.Memberships, memberships) as MembershipVm;
+        }
     }
 }

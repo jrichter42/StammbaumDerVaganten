@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,21 +9,29 @@ using System.Windows;
 
 namespace StammbaumDerVaganten
 {
-    public class MainViewModel
+    public class MainViewmodel
     {
-        public static MainViewModel ActiveVM = null;
+        public static MainViewmodel ActiveVm = null;
 
         public static Data ActiveData
         {
             get
             {
-                if (ActiveVM == null || ActiveVM.Database == null)
+                if (ActiveVm == null || ActiveVm.Database == null)
                 {
                     return null;
                 }
 
-                return ActiveVM.Database.Data;
+                return ActiveVm.Database.Data;
             }
+        }
+
+        //Cast DataContext to MainViewModel with sanity checks
+        public static MainViewmodel Cast(object dataContext)
+        {
+            MainViewmodel vm = dataContext as MainViewmodel;
+            Debug.Assert(vm != null);
+            return vm;
         }
 
         public Database Database;
@@ -31,9 +40,7 @@ namespace StammbaumDerVaganten
         protected ObservableCollection<GroupVm> groups;
         protected ObservableCollection<RoleVm> roles;
         protected ObservableCollection<TimepointVm> timepoints;
-        /*protected ObservableCollection<MembershipVm> selectedMemberships;
-        protected ObservableCollection<ActivityVm> selectedActivities;
-        protected ObservableCollection<GroupPhaseVm> selectedGroupPhases;*/
+        //protected ObservableCollection<GroupPhaseVm> selectedGroupPhases;
 
         public ObservableCollection<ScoutVm> Scouts
         {
@@ -79,39 +86,7 @@ namespace StammbaumDerVaganten
             return TimepointVm.Create(Database.Data.Timepoints, timepoints) as TimepointVm;
         }
 
-        /*public ObservableCollection<MembershipVm> Memberships
-        {
-            get { return selectedMemberships; }
-            set { selectedMemberships = value; }
-        }
-
-        public MembershipVm CreateMembership(ScoutVm selectedScout)
-        {
-            if (selectedScout == null)
-            {
-                return null;
-            }
-            List<Membership> dataList = selectedScout.Model.Memberships;
-            return MembershipVm.Create(dataList, selectedMemberships) as MembershipVm;
-        }
-
-        public ObservableCollection<ActivityVm> Activities
-        {
-            get { return selectedActivities; }
-            set { selectedActivities = value; }
-        }
-
-        public ActivityVm CreateActivity(ScoutVm selectedScout)
-        {
-            if (selectedScout == null)
-            {
-                return null;
-            }
-            List<Activity> dataList = selectedScout.Model.Activities;
-            return ActivityVm.Create(dataList, selectedActivities) as ActivityVm;
-        }
-
-        public ObservableCollection<GroupPhaseVm> GroupPhases
+        /*public ObservableCollection<GroupPhaseVm> GroupPhases
         {
             get { return selectedGroupPhases; }
             set { selectedGroupPhases = value; }
@@ -126,7 +101,7 @@ namespace StammbaumDerVaganten
             return GroupPhaseVm.Create(selectedGroup.Model.AdditionalPhases, selectedGroup.AdditionalPhases) as GroupPhaseVm;
         }*/
 
-        public MainViewModel()
+        public MainViewmodel()
         {
             Database = new Database();
             RebuildViewmodels();
@@ -143,6 +118,8 @@ namespace StammbaumDerVaganten
             {
                 Log.Write(Log_Level.Message, "Loaded Data");
             }
+
+            RebuildViewmodels();
         }
 
         public void Save()
@@ -156,6 +133,14 @@ namespace StammbaumDerVaganten
             {
                 Log.Write(Log_Level.Message, "Saved Data");
             }
+        }
+
+        public void RebuildViewmodels()
+        {
+            RebuildViewmodelCollection(Database.Data.Scouts, scouts);
+            RebuildViewmodelCollection(Database.Data.Groups, groups);
+            RebuildViewmodelCollection(Database.Data.Roles, roles);
+            RebuildViewmodelCollection(Database.Data.Timepoints, timepoints);
         }
 
         private void RebuildViewmodelCollection<T, VmT>(List<T> models, ObservableCollection<VmT> viewmodelCollection) where T : new() where VmT : Viewmodel<T>, new()
@@ -177,24 +162,5 @@ namespace StammbaumDerVaganten
                 viewmodelCollection.Add(viewmodel);
             }
         }
-
-        public void RebuildViewmodels()
-        {
-            RebuildViewmodelCollection(Database.Data.Scouts, scouts);
-            RebuildViewmodelCollection(Database.Data.Groups, groups);
-            RebuildViewmodelCollection(Database.Data.Roles, roles);
-            RebuildViewmodelCollection(Database.Data.Timepoints, timepoints);
-        }
-
-        /*public void RebuildSelectedScoutViewmodels(ScoutVm scout)
-        {
-            Memberships = null;
-            Activities = null;
-            if (scout != null)
-            {
-                Memberships = scout.Memberships;
-                Activities = scout.Activities;
-            }
-        }*/
     }
 }

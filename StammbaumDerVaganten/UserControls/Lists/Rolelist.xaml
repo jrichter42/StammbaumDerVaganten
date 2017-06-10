@@ -18,7 +18,7 @@
             </ObjectDataProvider.MethodParameters>
         </ObjectDataProvider>
     </UserControl.Resources>
-    <DataGrid x:Name="pfadi_rolelist" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight" AddingNewItem="pfadi_rolelist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_list_CellEditEnding">
+    <DataGrid x:Name="pfadi_rolelist" ItemsSource="{Binding Roles}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight" AddingNewItem="pfadi_rolelist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_rolelist_CellEditEnding">
         <DataGrid.Columns>
             <DataGridTextColumn Header="ID" Binding="{Binding ID}" IsReadOnly="True"/>
             <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource RoleTypes}}" SelectedItemBinding="{Binding Type}"/>

@@ -106,7 +106,7 @@ namespace StammbaumDerVaganten
 
             filteredGroups.Clear();
 
-            MainViewModel vm = MainViewModel.ActiveVM;
+            MainViewmodel vm = MainViewmodel.ActiveVm;
             if (vm == null)
             {
                 return;
@@ -157,7 +157,7 @@ namespace StammbaumDerVaganten
                     filteredTimepoints = new ObservableCollection<TimepointVm>();
                 }
 
-                Data data = MainViewModel.ActiveData;
+                Data data = MainViewmodel.ActiveData;
                 if (data != null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
                 {
                     UpdateFilteredTimepoints();
@@ -170,7 +170,7 @@ namespace StammbaumDerVaganten
         {
             filteredTimepoints.Clear();
 
-            MainViewModel vm = MainViewModel.ActiveVM;
+            MainViewmodel vm = MainViewmodel.ActiveVm;
             if (vm == null)
             {
                 return;
@@ -278,7 +278,7 @@ namespace StammbaumDerVaganten
 
             filteredGroups.Clear();
 
-            MainViewModel vm = MainViewModel.ActiveVM;
+            MainViewmodel vm = MainViewmodel.ActiveVm;
             if (vm == null)
             {
                 return;
@@ -293,7 +293,7 @@ namespace StammbaumDerVaganten
             GroupType_Type groupTypeFilter = GroupType_Type.None;
             if (model.Role != StammbaumDerVaganten.Role.ID_INVALID)
             {
-                Data data = MainViewModel.ActiveData;
+                Data data = MainViewmodel.ActiveData;
                 if (data != null)
                 {
                     Role r = data.GetRoleByID(model.Role);
@@ -334,7 +334,7 @@ namespace StammbaumDerVaganten
 
             filteredRoles.Clear();
 
-            MainViewModel vm = MainViewModel.ActiveVM;
+            MainViewmodel vm = MainViewmodel.ActiveVm;
             if (vm == null)
             {
                 return;

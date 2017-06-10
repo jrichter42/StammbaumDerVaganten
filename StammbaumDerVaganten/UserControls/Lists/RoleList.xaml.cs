@@ -23,16 +23,17 @@ namespace StammbaumDerVaganten
         public Rolelist()
         {
             InitializeComponent();
+            pfadi_rolelist.ItemsSource = MainViewmodel.ActiveVm.Roles;
         }
 
         private void pfadi_rolelist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-
+            e.NewItem = MainViewmodel.ActiveVm.CreateRole();
         }
 
-        private void pfadi_list_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        private void pfadi_rolelist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
-
+            ListHelper.DataGrid_CellEditEnding(sender, e);
         }
     }
 }

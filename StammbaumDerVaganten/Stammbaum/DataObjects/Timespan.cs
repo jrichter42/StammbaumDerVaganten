@@ -69,7 +69,7 @@ namespace StammbaumDerVaganten
             {
                 if (!StartIsCustom())
                 {
-                    Data data = MainViewModel.ActiveData;
+                    Data data = MainViewmodel.ActiveData;
                     if (data != null)
                     {
                         Timepoint tp = data.GetTimepointyID(startTimepoint);
@@ -85,7 +85,7 @@ namespace StammbaumDerVaganten
             {
                 if (!StartIsCustom())
                 {
-                    Data data = MainViewModel.ActiveData;
+                    Data data = MainViewmodel.ActiveData;
                     if (data != null)
                     {
                         Timepoint tp = data.GetTimepointyID(startTimepoint);
@@ -108,7 +108,7 @@ namespace StammbaumDerVaganten
             {
                 if (!EndIsCustom())
                 {
-                    Data data = MainViewModel.ActiveData;
+                    Data data = MainViewmodel.ActiveData;
                     if (data != null)
                     {
                         Timepoint tp = data.GetTimepointyID(endTimepoint);
@@ -124,7 +124,7 @@ namespace StammbaumDerVaganten
             {
                 if (!EndIsCustom())
                 {
-                    Data data = MainViewModel.ActiveData;
+                    Data data = MainViewmodel.ActiveData;
                     if (data != null)
                     {
                         Timepoint tp = data.GetTimepointyID(endTimepoint);

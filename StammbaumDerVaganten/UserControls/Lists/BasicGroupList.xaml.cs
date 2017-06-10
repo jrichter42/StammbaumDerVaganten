@@ -23,21 +23,27 @@ namespace StammbaumDerVaganten
         public BasicGroupList()
         {
             InitializeComponent();
+            pfadi_basic_grouplist.ItemsSource = MainViewmodel.ActiveVm.Groups;
         }
 
         private void pfadi_basic_grouplist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-
+            e.NewItem = MainViewmodel.ActiveVm.CreateGroup();
         }
 
-        private void pfadi_list_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        private void pfadi_basic_grouplist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
-
+            ListHelper.DataGrid_CellEditEnding(sender, e);
         }
 
         private void pfadi_additionalphaseslist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
 
+        }
+
+        private void pfadi_additionalphaseslist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            ListHelper.DataGrid_CellEditEnding(sender, e);
         }
     }
 }

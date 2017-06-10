@@ -5,17 +5,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:StammbaumDerVaganten"
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
-        xmlns:uc="clr-namespace:StammbaumDerVaganten.UserControls"
+        xmlns:uc="clr-namespace:StammbaumDerVaganten"
         mc:Ignorable="d"
         Title="Stammbaum der Vaganten" Height="1000" Width="1920"
         TitleCaps="False"
         BorderBrush="{DynamicResource AccentColorBrush}"
         BorderThickness="1"
         WindowStartupLocation="CenterScreen" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" WindowState="Maximized">
-    <!--DataContext-->
-    <Controls:MetroWindow.DataContext>
-        <local:MainViewModel/>
-    </Controls:MetroWindow.DataContext>
     <!--Commands-->
     <Controls:MetroWindow.CommandBindings>
         <CommandBinding Command="ApplicationCommands.Open" Executed="Load"/>

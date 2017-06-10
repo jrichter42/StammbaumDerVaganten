@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:StammbaumDerVaganten"
              mc:Ignorable="d" 
-             d:DesignHeight="300" d:DesignWidth="300">
+             d:DesignHeight="720" d:DesignWidth="1280">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition/>
@@ -26,11 +26,16 @@
                 <local:BasicTimepointList />
             </Expander>
             <!--GRUPPEN-->
-            <DockPanel Grid.Row="0" Grid.Column="0">
+            <DockPanel DockPanel.Dock="Top">
                 <TextBlock Text="Gruppen" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
                 <local:BasicGroupList />
             </DockPanel>
         </DockPanel>
+        <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Background="{DynamicResource AccentColorBrush}" Width="4" ResizeBehavior="PreviousAndNext"/>
         <!--___RIGHT___-->
+        <DockPanel Grid.Row="0" Grid.Column="2">
+            <!--VISUALISIERUNG-->
+            <TextBlock Text="Visualisierung" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </DockPanel>
     </Grid>
 </UserControl>

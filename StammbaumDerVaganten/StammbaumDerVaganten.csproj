@@ -84,17 +84,17 @@
     </ApplicationDefinition>
     <Compile Include="Stammbaum\Database.cs" />
     <Compile Include="Stammbaum\DataObjects\DataTypes.cs" />
-    <Compile Include="Stammbaum\DataObjects\GroupVm.cs" />
+    <Compile Include="Viewmodel\GroupVm.cs" />
     <Compile Include="Stammbaum\DataObjects\Participation.cs" />
-    <Compile Include="Stammbaum\DataObjects\ParticipationVm.cs" />
-    <Compile Include="Stammbaum\DataObjects\RoleVm.cs" />
-    <Compile Include="Stammbaum\DataObjects\ScoutVm.cs" />
+    <Compile Include="Viewmodel\ParticipationVm.cs" />
+    <Compile Include="Viewmodel\RoleVm.cs" />
+    <Compile Include="Viewmodel\ScoutVm.cs" />
     <Compile Include="Stammbaum\DataObjects\Timepoint.cs" />
-    <Compile Include="Stammbaum\DataObjects\TimepointVm.cs" />
+    <Compile Include="Viewmodel\TimepointVm.cs" />
     <Compile Include="Stammbaum\DataObjects\Timespan.cs" />
     <Compile Include="Stammbaum\Log.cs" />
     <Compile Include="Stammbaum\Serializer.cs" />
-    <Compile Include="Stammbaum\Viewmodel.cs" />
+    <Compile Include="Viewmodel\Viewmodel.cs" />
     <Compile Include="UserControls\Lists\ActivityList.xaml.cs">
       <DependentUpon>ActivityList.xaml</DependentUpon>
     </Compile>
@@ -107,6 +107,7 @@
     <Compile Include="UserControls\Lists\GroupList.xaml.cs">
       <DependentUpon>GroupList.xaml</DependentUpon>
     </Compile>
+    <Compile Include="UserControls\Lists\ListHelper.cs" />
     <Compile Include="UserControls\Lists\MembershipList.xaml.cs">
       <DependentUpon>MembershipList.xaml</DependentUpon>
     </Compile>
@@ -139,7 +140,7 @@
     <Compile Include="Stammbaum\DataObjects\Group.cs" />
     <Compile Include="Stammbaum\DataObjects\Role.cs" />
     <Compile Include="Stammbaum\FileManager.cs" />
-    <Compile Include="MainViewModel.cs" />
+    <Compile Include="Viewmodel\MainViewmodel.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>

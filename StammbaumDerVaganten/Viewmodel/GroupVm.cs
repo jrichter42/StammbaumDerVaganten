@@ -100,7 +100,7 @@ namespace StammbaumDerVaganten
                     filteredTimepoints = new ObservableCollection<TimepointVm>();
                 }
 
-                Data data = MainViewModel.ActiveData;
+                Data data = MainViewmodel.ActiveData;
                 if (data != null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
                 {
                     UpdateFilteredTimepoints();
@@ -113,7 +113,7 @@ namespace StammbaumDerVaganten
         {
             filteredTimepoints.Clear();
 
-            MainViewModel vm = MainViewModel.ActiveVM;
+            MainViewmodel vm = MainViewmodel.ActiveVm;
             if (vm == null)
             {
                 return;

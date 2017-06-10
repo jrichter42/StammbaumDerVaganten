@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:StammbaumDerVaganten"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="600">
-    <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_scoutlist_AddingNewItem"  DataContextChanged="pfadi_scoutlist_DataContextChanged" SelectionChanged="pfadi_scoutlist_SelectionChanged" SelectionMode="Single" CellEditEnding="pfadi_list_CellEditEnding">
+    <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_scoutlist_AddingNewItem"  DataContextChanged="pfadi_scoutlist_DataContextChanged" SelectionChanged="pfadi_scoutlist_SelectionChanged" SelectionMode="Single" CellEditEnding="pfadi_scoutlist_CellEditEnding">
         <DataGrid.Columns>
             <!--Pfadiname-->      
             <DataGridTextColumn Header="Pfadiname" Binding="{Binding Scoutname}"/>
@@ -36,13 +36,13 @@
                         <!--MITGLIEDSCHAFTEN-->
                         <DockPanel Grid.Row="0" Grid.Column="0">
                             <TextBlock Text="Mitgliedschaften" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                            <local:Membershiplist />
+                            <local:Membershiplist x:Name="pfadi_membershiplist" />
                         </DockPanel>
                         <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Background="{DynamicResource AccentColorBrush}" Width="4" ResizeBehavior="PreviousAndNext"/>
                         <!--AKTIVITÄTEN-->
                         <DockPanel Grid.Row="0" Grid.Column="3" >
                             <TextBlock Text="Aktivitäten" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                            <local:Activitylist />
+                            <local:Activitylist x:Name="pfadi_activitylist" />
                         </DockPanel>
                     </Grid>
                 </Border>
