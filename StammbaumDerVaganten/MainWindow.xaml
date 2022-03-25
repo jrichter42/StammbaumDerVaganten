@@ -61,7 +61,7 @@
             </Button>
         </Controls:WindowCommands>
     </Controls:MetroWindow.RightWindowCommands>
-    <!--___MASTER___-->
+    <!--___MAIN___-->
     <TabControl>
         <!--___BASIC___-->
         <TabItem Header="Basic">
