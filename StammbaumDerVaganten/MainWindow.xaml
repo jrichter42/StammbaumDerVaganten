@@ -10,7 +10,7 @@
         TitleCaps="False"
         BorderBrush="{DynamicResource AccentColorBrush}"
         BorderThickness="1"
-        WindowStartupLocation="CenterScreen" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" WindowState="Maximized">
+        WindowStartupLocation="CenterScreen" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" WindowState="Normal">
     <!--Commands-->
     <Controls:MetroWindow.CommandBindings>
         <CommandBinding Command="ApplicationCommands.Open" Executed="Load"/>
