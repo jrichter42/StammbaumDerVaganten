@@ -98,7 +98,7 @@ namespace StammbaumDerVaganten
             }
             catch (Exception e)
             {
-                Log.Write(e);
+                Log.Global.Write(e);
                 return false;
             }
             return true;
@@ -126,7 +126,7 @@ namespace StammbaumDerVaganten
             }
             catch(Exception e)
             {
-                Log.Write(e);
+                Log.Global.Write(e);
                 return false;
             }
             return true;
@@ -155,7 +155,7 @@ namespace StammbaumDerVaganten
             }
             catch (Exception e)
             {
-                Log.Write(e);
+                Log.Global.Write(e);
                 return false;
             }
             return true;

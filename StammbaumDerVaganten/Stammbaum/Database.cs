@@ -6,57 +6,47 @@ namespace StammbaumDerVaganten
     [DataContract]
     public class Data
     {
-        #region Serialization
-        [DataMember]
-        public List<Scout> _SCOUTS
-        {
-            get { return Scouts; }
-            set { Scouts = value; }
-        }
-        [DataMember]
-        public List<Group> _GROUPS
-        {
-            get { return Groups; }
-            set { Groups = value; }
-        }
-        [DataMember]
-        public List<Role> _ROLES
-        {
-            get { return Roles; }
-            set { Roles = value; }
-        }
-        [DataMember]
-        public List<Timepoint> _TIMEPOINTS
-        {
-            get { return Timepoints; }
-            set { Timepoints = value; }
-        }
-        #endregion
-
-        public List<Scout> Scouts;
-        public List<Group> Groups;
-        public List<Role> Roles;
-        public List<Timepoint> Timepoints;
+        [DataMember(Name = "_SCOUTS")]
+        public List<Scout> Scouts { get; set; } = new List<Scout>();
+        [DataMember(Name = "_GROUPS")]
+        public List<Group> Groups { get; set; } = new List<Group>();
+        [DataMember(Name = "_ROLES")]
+        public List<Role> Roles { get; set; } = new List<Role>();
+        [DataMember(Name = "_TIMEPOINTS")]
+        public List<Timepoint> Timepoints { get; set; } = new List<Timepoint>();
 
         public Data()
-        {
-            Scouts = new List<Scout>();
-            Groups = new List<Group>();
-            Roles = new List<Role>();
-            Timepoints = new List<Timepoint>();
-        }
+        { }
 
         #region GetStuffByID
-        public Group GetGroupByID(int groupID)
+        public Scout GetObjectFromReference(Reference<Scout> scoutRef)
         {
-            if (groupID == Group.ID_INVALID)
+            if (!scoutRef.IsValid())
+            {
+                return null;
+            }
+
+            foreach (Scout s in Scouts)
+            {
+                if (s.Reference == scoutRef)
+                {
+                    return s;
+                }
+            }
+
+            return null;
+        }
+
+        public Group GetObjectFromReference(Reference<Group> groupRef)
+        {
+            if (!groupRef.IsValid())
             {
                 return null;
             }
 
             foreach (Group g in Groups)
             {
-                if (g.ID == groupID)
+                if (g.Reference == groupRef)
                 {
                     return g;
                 }
@@ -65,16 +55,16 @@ namespace StammbaumDerVaganten
             return null;
         }
 
-        public Role GetRoleByID(int roleID)
+        public Role GetObjectFromReference(Reference<Role> roleRef)
         {
-            if (roleID == Role.ID_INVALID)
+            if (!roleRef.IsValid())
             {
                 return null;
             }
 
             foreach (Role r in Roles)
             {
-                if (r.ID == roleID)
+                if (r.Reference == roleRef)
                 {
                     return r;
                 }
@@ -83,16 +73,16 @@ namespace StammbaumDerVaganten
             return null;
         }
 
-        public Timepoint GetTimepointyID(int timepointID)
+        public Timepoint GetObjectFromReference(Reference<Timepoint> timepointRef)
         {
-            if (timepointID == Timepoint.ID_INVALID)
+            if (!timepointRef.IsValid())
             {
                 return null;
             }
 
             foreach (Timepoint t in Timepoints)
             {
-                if (t.ID == timepointID)
+                if (t.Reference == timepointRef)
                 {
                     return t;
                 }
@@ -106,10 +96,6 @@ namespace StammbaumDerVaganten
     public class Database
     {
         public Data Data;
-
-        public Dictionary<int, Group> GroupIDMap;
-        public Dictionary<int, Role> RoleIDMap;
-        public Dictionary<int, Timepoint> TimepointIDMap;
 
         public Database()
         {

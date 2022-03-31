@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:StammbaumDerVaganten"
+             d:DataContext="{d:DesignInstance Type=local:MainViewmodel}"
              mc:Ignorable="d" 
              d:DesignHeight="720" d:DesignWidth="1280">
     <Grid>
@@ -23,14 +24,14 @@
                 <Expander.Header>
                     <TextBlock Text="Rollen" FontSize="14" FlowDirection="LeftToRight"/>
                 </Expander.Header>
-                <local:Rolelist />
+                <local:RoleList DataContext="{Binding .}" />
             </Expander>
             <!--ZEITPUNKTE-->
             <Expander DockPanel.Dock="Top" BorderThickness="0" Padding="0" Background="{Binding Background, RelativeSource={RelativeSource Self}}" FlowDirection="RightToLeft">
                 <Expander.Header>
                     <TextBlock Text="Zeitpunkte" FontSize="14" FlowDirection="LeftToRight"/>
                 </Expander.Header>
-                <local:Timepointlist />
+                <local:TimepointList DataContext="{Binding .}" />
             </Expander>
             <!--___LEFT MIDDLE BOTTOM___-->
             <Grid DockPanel.Dock="Top">
@@ -46,14 +47,14 @@
                 <!--GRUPPEN-->
                 <DockPanel Grid.Row="0" Grid.Column="0">
                     <TextBlock Text="Gruppen" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                    <local:Grouplist x:Name="advanced_grouplist"/>
+                    <local:GroupList x:Name="advanced_grouplist" DataContext="{Binding .}"/>
                 </DockPanel>
                 <GridSplitter Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Stretch" Background="{DynamicResource AccentColorBrush}" Height="4" ResizeBehavior="PreviousAndNext"/>
                 <!--___LEFT BOTTOM___-->
                 <!--PFADFINDER-->
                 <DockPanel Grid.Row="2" Grid.Column="0">
                     <TextBlock Text="Pfadfinder" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                    <local:Scoutlist x:Name="advanced_scoutlist"/>
+                    <local:ScoutList x:Name="advanced_scoutlist" DataContext="{Binding .}"/>
                 </DockPanel>
             </Grid>
         </DockPanel>
@@ -71,7 +72,12 @@
             <!--___RIGHT TOP___-->
             <DockPanel Grid.Row="0" Grid.Column="0">
                 <!--LOG-->
-                <local:LogExpander />
+                <Expander DockPanel.Dock="Top" IsExpanded="True" BorderThickness="0" Padding="0" Background="{Binding Background, RelativeSource={RelativeSource Self}}" FlowDirection="RightToLeft">
+                    <Expander.Header>
+                        <TextBlock Text="Log"  FontSize="14" FlowDirection="LeftToRight"/>
+                    </Expander.Header>
+                    <local:LogList DataContext="{Binding GlobalLog}"/>
+                </Expander>
                 <!--VISUALISIERUNG-->
                 <TextBlock Text="Visualisierung" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </DockPanel>

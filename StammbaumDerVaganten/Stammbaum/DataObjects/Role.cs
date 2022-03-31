@@ -1,8 +1,10 @@
-﻿using System.Runtime.Serialization;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.Serialization;
 
 namespace StammbaumDerVaganten
 {
-    public enum RoleType_Type
+    public enum RoleType
     {
         None,
         Custom,
@@ -12,7 +14,7 @@ namespace StammbaumDerVaganten
         StellvKassenwart,
         Handkasse,
         Meutenfuehrung,
-        Meutenassi,
+        Meutenassistenz,
         Rudelfuehrung,
         Sippenfuehrung,
         Gildensprecher,
@@ -21,108 +23,48 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class RoleType : DataPiece<RoleType_Type>
+    public class Role : Referenceable<Role>
     {
+        [DataMember(Name = "_T")]
+        public VersionedData<RoleType> Type { get; set; } = new VersionedData<RoleType>();
+        [DataMember(Name = "_CT")]
+        public VersionedData<string> CustomType { get; set; } = new VersionedData<string>(); //If Type set to "Custom"
+        [DataMember(Name = "_GT")]
+        public VersionedData<GroupType> GroupType { get; set; } = new VersionedData<GroupType>(); //This role can be held on Groups of this type, if set to custom: includes all custom types
 
-    }
+        [DataMember(Name = "_C")]
+        public VersionedData<string> Comment { get; set; } = new VersionedData<string>();
 
-    [DataContract]
-    public class Role : DataObject
-    {
-        protected static int NEXT_ID = 1;
+        public Role()
+        { }
 
-        protected override int GetNEXTID()
+        public Role(Database context, bool claimID)
+            : base(context, claimID)
+        { }
+
+        public Role(Database context, bool claimID, RoleType type, GroupType groupType, string comment = "")
+            : this(context, claimID, type, "", groupType, comment)
         {
-            return NEXT_ID;
+            Debug.Assert(type != RoleType.Custom);
         }
 
-        protected override void SetNEXTID(int id)
+        public Role(Database context, bool claimID, RoleType type, string customType, GroupType groupType, string comment = "")
+            : this(context, claimID)
         {
-            NEXT_ID = id;
-        }
-
-        #region Serialization
-        [DataMember]
-        public RoleType _T
-        {
-            get { return type; }
-            set { type = value; }
-        }
-        [DataMember]
-        public String _CT
-        {
-            get { return customType; }
-            set { customType = value; }
-        }
-        [DataMember]
-        public GroupType _GT
-        {
-            get { return groupType; }
-            set { groupType = value; }
-        }
-        [DataMember]
-        public String _C
-        {
-            get { return comment; }
-            set { comment = value; }
-        }
-        #endregion
-
-        protected RoleType type = new RoleType();
-        protected String customType = new String(); //If Type set to "Custom"
-        protected GroupType groupType = new GroupType(); //This role can be held on Groups of this type
-
-        protected String comment = new String();
-
-        #region Accessors
-        public RoleType Type
-        {
-            get { return type; }
-            set { type = value; }
-        }
-
-        public String CustomType
-        {
-            get { return customType; }
-            set { customType = value; }
-        }
-
-        public GroupType GroupType
-        {
-            get { return groupType; }
-            set { groupType = value; }
-        }
-
-        public String Comment
-        {
-            get { return comment; }
-            set { comment = value; }
-        }
-        #endregion
-
-        public Role() : base()
-        {
-            type.Init(RoleType_Type.None);
-        }
-
-        public Role(bool claimID) : base(claimID)
-        {
-
+            Type.OverwriteLatestValue(type);
+            CustomType.OverwriteLatestValue(customType);
+            GroupType.OverwriteLatestValue(groupType);
+            Comment.OverwriteLatestValue(comment);
         }
 
         public override string ToString()
         {
-            string typeString = type.Value.ToString();
-            if (type.Value == RoleType_Type.Custom)
+            string typeString = Type.Latest.ToString();
+            if (Type.Latest == RoleType.Custom)
             {
-                typeString = customType.Value;
+                typeString = CustomType.Latest;
             }
-            return typeString + " [" + id.ToString() + "]";
-        }
-
-        public string ToString_
-        {
-            get { return ToString(); }
+            return typeString + " [" + reference.ToString() + "]";
         }
     }
 }

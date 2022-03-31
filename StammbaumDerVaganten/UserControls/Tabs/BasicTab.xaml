@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:StammbaumDerVaganten"
+             d:DataContext="{d:DesignInstance Type=local:MainViewmodel}"
              mc:Ignorable="d" 
              d:DesignHeight="720" d:DesignWidth="1280">
     <Grid>
@@ -23,12 +24,12 @@
                 <Expander.Header>
                     <TextBlock Text="Zeitpunkte" FontSize="14" FlowDirection="LeftToRight"/>
                 </Expander.Header>
-                <local:BasicTimepointList />
+                <local:BasicTimepointList DataContext="{Binding .}" />
             </Expander>
             <!--GRUPPEN-->
             <DockPanel DockPanel.Dock="Top">
                 <TextBlock Text="Gruppen" DockPanel.Dock="Top" FontSize="14" Margin="5"/>
-                <local:BasicGroupList />
+                <local:BasicGroupList DataContext="{Binding .}" />
             </DockPanel>
         </DockPanel>
         <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Background="{DynamicResource AccentColorBrush}" Width="4" ResizeBehavior="PreviousAndNext"/>

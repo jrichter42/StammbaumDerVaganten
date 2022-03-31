@@ -87,6 +87,7 @@
     <Compile Include="Stammbaum\DataObjects\DataTypes.cs" />
     <Compile Include="Viewmodel\GroupVm.cs" />
     <Compile Include="Stammbaum\DataObjects\Participation.cs" />
+    <Compile Include="Viewmodel\LogVm.cs" />
     <Compile Include="Viewmodel\ParticipationVm.cs" />
     <Compile Include="Viewmodel\RoleVm.cs" />
     <Compile Include="Viewmodel\ScoutVm.cs" />
@@ -95,6 +96,7 @@
     <Compile Include="Stammbaum\DataObjects\Timespan.cs" />
     <Compile Include="Stammbaum\Log.cs" />
     <Compile Include="Stammbaum\Serializer.cs" />
+    <Compile Include="Viewmodel\TimespanVm.cs" />
     <Compile Include="Viewmodel\Viewmodel.cs" />
     <Compile Include="UserControls\Lists\ActivityList.xaml.cs">
       <DependentUpon>ActivityList.xaml</DependentUpon>
@@ -121,8 +123,8 @@
     <Compile Include="UserControls\Lists\TimepointList.xaml.cs">
       <DependentUpon>TimepointList.xaml</DependentUpon>
     </Compile>
-    <Compile Include="UserControls\LogExpander.xaml.cs">
-      <DependentUpon>LogExpander.xaml</DependentUpon>
+    <Compile Include="UserControls\Lists\LogList.xaml.cs">
+      <DependentUpon>LogList.xaml</DependentUpon>
     </Compile>
     <Compile Include="UserControls\Tabs\AdvancedTab.xaml.cs">
       <DependentUpon>AdvancedTab.xaml</DependentUpon>
@@ -186,7 +188,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="UserControls\LogExpander.xaml">
+    <Page Include="UserControls\Lists\LogList.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

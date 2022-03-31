@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,80 +10,42 @@ namespace StammbaumDerVaganten
 {
     public class GroupPhaseVm : Viewmodel<GroupPhase>
     {
-        public GroupType_Type Type
+        public GroupType Type
         {
-            get { return model.Type.Value; }
+            get { return model.Type.Latest; }
             set
             {
-                if (model.Type.Value != value)
+                if (model.Type.Latest != value)
                 {
-                    model.Type.Value = value;
+                    model.Type.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public int StartTimepoint_
+        public string CustomType
         {
-            get { return model.Timespan.StartTimepoint; }
+            get { return model.CustomType.Latest; }
             set
             {
-                if (model.Timespan.StartTimepoint != value)
+                if (model.CustomType.Latest != value)
                 {
-                    model.Timespan.StartTimepoint = value;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("Start_");
-                    NotifyPropertyChanged("CustomStart_");
-                }
-            }
-        }
-
-        public int EndTimepoint_
-        {
-            get { return model.Timespan.EndTimepoint; }
-            set
-            {
-                if (model.Timespan.EndTimepoint != value)
-                {
-                    model.Timespan.EndTimepoint = value;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("End_");
-                    NotifyPropertyChanged("CustomEnd_");
-                }
-            }
-        }
-
-        public bool CustomStart
-        {
-            get { return model.Timespan.StartIsCustom(); }
-        }
-
-        public bool CustomEnd
-        {
-            get { return model.Timespan.EndIsCustom(); }
-        }
-
-        public DateTime Start
-        {
-            get { return model.Timespan.Start.Value; }
-            set
-            {
-                if (model.Timespan.Start.Value != value)
-                {
-                    model.Timespan.Start.Value = value;
+                    model.CustomType.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public DateTime End
+        protected TimespanVm timespanVm;
+        public TimespanVm Timespan
         {
-            get { return model.Timespan.End.Value; }
+            get { return timespanVm; }
             set
             {
-                if (model.Timespan.End.Value != value)
+                if (timespanVm != value)
                 {
-                    model.Timespan.End.Value = value;
+                    timespanVm = value;
+                    model.Timespan = timespanVm.Model;
                     NotifyPropertyChanged();
                 }
             }
@@ -152,129 +115,55 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        public GroupPhaseVm() : base()
+        public GroupPhaseVm()
+        { }
+
+        public GroupPhaseVm(GroupPhase groupPhase)
+            : base(groupPhase)
         {
-
-        }
-
-        public GroupPhaseVm(GroupPhase groupPhase) : base(groupPhase)
-        {
-
+            timespanVm = new TimespanVm(groupPhase.Timespan);
         }
     }
 
-    public class GroupVm : Viewmodel<Group>
+    public class GroupVm : ViewmodelOfReferenceable<Group>
     {
         protected GroupPhaseVm mainPhase;
         protected ObservableCollection<GroupPhaseVm> additionalPhases;
 
-        public int ID
-        {
-            get { return model.ID; }
-        }
-
-        public GroupType_Type Type
-        {
-            get { return model.Type.Value; }
-            set
-            {
-                if (model.Type.Value != value)
-                {
-                    model.Type.Value = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
         public string Name
         {
-            get { return model.Name.Value; }
+            get { return model.Name.Latest; }
             set
             {
-                if (model.Name.Value != value)
+                if (model.Name.Latest != value)
                 {
-                    model.Name.Value = value;
+                    model.Name.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
         }
-
-        #region MainPhaseVm
-        public int StartTimepoint
-        {
-            get { return mainPhase.StartTimepoint_; }
-            set
-            {
-                if (mainPhase.StartTimepoint_ != value)
-                {
-                    mainPhase.StartTimepoint_ = value;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("Start_");
-                    NotifyPropertyChanged("CustomStart_");
-                }
-            }
-        }
-
-        public int EndTimepoint
-        {
-            get { return mainPhase.EndTimepoint_; }
-            set
-            {
-                if (mainPhase.EndTimepoint_ != value)
-                {
-                    mainPhase.EndTimepoint_ = value;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("End_");
-                    NotifyPropertyChanged("CustomEnd_");
-                }
-            }
-        }
-
-        public bool CustomStart
-        {
-            get { return mainPhase.CustomStart; }
-        }
-
-        public bool CustomEnd
-        {
-            get { return mainPhase.CustomEnd; }
-        }
-
-        public DateTime Start
-        {
-            get { return mainPhase.Start; }
-            set
-            {
-                if (mainPhase.Start != value)
-                {
-                    mainPhase.Start = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
-        public DateTime End
-        {
-            get { return mainPhase.End; }
-            set
-            {
-                if (mainPhase.End != value)
-                {
-                    mainPhase.End = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-        #endregion
 
         public string Comment
         {
-            get { return model.Comment.Value; }
+            get { return model.Comment.Latest; }
             set
             {
-                if (model.Comment.Value != value)
+                if (model.Comment.Latest != value)
                 {
-                    model.Comment.Value = value;
+                    model.Comment.Latest = value;
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        public GroupPhaseVm MainPhase
+        {
+            get { return mainPhase; }
+            set
+            {
+                if (mainPhase != value)
+                {
+                    mainPhase = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -300,15 +189,12 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        public GroupVm() : base()
-        {
+        public GroupVm()
+        { }
 
-        }
-
-        public GroupVm(ref Group group) : base(group)
-        {
-            
-        }
+        public GroupVm(Group group)
+            : base(group)
+        { }
 
         protected override void AfterSetModel()
         {
@@ -324,11 +210,6 @@ namespace StammbaumDerVaganten
                 GroupPhaseVm phaseVm = new GroupPhaseVm(phase);
                 additionalPhases.Add(phaseVm);
             }
-        }
-
-        protected static new Group CreateModelInternal()
-        {
-            return new Group(true);
         }
     }
 }

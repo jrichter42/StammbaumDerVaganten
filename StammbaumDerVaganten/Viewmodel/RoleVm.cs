@@ -6,16 +6,16 @@ using System.Threading.Tasks;
 
 namespace StammbaumDerVaganten
 {
-    public class RoleVm : Viewmodel<Role>
+    public class RoleVm : ViewmodelOfReferenceable<Role>
     {
-        public RoleType_Type Type
+        public RoleType Type
         {
-            get { return model.Type.Value; }
+            get { return model.Type.Latest; }
             set
             {
-                if (model.Type.Value != value)
+                if (model.Type.Latest != value)
                 {
-                    model.Type.Value = value;
+                    model.Type.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -23,25 +23,25 @@ namespace StammbaumDerVaganten
 
         public string CustomType
         {
-            get { return model.CustomType.Value; }
+            get { return model.CustomType.Latest; }
             set
             {
-                if (model.CustomType.Value != value)
+                if (model.CustomType.Latest != value)
                 {
-                    model.CustomType.Value = value;
+                    model.CustomType.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public GroupType_Type GroupType
+        public GroupType GroupType
         {
-            get { return model.GroupType.Value; }
+            get { return model.GroupType.Latest; }
             set
             {
-                if (model.GroupType.Value != value)
+                if (model.GroupType.Latest != value)
                 {
-                    model.GroupType.Value = value;
+                    model.GroupType.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -49,30 +49,22 @@ namespace StammbaumDerVaganten
 
         public string Comment
         {
-            get { return model.Comment.Value; }
+            get { return model.Comment.Latest; }
             set
             {
-                if (model.Comment.Value != value)
+                if (model.Comment.Latest != value)
                 {
-                    model.Comment.Value = value;
+                    model.Comment.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public RoleVm() : base()
-        {
+        public RoleVm()
+        { }
 
-        }
-
-        public RoleVm(Role role) : base(role)
-        {
-
-        }
-
-        protected static new Role CreateModelInternal()
-        {
-            return new Role(true);
-        }
+        public RoleVm(Role role)
+            : base(role)
+        { }
     }
 }

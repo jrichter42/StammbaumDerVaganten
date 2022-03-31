@@ -1,12 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.Serialization;
 
 namespace StammbaumDerVaganten
 {
-    public enum GroupType_Type
+    public enum GroupType
     {
         None,
+        Custom,
         Stamm,
         Meute,
         Rudel,
@@ -17,171 +19,66 @@ namespace StammbaumDerVaganten
     }
 
     [DataContract]
-    public class GroupType : DataPiece<GroupType_Type>
-    {
-
-    }
-
-    [DataContract]
     public class GroupPhase
     {
-        #region Serialization
-        [DataMember]
-        public GroupType _T
-        {
-            get { return type; }
-            set { type = value; }
-        }
-        [DataMember]
-        public Timespan _TSP
-        {
-            get { return timespan; }
-            set { timespan = value; }
-        }
-        #endregion
+        [DataMember(Name = "_T")]
+        public VersionedData<GroupType> Type { get; set; } = new VersionedData<GroupType>();
+        [DataMember(Name = "_CT")]
+        public VersionedData<string> CustomType { get; set; } = new VersionedData<string>(); //If Type set to "Custom"
 
-        protected GroupType type = new GroupType();
-        protected Timespan timespan = new Timespan();
+        [DataMember(Name = "_TSP")]
+        public Timespan Timespan { get; set; } = new Timespan();
 
-        #region Accessors
-        public GroupType Type
+        public GroupPhase()
+        { }
+
+        public GroupPhase(GroupType type, Timespan timespan)
+            :this(type, "", timespan)
         {
-            get { return type; }
-            set { type = value; }
+            Debug.Assert(type != GroupType.Custom);
         }
 
-        public Timespan Timespan
+        public GroupPhase(GroupType type, string customType, Timespan timespan)
         {
-            get { return timespan; }
-            set { timespan = value; }
-        }
-        #endregion
-        
-        public GroupPhase() : base()
-        {
-            type.Init(GroupType_Type.None);
+            Type.OverwriteLatestValue(type);
+            CustomType.OverwriteLatestValue(customType);
+            Timespan = timespan;
         }
     }
 
     [DataContract]
-    public class Group : DataObject
+    public class Group : Referenceable<Group>
     {
-        public static int NEXT_ID = 1;
+        [DataMember(Name = "_N")]
+        public VersionedData<string> Name { get; set; } = new VersionedData<string>();
 
-        protected override int GetNEXTID()
+        [DataMember(Name = "_MP")]
+        public GroupPhase MainPhase { get; set; } = new GroupPhase();
+        [DataMember(Name = "_AP")]
+        public List<GroupPhase> AdditionalPhases { get; set; } = new List<GroupPhase>();
+
+        [DataMember(Name = "_C")]
+        public VersionedData<string> Comment { get; set; } = new VersionedData<string>();
+
+        public Group()
+        { }
+
+        public Group(Database context, bool claimID)
+            : base(context, claimID)
+        { }
+
+        public Group(Database context, bool claimID, string name, GroupPhase mainPhase, List<GroupPhase> additionalPhases, string comment = "")
+            : this(context, claimID)
         {
-            return NEXT_ID;
-        }
-
-        protected override void SetNEXTID(int id)
-        {
-            NEXT_ID = id;
-        }
-
-        #region Serialization
-
-        [DataMember]
-        public GroupPhase _MP
-        {
-            get { return mainPhase; }
-            set { mainPhase = value; }
-        }
-
-        [DataMember]
-        public List<GroupPhase> _AP
-        {
-            get { return additionalPhases; }
-            set { additionalPhases = value; }
-        }
-        
-        [DataMember]
-        public String _N
-        {
-            get { return name; }
-            set { name = value; }
-        }
-        
-        [DataMember]
-        public String _C
-        {
-            get { return comment; }
-            set { comment = value; }
-        }
-        #endregion
-
-        protected GroupPhase mainPhase = new GroupPhase();
-        protected List<GroupPhase> additionalPhases = new List<GroupPhase>();
-        
-        protected String name = new String();
-        
-        protected String comment = new String();
-
-        #region Accessors
-        public GroupPhase MainPhase
-        {
-            get { return mainPhase; }
-            set { mainPhase = value; }  
-        }
-
-        public GroupType Type
-        {
-            get { return mainPhase.Type; }
-            set { mainPhase.Type = value; }
-        }
-
-        public String Name
-        {
-            get { return name; }
-            set { name = value; }
-        }
-
-        public Timespan Timespan
-        {
-            get { return mainPhase.Timespan; }
-            set { mainPhase.Timespan = value; }
-        }
-
-        public String Comment
-        {
-            get { return comment; }
-            set { comment = value; }
-        }
-
-        public List<GroupPhase> AdditionalPhases
-        {
-            get { return additionalPhases; }
-            set { additionalPhases = value; }
-        }
-        #endregion
-
-        public Group() : base()
-        {
-
-        }
-
-        public Group(bool claimID) : base(claimID)
-        {
-
-        }
-
-        public void ReassignID(int id)
-        {
-            ID = id;
-        }
-
-        public void AssignNewID()
-        {
-            ID = NEXT_ID++;
+            Name.OverwriteLatestValue(name);
+            MainPhase = mainPhase;
+            AdditionalPhases = additionalPhases;
+            Comment.OverwriteLatestValue(comment);
         }
 
         public override string ToString()
         {
-            return mainPhase.Timespan.Start.Year + " " + mainPhase.Type.ToString() + " " + name.Value + " [" + id.ToString() + "]";
-        }
-
-        public string ToString_
-        {
-            get { return ToString(); }
+            return MainPhase.Timespan.Start.Year + " " + MainPhase.Type.Latest.ToString() + " " + Name.Latest + " [" + reference.Latest.ToString() + "]";
         }
     }
 }

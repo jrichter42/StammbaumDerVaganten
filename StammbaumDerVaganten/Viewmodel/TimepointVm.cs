@@ -2,16 +2,16 @@
 
 namespace StammbaumDerVaganten
 {
-    public class TimepointVm : Viewmodel<Timepoint>
+    public class TimepointVm : ViewmodelOfReferenceable<Timepoint>
     {
         public DateTime Date
         {
-            get { return model.Date.Value; }
+            get { return model.Date.Latest; }
             set
             {
-                if (model.Date.Value != value)
+                if (model.Date.Latest != value)
                 {
-                    model.Date.Value = value;
+                    model.Date.Latest = new Date(value);
                     NotifyPropertyChanged();
                 }
             }
@@ -19,42 +19,29 @@ namespace StammbaumDerVaganten
 
         public string Name
         {
-            get { return model.Name.Value; }
+            get { return model.Name.Latest; }
             set
             {
-                if (model.Name.Value != value)
+                if (model.Name.Latest != value)
                 {
-                    model.Name.Value = value;
+                    model.Name.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        protected static TimepointVm invalid = new TimepointVm { model = new Timepoint { ID = Timepoint.ID_INVALID, Name = new String("Custom"), Date = new Date { Year = 1 } } };
+        protected static TimepointVm invalid = new TimepointVm { model = Timepoint.INVALID };
 
         public static TimepointVm INVALID
         {
             get { return invalid; }
         }
 
-        public TimepointVm() : base()
-        {
+        public TimepointVm()
+        { }
 
-        }
-
-        public TimepointVm(Timepoint timepoint) : base(timepoint)
-        {
-
-        }
-        
-        public string ToString_
-        {
-            get { return model.ToString(); }
-        }
-
-        protected static new Timepoint CreateModelInternal()
-        {
-            return new Timepoint(true);
-        }
+        public TimepointVm(Timepoint timepoint)
+            : base(timepoint)
+        { }
     }
 }

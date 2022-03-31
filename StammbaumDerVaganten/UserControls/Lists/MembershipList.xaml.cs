@@ -18,32 +18,25 @@ namespace StammbaumDerVaganten
     /// <summary>
     /// Interaction logic for Membershiplist.xaml
     /// </summary>
-    public partial class Membershiplist : UserControl
+    public partial class MembershipList : UserControl
     {
-        protected ScoutVm scout;
-
         public ScoutVm Scout
         {
-            get { return scout; }
-            set
-            {
-                scout = value;
-                pfadi_membershiplist.ItemsSource = scout.Memberships;
-            }
+            get { return (ScoutVm)DataContext; }
         }
 
-        public Membershiplist()
+        public MembershipList()
         {
             InitializeComponent();
         }
 
         private void pfadi_membershiplist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            if (scout == null)
+            if (Scout == null)
             {
                 return;
             }
-            e.NewItem = scout.CreateMembership();
+            e.NewItem = Scout.CreateMembership();
         }
 
         private void pfadi_list_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

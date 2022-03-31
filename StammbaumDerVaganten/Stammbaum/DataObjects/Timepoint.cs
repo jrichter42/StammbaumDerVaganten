@@ -3,84 +3,38 @@
 namespace StammbaumDerVaganten
 {
     [DataContract]
-    public class Timepoint : DataObject
+    public class Timepoint : Referenceable<Timepoint>
     {
-        public static int NEXT_ID = 1;
+        [DataMember(Name = "_N")]
+        public VersionedData<string> Name { get; set; } = new VersionedData<string>();
 
-        protected override int GetNEXTID()
+        [DataMember(Name = "_D")]
+        public VersionedData<Date> Date { get; set; } = new VersionedData<Date>();
+
+        public static Timepoint INVALID { get; } = new Timepoint { Reference = new Reference<Timepoint>(), Name = new VersionedData<string>("Custom"), Date = new VersionedData<Date>(new Date { Year = 1 }) };
+
+        public Timepoint()
+        { }
+
+        public Timepoint(Database context, bool claimID)
+            : base(context, claimID)
+        { }
+
+        public Timepoint(Database context, bool claimID, string name, Date date)
+            : this(context, claimID)
         {
-            return NEXT_ID;
-        }
-
-        protected override void SetNEXTID(int id)
-        {
-            NEXT_ID = id;
-        }
-
-        #region Serialization
-        [DataMember]
-        public Date _D
-        {
-            get { return date; }
-            set { date = value; }
-        }
-
-        [DataMember]
-        public String _N
-        {
-            get { return name; }
-            set { name = value; }
-        }
-        #endregion
-
-        protected Date date = new Date();
-
-        protected String name = new String();
-
-        #region Accessors
-        public Date Date
-        {
-            get { return date; }
-            set { date = value; }
-        }
-
-        public String Name
-        {
-            get { return name; }
-            set { name = value; }
-        }
-        #endregion
-
-        /*protected static Timepoint invalid = new Timepoint { id = Timepoint.ID_INVALID, name = new String("Custom"), date = new Date { Year = 1 } };
-
-        public static Timepoint INVALID
-        {
-            get { return invalid; }
-        }*/
-
-        public Timepoint() : base()
-        {
-
-        }
-
-        public Timepoint(bool claimID) : base(claimID)
-        {
-
-        }
-
-        public void ReassignID(int id)
-        {
-            ID = id;
-        }
-
-        public void AssignNewID()
-        {
-            ID = NEXT_ID++;
+            Name.OverwriteLatestValue(name);
+            Date.OverwriteLatestValue(date);
         }
 
         public override string ToString()
         {
-            return name.Value + " " + date.Year + " [" + id.ToString() + "]";
+            if (this == INVALID)
+            {
+                return "None";
+            }
+
+            return Name.Latest + " " + Date.Latest.Year; // + " [" + base.ToString() + "]";
         }
     }
 }

@@ -3,80 +3,72 @@
 namespace StammbaumDerVaganten
 {
     [DataContract]
-    public class Participation : DataParticle
+    public class Participation<TDerived> : Referenceable<TDerived>
+        where TDerived : class
     {
-        #region Serialization
-        [DataMember]
-        public Timespan _TSP
-        {
-            get { return timespan; }
-            set { timespan = value; }
-        }
-        [DataMember]
-        public int _G
-        {
-            get { return group; }
-            set { group = value; }
-        }
-        #endregion
+        [DataMember(Name = "_G")]
+        public VersionedData<Reference<Group>> GroupRef { get; set; } = new VersionedData<Reference<Group>>();
 
-        protected Timespan timespan = new Timespan();
-        protected int group = StammbaumDerVaganten.Group.ID_INVALID;
+        [DataMember(Name = "_TSP")]
+        public Timespan Timespan { get; set; } = new Timespan();
 
-        #region Accessors
-        public Timespan Timespan
+        public Participation()
+        { }
+
+        public Participation(Database context, bool claimID)
+            : base(context, claimID)
+        { }
+
+        public Participation(Database context, bool claimID, Reference<Group> groupRef, Timespan timespan)
+            : this(context, claimID)
         {
-            get { return timespan; }
-            set { timespan = value; }
-        }
-
-        public int Group
-        {
-            get { return group; }
-            set { group = value; }
-        }
-        #endregion
-
-        public Participation() : base()
-        {
-
+            GroupRef.OverwriteLatestValue(groupRef);
+            Timespan = timespan;
         }
     }
 
     [DataContract]
-    public class Membership : Participation
+    public class Membership : Participation<Membership>
     {
-        public Membership() : base()
-        {
+        public Membership()
+        { }
 
+        public Membership(Database context, bool claimID)
+            : base(context, claimID)
+        { }
+
+        public Membership(Database context, bool claimID, Reference<Group> groupRef, Timespan timespan)
+            : base(context, claimID, groupRef, timespan)
+        { }
+
+        public override string ToString()
+        {
+            return "Implement Membership.ToString()";
         }
     }
 
     [DataContract]
-    public class Activity : Participation
+    public class Activity : Participation<Activity>
     {
-        #region Serialization
-        [DataMember]
-        public int _R
+        [DataMember(Name = "_R")]
+        public VersionedData<Reference<Role>> RoleRef { get; set; } = new VersionedData<Reference<Role>>();
+
+        public Activity()
+        { }
+
+        public Activity(Database context, bool claimID)
+            : base(context, claimID)
+        { }
+
+        public Activity(Database context, bool claimID, Reference<Group> groupRef, Reference<Role> roleRef, Timespan timespan)
+            : base(context, claimID, groupRef, timespan)
         {
-            get { return role; }
-            set { role = value; }
+            RoleRef.OverwriteLatestValue(roleRef);
         }
-        #endregion
 
-        protected int role = StammbaumDerVaganten.Role.ID_INVALID;
-
-        #region Accessors
-        public int Role
+        public override string ToString()
         {
-            get { return role; }
-            set { role = value; }
-        }
-        #endregion
-
-        public Activity() : base()
-        {
-
+            return "Implement Activity.ToString()";
         }
     }
 

@@ -5,62 +5,25 @@ namespace StammbaumDerVaganten
     [DataContract]
     public class Timespan
     {
-        #region Serialization
-        [DataMember]
-        public int _SP
-        {
-            get { return startTimepoint; }
-            set { startTimepoint = value; }
-        }
-        [DataMember]
-        public int _EP
-        {
-            get { return endTimepoint; }
-            set { endTimepoint = value; }
-        }
-        [DataMember]
-        public Date _S
-        {
-            get { return start; }
-            set { start = value; }
-        }
-        [DataMember]
-        public Date _E
-        {
-            get { return end; }
-            set { end = value; }
-        }
-        #endregion
+        [DataMember(Name = "_SP")]
+        public VersionedData<Reference<Timepoint>> StartTimepointRef { get; set; } = new VersionedData<Reference<Timepoint>>();
+        [DataMember(Name = "_EP")]
+        public VersionedData<Reference<Timepoint>> EndTimepointRef { get; set; } = new VersionedData<Reference<Timepoint>>();
 
-        protected int startTimepoint = Timepoint.ID_INVALID;
-        protected int endTimepoint = Timepoint.ID_INVALID;
-
-        protected Date start = new Date();
-        protected Date end = new Date();
-
-        #region Accessors
-        public int StartTimepoint
-        {
-            get { return startTimepoint; }
-            set { startTimepoint = value; }
-        }
-
-        public int EndTimepoint
-        {
-            get { return endTimepoint; }
-            set { endTimepoint = value; }
-        }
-        #endregion
+        [DataMember(Name = "_S")]
+        protected VersionedData<Date> customStart = new VersionedData<Date>();
+        [DataMember(Name = "_E")]
+        protected VersionedData<Date> customEnd = new VersionedData<Date>();
 
         #region Date abstraction
         public bool StartIsCustom()
         {
-            return startTimepoint == Timepoint.ID_INVALID;
+            return !StartTimepointRef.Latest.IsValid();
         }
 
         public bool EndIsCustom()
         {
-            return endTimepoint == Timepoint.ID_INVALID;
+            return !EndTimepointRef.Latest.IsValid();
         }
 
         public Date Start
@@ -72,14 +35,14 @@ namespace StammbaumDerVaganten
                     Data data = MainViewmodel.ActiveData;
                     if (data != null)
                     {
-                        Timepoint tp = data.GetTimepointyID(startTimepoint);
+                        Timepoint tp = data.GetObjectFromReference(StartTimepointRef);
                         if (tp != null)
                         {
                             return tp.Date;
                         }
                     }
                 }
-                return start;
+                return customStart;
             }
             set
             {
@@ -88,17 +51,17 @@ namespace StammbaumDerVaganten
                     Data data = MainViewmodel.ActiveData;
                     if (data != null)
                     {
-                        Timepoint tp = data.GetTimepointyID(startTimepoint);
+                        Timepoint tp = data.GetObjectFromReference(StartTimepointRef);
                         if (tp != null)
                         {
-                            if (tp.Date != value)
+                            if (tp.Date.Latest != value)
                             {
-                                tp.Date = value;
+                                tp.Date.Latest = value;
                             }
                         }
                     }
                 }
-                start = value;
+                customStart.Latest = value;
             }
         }
 
@@ -111,14 +74,14 @@ namespace StammbaumDerVaganten
                     Data data = MainViewmodel.ActiveData;
                     if (data != null)
                     {
-                        Timepoint tp = data.GetTimepointyID(endTimepoint);
+                        Timepoint tp = data.GetObjectFromReference(EndTimepointRef);
                         if (tp != null)
                         {
                             return tp.Date;
                         }
                     }
                 }
-                return end;
+                return customEnd;
             }
             set
             {
@@ -127,24 +90,60 @@ namespace StammbaumDerVaganten
                     Data data = MainViewmodel.ActiveData;
                     if (data != null)
                     {
-                        Timepoint tp = data.GetTimepointyID(endTimepoint);
+                        Timepoint tp = data.GetObjectFromReference(EndTimepointRef);
                         if (tp != null)
                         {
-                            if (tp.Date != value)
+                            if (tp.Date.Latest != value)
                             {
-                                tp.Date = value;
+                                tp.Date.Latest = value;
                             }
                         }
                     }
                 }
-                end = value;
+                customEnd.Latest = value;
             }
         }
         #endregion
 
-        public Timespan() : base()
-        {
+        public Timespan()
+        { }
 
+        public Timespan(Reference<Timepoint> startTimepointRef, Reference<Timepoint> endTimepointRef)
+        {
+            StartTimepointRef.OverwriteLatestValue(startTimepointRef);
+            EndTimepointRef.OverwriteLatestValue(endTimepointRef);
+        }
+
+        public Timespan(Reference<Timepoint> startTimepointRef, Date _customEnd)
+        {
+            StartTimepointRef.OverwriteLatestValue(startTimepointRef);
+            customEnd.OverwriteLatestValue(_customEnd);
+        }
+
+        public Timespan(Date _customStart, Reference<Timepoint> endTimepointRef)
+        {
+            customStart.OverwriteLatestValue(_customStart);
+            EndTimepointRef.OverwriteLatestValue(endTimepointRef);
+        }
+
+        public Timespan(Date _customStart, Date _customEnd)
+        {
+            customStart.OverwriteLatestValue(_customStart);
+            customEnd.OverwriteLatestValue(_customEnd);
+        }
+
+        // AFAIK, C# doesn't provide a nice equivalent to cpp's variant
+        /*protected Timespan(Reference<Timepoint> startTimepointRef, Date _customStart, Reference<Timepoint> endTimepointRef, Date _customEnd)
+        {
+            StartTimepointRef.OverwriteLatestValue(startTimepointRef);
+            customStart.OverwriteLatestValue(_customStart);
+            EndTimepointRef.OverwriteLatestValue(endTimepointRef);
+            customEnd.OverwriteLatestValue(_customEnd);
+        }*/
+
+        public override string ToString()
+        {
+            return "Implement Timespan.ToString()";
         }
     }
 }

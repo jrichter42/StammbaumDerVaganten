@@ -3,19 +3,19 @@ using System.Collections.ObjectModel;
 
 namespace StammbaumDerVaganten
 {
-    public class ScoutVm : Viewmodel<Scout>
+    public class ScoutVm : ViewmodelOfReferenceable<Scout>
     {
         protected ObservableCollection<MembershipVm> memberships;
         protected ObservableCollection<ActivityVm> activities;
 
         public string Forename
         {
-            get { return model.Forename.Value; }
+            get { return model.Forename.Latest; }
             set
             {
-                if (model.Forename.Value != value)
+                if (model.Forename.Latest != value)
                 {
-                    model.Forename.Value = value;
+                    model.Forename.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -23,12 +23,12 @@ namespace StammbaumDerVaganten
 
         public string Lastname
         {
-            get { return model.Lastname.Value; }
+            get { return model.Lastname.Latest; }
             set
             {
-                if (model.Lastname.Value != value)
+                if (model.Lastname.Latest != value)
                 {
-                    model.Lastname.Value = value;
+                    model.Lastname.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -36,12 +36,12 @@ namespace StammbaumDerVaganten
 
         public string Scoutname
         {
-            get { return model.Scoutname.Value; }
+            get { return model.Scoutname.Latest; }
             set
             {
-                if (model.Scoutname.Value != value)
+                if (model.Scoutname.Latest != value)
                 {
-                    model.Scoutname.Value = value;
+                    model.Scoutname.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -49,12 +49,12 @@ namespace StammbaumDerVaganten
 
         public DateTime Birthdate
         {
-            get { return model.Birthdate.Value; }
+            get { return model.Birthdate.Latest; }
             set
             {
-                if (model.Birthdate.Value != value)
+                if (model.Birthdate.Latest != value)
                 {
-                    model.Birthdate.Value = value;
+                    model.Birthdate.Latest = new Date(value);
                     NotifyPropertyChanged();
                 }
             }
@@ -62,12 +62,12 @@ namespace StammbaumDerVaganten
 
         public string ContactInfo
         {
-            get { return model.ContactInfo.Value; }
+            get { return model.ContactInfo.Latest; }
             set
             {
-                if (model.ContactInfo.Value != value)
+                if (model.ContactInfo.Latest != value)
                 {
-                    model.ContactInfo.Value = value;
+                    model.ContactInfo.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -75,12 +75,12 @@ namespace StammbaumDerVaganten
 
         public string Comment
         {
-            get { return model.Comment.Value; }
+            get { return model.Comment.Latest; }
             set
             {
-                if (model.Comment.Value != value)
+                if (model.Comment.Latest != value)
                 {
-                    model.Comment.Value = value;
+                    model.Comment.Latest = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -112,15 +112,12 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public ScoutVm() : base()
-        {
+        public ScoutVm()
+        { }
 
-        }
-
-        public ScoutVm(Scout scout) : base(scout)
-        {
-            
-        }
+        public ScoutVm(Scout scout)
+            : base(scout)
+        { }
 
         protected override void AfterSetModel()
         {
@@ -142,14 +139,14 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public ActivityVm CreateActivity()
+        public ActivityVm CreateActivity(Database context = null)
         {
-            return ActivityVm.Create(model.Activities, activities) as ActivityVm;
+            return ActivityVm.CreateModelAndVmAndAddToLists(context ?? Model.Reference.Context, model.Activities, activities) as ActivityVm;
         }
 
-        public MembershipVm CreateMembership()
+        public MembershipVm CreateMembership(Database context = null)
         {
-            return MembershipVm.Create(model.Memberships, memberships) as MembershipVm;
+            return MembershipVm.CreateModelAndVmAndAddToLists(context ?? Model.Reference.Context, model.Memberships, memberships) as MembershipVm;
         }
     }
 }

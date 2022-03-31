@@ -18,17 +18,16 @@ namespace StammbaumDerVaganten
     /// <summary>
     /// Interaction logic for Timepointlist.xaml
     /// </summary>
-    public partial class Timepointlist : UserControl
+    public partial class TimepointList : UserControl
     {
-        public Timepointlist()
+        public TimepointList()
         {
             InitializeComponent();
-            pfadi_timepointlist.ItemsSource = MainViewmodel.ActiveVm.Timepoints;
         }
 
         private void pfadi_timepointlist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = MainViewmodel.ActiveVm.CreateTimepoint();
+            e.NewItem = ((MainViewmodel)DataContext).CreateTimepoint();
         }
 
         private void pfadi_timepointlist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

@@ -16,18 +16,33 @@ namespace StammbaumDerVaganten
 
     public class Log
     {
-        protected static ObservableCollection<string> history = new ObservableCollection<string>();
+        private static Log globalInstance = null;
+
+        public static Log Global
+        {
+            get
+            {
+                if (globalInstance == null)
+                {
+                    globalInstance = new Log();
+                }
+                return globalInstance;
+            }
+        }
+
+
+        protected List<string> history = new List<string>();
         
-        public static ObservableCollection<string> History
+        public List<string> History
         {
             get { return history; }
         }
 
         public delegate void EntryAddedHandler(string author, string entry);
 
-        public static event EntryAddedHandler EntryAdded;
+        public event EntryAddedHandler EntryAdded;
 
-        public static string HistoryTop
+        public string HistoryTop
         {
             get
             {
@@ -39,8 +54,7 @@ namespace StammbaumDerVaganten
             }
         }
 
-
-        public static void Write(Log_Level level, string message, [CallerMemberName] string caller = "")
+        public void Write(Log_Level level, string message, [CallerMemberName] string caller = "")
         {
             string timestamp = DateTime.Now.ToString() + "." + DateTime.Now.Millisecond;
             string output = string.Format("{0, -30}", timestamp) + " [" + Enum.GetName(typeof(Log_Level), level) + "] " + message;
@@ -54,7 +68,7 @@ namespace StammbaumDerVaganten
             }
         }
 
-        public static void Write(Exception e, [CallerMemberName] string caller = "")
+        public void Write(Exception e, [CallerMemberName] string caller = "")
         {
             Write(Log_Level.Exception, e.Message, caller);
         }

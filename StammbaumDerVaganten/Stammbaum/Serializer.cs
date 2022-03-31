@@ -3,20 +3,21 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.Serialization;
 using System.IO;
+//using System.Runtime.Serialization.Json;
 
 namespace StammbaumDerVaganten
 {
     public class Serializer<T>
     {
-        protected static DataContractSerializer _serializer;
-        protected static DataContractSerializer serializer
+        protected static /*DataContractJsonSerializer*/DataContractSerializer _serializer;
+        protected static /*DataContractJsonSerializer*/DataContractSerializer serializer
         {
             get
             {
                 if (_serializer == null)
                 {
-                    _serializer = new DataContractSerializer(typeof(T),
-                        new List<Type>() { typeof(String) }
+                    _serializer = new /*DataContractJsonSerializer*/DataContractSerializer (typeof(T),
+                        /**/new List<Type>() { typeof(string) }
                         );
                 }
                 return _serializer;
@@ -45,7 +46,7 @@ namespace StammbaumDerVaganten
             }
             catch (Exception e)
             {
-                Log.Write(e);
+                Log.Global.Write(e);
                 return false;
             }
             return true;
@@ -55,7 +56,7 @@ namespace StammbaumDerVaganten
         {
             if (data.Length == 0)
             {
-                Log.Write(Log_Level.Warning, "Data string of length 0 passed to Deserialize");
+                Log.Global.Write(Log_Level.Warning, "Data string of length 0 passed to Deserialize");
                 return false;
             }
 
@@ -72,7 +73,7 @@ namespace StammbaumDerVaganten
             }
             catch (Exception e)
             {
-                Log.Write(e);
+                Log.Global.Write(e);
                 return false;
             }
             return true;

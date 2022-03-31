@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using StammbaumDerVaganten;
 
 namespace StammbaumDerVaganten
 {
@@ -23,12 +25,11 @@ namespace StammbaumDerVaganten
         public BasicGroupList()
         {
             InitializeComponent();
-            pfadi_basic_grouplist.ItemsSource = MainViewmodel.ActiveVm.Groups;
         }
 
         private void pfadi_basic_grouplist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = MainViewmodel.ActiveVm.CreateGroup();
+            e.NewItem = ((MainViewmodel)DataContext).CreateGroup();
         }
 
         private void pfadi_basic_grouplist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

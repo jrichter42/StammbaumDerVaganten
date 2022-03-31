@@ -7,132 +7,52 @@ namespace StammbaumDerVaganten
 {
 
     [DataContract]
-    public class Scout : DataParticle
+    public class Scout : Referenceable<Scout>
     {
-        #region Serialization
-        [DataMember]
-        public String _FN
-        {
-            get { return forename; }
-            set { forename = value; }
-        }
-        [DataMember]
-        public String _LN
-        {
-            get { return lastname; }
-            set { lastname = value; }
-        }
-        [DataMember]
-        public String _SN
-        {
-            get { return scoutname; }
-            set { scoutname = value; }
-        }
-        [DataMember]
-        public Date _BD
-        {
-            get { return birthdate; }
-            set { birthdate = value; }
-        }
-        [DataMember]
-        public String _CI
-        {
-            get { return contactInfo; }
-            set { contactInfo = value; }
-        }
-        [DataMember]
-        public String _C
-        {
-            get { return comment; }
-            set { comment = value; }
-        }
-        [DataMember]
-        public List<Membership> _M
-        {
-            get { return memberships; }
-            set { memberships = value; }
-        }
-        [DataMember]
-        public List<Activity> _A
-        {
-            get { return activities; }
-            set { activities = value; }
-        }
-        #endregion
+        [DataMember(Name = "_FN")]
+        public VersionedData<string> Forename { get; set; } = new VersionedData<string>();
+        [DataMember(Name = "_LN")]
+        public VersionedData<string> Lastname { get; set; } = new VersionedData<string>();
+        [DataMember(Name = "_SN")]
+        public VersionedData<string> Scoutname { get; set; } = new VersionedData<string>();
+        [DataMember(Name = "_BD")]
+        public VersionedData<Date> Birthdate { get; set; } = new VersionedData<Date>();
+        [DataMember(Name = "_CI")]
+        public VersionedData<string> ContactInfo { get; set; } = new VersionedData<string>();
+        [DataMember(Name = "_C")]
+        public VersionedData<string> Comment { get; set; } = new VersionedData<string>();
+        
+        [DataMember(Name = "_M")]
+        public List<Membership> Memberships { get; set; } = new List<Membership>();
+        [DataMember(Name = "_A")]
+        public List<Activity> Activities { get; set; } = new List<Activity>();
 
-        protected String forename = new String();
-        protected String lastname = new String();
-        protected String scoutname = new String();
+        public Scout()
+        { }
 
-        protected Date birthdate = new Date();
+        public Scout(Database context, bool claimID)
+            : base(context, claimID)
+        { }
 
-        protected String contactInfo = new String();
-        protected String comment = new String();
-
-        protected List<Membership> memberships = new List<Membership>();
-        protected List<Activity> activities = new List<Activity>();
-
-        #region Accessors
-        public String Forename
+        public Scout(Database context, bool claimID, string forename, string lastname, string scoutname, Date birthdate, string contactInfo, string comment, List<Membership> memberships, List<Activity> activities)
+            : this(context, claimID)
         {
-            get { return forename; }
-            set { forename = value; }
-        }
-
-        public String Lastname
-        {
-            get { return lastname; }
-            set { lastname = value; }
-        }
-
-        public String Scoutname
-        {
-            get { return scoutname; }
-            set { scoutname = value; }
-        }
-
-        public Date Birthdate
-        {
-            get { return birthdate; }
-            set { birthdate = value; }
-        }
-
-        public String ContactInfo
-        {
-            get { return contactInfo; }
-            set { contactInfo = value; }
-        }
-
-        public String Comment
-        {
-            get { return comment; }
-            set { comment = value; }
-        }
-
-        public List<Membership> Memberships
-        {
-            get { return memberships; }
-            set { memberships = value; }
-        }
-
-        public List<Activity> Activities
-        {
-            get { return activities; }
-            set { activities = value; }
-        }
-        #endregion
-
-        public Scout() : base()
-        {
-
+            Forename.OverwriteLatestValue(forename);
+            Lastname.OverwriteLatestValue(lastname);
+            Scoutname.OverwriteLatestValue(scoutname);
+            Birthdate.OverwriteLatestValue(birthdate);
+            ContactInfo.OverwriteLatestValue(contactInfo);
+            Comment.OverwriteLatestValue(comment);
+            Memberships = memberships;
+            Activities = activities;
         }
 
         #region Retrieve Memberships and Activities
         public Membership GetFirstMembershipByGroup(Group group)
         {
-            foreach (Membership ms in memberships)
+            foreach (Membership ms in Memberships)
             {
-                if (ms.Group == group)
+                if (ms.GroupRef.Latest == group.Reference)
                 {
                     return ms;
                 }
@@ -142,9 +62,9 @@ namespace StammbaumDerVaganten
 
         public Activity GetFirstActivityByGroup(Group group)
         {
-            foreach (Activity a in activities)
+            foreach (Activity a in Activities)
             {
-                if (a.Group == group)
+                if (a.GroupRef.Latest == group.Reference)
                 {
                     return a;
                 }
@@ -155,9 +75,9 @@ namespace StammbaumDerVaganten
         public List<Membership> GetMembershipsInGroup(Group group)
         {
             List<Membership> result = new List<Membership>();
-            foreach (Membership ms in memberships)
+            foreach (Membership ms in Memberships)
             {
-                if (ms.Group == group)
+                if (ms.GroupRef.Latest == group.Reference)
                 {
                     result.Add(ms);
                 }
@@ -168,9 +88,9 @@ namespace StammbaumDerVaganten
         public List<Activity> GetActivitiesInGroup(Group group)
         {
             List<Activity> result = new List<Activity>();
-            foreach (Activity a in activities)
+            foreach (Activity a in Activities)
             {
-                if (a.Group == group)
+                if (a.GroupRef.Latest == group.Reference)
                 {
                     result.Add(a);
                 }
@@ -178,5 +98,11 @@ namespace StammbaumDerVaganten
             return result;
         }
         #endregion
+
+        public override string ToString()
+        {
+            string nameString = Forename + (Scoutname != "" ? ("\"" + Scoutname + "\"") : "") + Lastname;
+            return nameString + " [" + reference.Latest.ToString() + "]";
+        }
     }
 }

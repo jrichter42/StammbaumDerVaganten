@@ -1,89 +1,43 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace StammbaumDerVaganten
 {
 
-    public class ParticipationVm<T> : Viewmodel<T> where T : Participation, new()
+    public class ParticipationVm<T> : ViewmodelOfReferenceable<T>
+        where T : Participation<T>, new()
     {
-        public int StartTimepoint
+        protected TimespanVm timespanVm;
+        public TimespanVm Timespan
         {
-            get { return model.Timespan.StartTimepoint; }
+            get { return timespanVm; }
             set
             {
-                if (model.Timespan.StartTimepoint != value)
+                if (timespanVm != value)
                 {
-                    model.Timespan.StartTimepoint = value;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("CustomStart_");
-                }
-            }
-        }
-
-        public int EndTimepoint
-        {
-            get { return model.Timespan.EndTimepoint; }
-            set
-            {
-                if (model.Timespan.EndTimepoint != value)
-                {
-                    model.Timespan.EndTimepoint = value;
-                    NotifyPropertyChanged();
-                    NotifyPropertyChanged("CustomEnd_");
-                }
-            }
-        }
-
-        public bool CustomStart
-        {
-            get { return model.Timespan.StartIsCustom(); }
-        }
-
-        public bool CustomEnd
-        {
-            get { return model.Timespan.EndIsCustom(); }
-        }
-
-        public DateTime Start
-        {
-            get { return model.Timespan.Start.Value; }
-            set
-            {
-                if (model.Timespan.Start.Value != value)
-                {
-                    model.Timespan.Start.Value = value;
+                    timespanVm = value;
+                    model.Timespan = timespanVm.Model;
                     NotifyPropertyChanged();
                 }
             }
         }
 
-        public DateTime End
+        public GroupVm Group
         {
-            get { return model.Timespan.End.Value; }
+            get { return MainViewmodel.ActiveVm.GetSharedGroupVm(model.GroupRef.Latest); }
             set
             {
-                if (model.Timespan.End.Value != value)
+                if (MainViewmodel.ActiveVm.GetSharedGroupVm(model.GroupRef.Latest) != value)
                 {
-                    model.Timespan.End.Value = value;
+                    Debug.Assert(MainViewmodel.ActiveVm.GetSharedGroupVm(model.GroupRef.Latest).Model == model.GroupRef);
+
+                    model.GroupRef.Latest = value.Model.Reference;
                     NotifyPropertyChanged();
                 }
             }
         }
-
-        public int Group
-        {
-            get { return model.Group; }
-            set
-            {
-                if (model.Group != value)
-                {
-                    model.Group = value;
-                    NotifyPropertyChanged();
-                }
-            }
-        }
-
 
         #region FilteredGroups
         protected ObservableCollection<GroupVm> filteredGroups;
@@ -120,7 +74,7 @@ namespace StammbaumDerVaganten
 
             foreach (GroupVm g in groups)
             {
-                if (g.Type != GroupType_Type.None)
+                if (g.MainPhase.Type != GroupType.None)
                 {
                     filteredGroups.Add(g);
                 }
@@ -132,11 +86,11 @@ namespace StammbaumDerVaganten
             {
                 newIdx = i - 1;
                 //Quit if our year is already smaller or equal to the year before us
-                if (groups[i].Start.Year <= groups[newIdx].Start.Year)
+                if (groups[i].MainPhase.Timespan.Start.Year <= groups[newIdx].MainPhase.Timespan.Start.Year)
                 {
                     continue;
                 }
-                while (newIdx > 0 && groups[i].Start.Year > groups[newIdx - 1].Start.Year)
+                while (newIdx > 0 && groups[i].MainPhase.Timespan.Start.Year > groups[newIdx - 1].MainPhase.Timespan.Start.Year)
                 {
                     newIdx--;
                 }
@@ -184,7 +138,7 @@ namespace StammbaumDerVaganten
 
             foreach (TimepointVm t in timepoints)
             {
-                if (t.Date >= Start && t.Date <= End)
+                if (t.Date >= Timespan.Start && t.Date <= Timespan.End)
                 {
                     filteredTimepoints.Add(t);
                 }
@@ -212,40 +166,37 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        public ParticipationVm() : base()
+        public ParticipationVm()
+        { }
+
+        public ParticipationVm(T participation)
+            : base(participation)
         {
-
-        }
-
-        public ParticipationVm(T participation) : base(participation)
-        {
-
+            timespanVm = new TimespanVm(participation.Timespan);
         }
     }
 
     public class MembershipVm : ParticipationVm<Membership>
     {
-        public MembershipVm() : base()
-        {
+        public MembershipVm()
+            : base()
+        { }
 
-        }
-
-        public MembershipVm(Membership membership) : base(membership)
-        {
-
-        }
+        public MembershipVm(Membership membership)
+            : base(membership)
+        { }
     }
 
     public class ActivityVm : ParticipationVm<Activity>
     {
         public int Role
         {
-            get { return model.Role; }
+            get { return model.RoleRef.Latest.ObjectID; }
             set
             {
-                if (model.Role != value)
+                if (model.RoleRef.Latest.ObjectID != value)
                 {
-                    model.Role = value;
+                    model.RoleRef.Latest.ObjectID = value;
                     NotifyPropertyChanged();
                 }
             }
@@ -290,13 +241,13 @@ namespace StammbaumDerVaganten
                 return;
             }
 
-            GroupType_Type groupTypeFilter = GroupType_Type.None;
-            if (model.Role != StammbaumDerVaganten.Role.ID_INVALID)
+            GroupType groupTypeFilter = GroupType.None;
+            if (model.RoleRef.Latest.IsValid())
             {
                 Data data = MainViewmodel.ActiveData;
                 if (data != null)
                 {
-                    Role r = data.GetRoleByID(model.Role);
+                    Role r = data.GetObjectFromReference(model.RoleRef);
                     if (r != null)
                     {
                         groupTypeFilter = r.GroupType;
@@ -306,9 +257,26 @@ namespace StammbaumDerVaganten
 
             foreach (GroupVm g in groups)
             {
-                if (groupTypeFilter == GroupType_Type.None
-                    || g.Type == groupTypeFilter
-                    || g.ID == model.Group)
+                Func<GroupType, bool> hasType = new Func<GroupType, bool>((GroupType type) => {
+                    if (g.MainPhase.Type == type)
+                    {
+                        return true;
+                    }
+
+                    foreach (GroupPhaseVm gp in g.AdditionalPhases)
+                    {
+                        if (gp.Type == groupTypeFilter)
+                        {
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                });
+                
+                if (groupTypeFilter == GroupType.None
+                    || hasType(groupTypeFilter)
+                    || g.Model.Reference == model.GroupRef.Latest)
                 {
                     filteredGroups.Add(g);
                 }
@@ -370,14 +338,11 @@ namespace StammbaumDerVaganten
         }
         #endregion
 
-        public ActivityVm() : base()
-        {
+        public ActivityVm()
+        { }
 
-        }
-
-        public ActivityVm(Activity activity) : base(activity)
-        {
-
-        }
+        public ActivityVm(Activity activity)
+            : base(activity)
+        { }
     }
 }

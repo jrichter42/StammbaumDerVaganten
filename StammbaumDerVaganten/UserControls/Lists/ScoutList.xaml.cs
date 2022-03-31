@@ -18,7 +18,7 @@ namespace StammbaumDerVaganten
     /// <summary>
     /// Interaction logic for Scoutlist.xaml
     /// </summary>
-    public partial class Scoutlist : UserControl
+    public partial class ScoutList : UserControl
     {
         protected ScoutVm selectedScout;
 
@@ -28,25 +28,14 @@ namespace StammbaumDerVaganten
             set { selectedScout = value; }
         }
 
-        public Scoutlist()
+        public ScoutList()
         {
             InitializeComponent();
-            pfadi_scoutlist.ItemsSource = MainViewmodel.ActiveVm.Scouts;
         }
         
         private ScoutVm GetSelectedScout()
         {
-            ScoutVm scout = null;
-
-            MainViewmodel vm = MainViewmodel.ActiveVm;
-
-            int idx = pfadi_scoutlist.SelectedIndex;
-            if (vm != null && vm.Scouts != null && idx != -1 && vm.Scouts != null && idx < vm.Scouts.Count)
-            {
-                scout = vm.Scouts[idx];
-            }
-
-            return scout;
+            return pfadi_scoutlist.SelectedItem as ScoutVm;
         }
 
         private void OnSelectedScoutChanged()
@@ -58,7 +47,7 @@ namespace StammbaumDerVaganten
 
         private void pfadi_scoutlist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = MainViewmodel.ActiveVm.CreateScout();
+            e.NewItem = ((MainViewmodel)DataContext).CreateScout();
         }
 
         private void pfadi_scoutlist_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

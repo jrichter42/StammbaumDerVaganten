@@ -23,12 +23,11 @@ namespace StammbaumDerVaganten
         public BasicTimepointList()
         {
             InitializeComponent();
-            pfadi_basic_timepointlist.ItemsSource = MainViewmodel.ActiveVm.Timepoints;
         }
 
         private void pfadi_basic_timepointlist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = MainViewmodel.ActiveVm.CreateTimepoint();
+            e.NewItem = ((MainViewmodel)DataContext).CreateTimepoint();
         }
 
         private void pfadi_basic_timepointlist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

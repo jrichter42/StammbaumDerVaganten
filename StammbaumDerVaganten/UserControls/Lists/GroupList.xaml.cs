@@ -18,32 +18,16 @@ namespace StammbaumDerVaganten
     /// <summary>
     /// Interaction logic for Grouplist.xaml
     /// </summary>
-    public partial class Grouplist : UserControl
+    public partial class GroupList : UserControl
     {
-        public Grouplist()
+        public GroupList()
         {
             InitializeComponent();
-            pfadi_grouplist.ItemsSource = MainViewmodel.ActiveVm.Groups;
-        }
-
-        private GroupVm GetSelectedGroup()
-        {
-            MainViewmodel vm = MainViewmodel.ActiveVm;
-
-            GroupVm group = null;
-
-            int idx = pfadi_grouplist.SelectedIndex;
-            if (vm != null && vm.Groups != null && idx != -1 && vm.Groups != null && idx < vm.Groups.Count)
-            {
-                group = vm.Groups[idx];
-            }
-
-            return group;
         }
 
         private void pfadi_grouplist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = MainViewmodel.ActiveVm.CreateGroup();
+            e.NewItem = ((MainViewmodel)DataContext).CreateGroup();
         }
 
         private void pfadi_list_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

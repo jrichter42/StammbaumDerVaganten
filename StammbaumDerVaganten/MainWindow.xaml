@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:StammbaumDerVaganten"
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         mc:Ignorable="d"
-        Title="Stammbaum der Vaganten" Height="1000" Width="1920"
+        Title="Stammbaum der Vaganten" Height="1440" Width="2560"
         TitleCaps="False"
         BorderBrush="{DynamicResource AccentColorBrush}"
         BorderThickness="1"
@@ -60,15 +60,27 @@
             </Button>
         </Controls:WindowCommands>
     </Controls:MetroWindow.RightWindowCommands>
-    <!--___MAIN___-->
-    <TabControl>
-        <!--___BASIC___-->
-        <TabItem Header="Basic">
-            <local:BasicTab />
-        </TabItem>
-        <!--___ADVANCED___-->
-        <TabItem Header="Erweitert">
-            <local:AdvancedTab />
-        </TabItem>
-    </TabControl>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <!--___MAIN___-->
+        <TabControl Name="TabControl" Grid.Row="0">
+            <!--___BASIC___-->
+            <TabItem Header="Basic">
+                <local:BasicTab DataContext="{Binding .}" />
+            </TabItem>
+            <!--___ADVANCED___-->
+            <TabItem Header="Erweitert">
+                <local:AdvancedTab DataContext="{Binding .}" />
+            </TabItem>
+        </TabControl>
+        <!--STATUS-->
+        <StatusBar Grid.Row="1">
+            <StatusBarItem>
+                <TextBlock Text="{Binding GlobalLog.HistoryTop}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
 </Controls:MetroWindow>

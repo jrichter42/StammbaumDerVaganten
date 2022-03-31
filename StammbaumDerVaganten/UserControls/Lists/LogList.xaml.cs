@@ -16,23 +16,13 @@ using System.Windows.Shapes;
 namespace StammbaumDerVaganten
 {
     /// <summary>
-    /// Interaction logic for Rolelist.xaml
+    /// Interaction logic for LogList.xaml
     /// </summary>
-    public partial class RoleList : UserControl
+    public partial class LogList : UserControl
     {
-        public RoleList()
+        public LogList()
         {
             InitializeComponent();
-        }
-
-        private void pfadi_rolelist_AddingNewItem(object sender, AddingNewItemEventArgs e)
-        {
-            e.NewItem = ((MainViewmodel)DataContext).CreateRole();
-        }
-
-        private void pfadi_rolelist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
-        {
-            ListHelper.DataGrid_CellEditEnding(sender, e);
         }
     }
 }
