@@ -5,9 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:StammbaumDerVaganten"
         xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
         mc:Ignorable="d"
         Title="Stammbaum der Vaganten" Height="1440" Width="2560"
-        TitleCaps="False"
+        TitleCharacterCasing="Normal"
         BorderBrush="{DynamicResource AccentColorBrush}"
         BorderThickness="1"
         WindowStartupLocation="CenterScreen" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" WindowState="Normal">
@@ -18,10 +19,10 @@
     </Controls:MetroWindow.CommandBindings>
     <!--Resources-->
     <Controls:MetroWindow.Resources>
-        <Style TargetType="{x:Type DataGridColumnHeader}" BasedOn="{StaticResource MetroDataGridColumnHeader}">
+        <Style TargetType="{x:Type DataGridColumnHeader}" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
             <Setter Property="Controls:ControlsHelper.ContentCharacterCasing" Value="Normal" />
         </Style>
-        <Style TargetType="{x:Type Expander}" BasedOn="{StaticResource MetroExpander}">
+        <Style TargetType="{x:Type Expander}" BasedOn="{StaticResource MahApps.Styles.Expander}">
             <Setter Property="Controls:ControlsHelper.ContentCharacterCasing" Value="Normal" />
         </Style>
     </Controls:MetroWindow.Resources>
@@ -29,32 +30,20 @@
     <!--WindowCommands-->
     <Controls:MetroWindow.LeftWindowCommands>
         <Controls:WindowCommands>
-            <Rectangle Width="20" Height="20" Fill="{DynamicResource BlackColorBrush}" HorizontalAlignment="Center">
-                <Rectangle.OpacityMask>
-                    <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_people_multiple_magnify}" />
-                </Rectangle.OpacityMask>
-            </Rectangle>
+            <iconPacks:PackIconControl x:Name="alignment" Kind="{x:Static iconPacks:PackIconModernKind.PeopleMultipleMagnify}" Width="20" Height="20" VerticalAlignment="Center" />
         </Controls:WindowCommands>
     </Controls:MetroWindow.LeftWindowCommands>
     <Controls:MetroWindow.RightWindowCommands>
         <Controls:WindowCommands>
             <Button Command="ApplicationCommands.Open">
                 <StackPanel Orientation="Horizontal">
-                    <Rectangle Width="20" Height="20" Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
-                        <Rectangle.OpacityMask>
-                            <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_inbox_out}" />
-                        </Rectangle.OpacityMask>
-                    </Rectangle>
+                    <iconPacks:PackIconControl Kind="{x:Static iconPacks:PackIconModernKind.InboxOut}" Width="20" Height="20" />
                     <TextBlock Margin="4 0 0 0" VerticalAlignment="Center" Text="Laden" />
                 </StackPanel>
             </Button>
             <Button Command="ApplicationCommands.Save">
                 <StackPanel Orientation="Horizontal">
-                    <Rectangle Width="20" Height="20" Fill="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
-                        <Rectangle.OpacityMask>
-                            <VisualBrush Stretch="Fill" Visual="{StaticResource appbar_inbox_in}" />
-                        </Rectangle.OpacityMask>
-                    </Rectangle>
+                    <iconPacks:PackIconControl Kind="{x:Static iconPacks:PackIconModernKind.InboxIn}" Width="20" Height="20" />
                     <TextBlock Margin="4 0 0 0" VerticalAlignment="Center" Text="Speichern" />
                 </StackPanel>
             </Button>
