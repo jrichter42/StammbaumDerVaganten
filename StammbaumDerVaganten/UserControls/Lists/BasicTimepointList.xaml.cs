@@ -27,20 +27,12 @@ namespace StammbaumDerVaganten
 
         private void pfadi_basic_timepointlist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = ((MainViewmodel)DataContext).CreateTimepoint();
+            e.NewItem = (DataContext as MainViewmodel).CreateTimepoint();
         }
 
         private void pfadi_basic_timepointlist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
             ListHelper.DataGrid_CellEditEnding(sender, e);
-
-            //Hack to make different levels of PropertyChanged update each other without resolving the actual issue
-            if ((string)e.Column.Header == "Datum")
-            {
-                //pfadi_grouplist.ItemsSource = vm.Groups;
-                //pfadi_basic_grouplist.ItemsSource = vm.Groups;
-                //OnScoutSelectionChanged();
-            }
         }
     }
 }

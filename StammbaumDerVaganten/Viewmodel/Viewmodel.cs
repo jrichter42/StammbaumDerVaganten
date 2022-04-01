@@ -18,7 +18,7 @@ namespace StammbaumDerVaganten
         //Used by derived classes in this case
         protected void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
         {
-            if (PropertyChanged != null)
+            if (PropertyChanged is not null)
             {
                 PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
             }
@@ -46,7 +46,7 @@ namespace StammbaumDerVaganten
         {
             get
             {
-                if (model.GetType().GetMethod("GetPathString") != null)
+                if (model.GetType().GetMethod("GetPathString") is not null)
                 {
                     return ((dynamic)model).GetPathString();
                 }

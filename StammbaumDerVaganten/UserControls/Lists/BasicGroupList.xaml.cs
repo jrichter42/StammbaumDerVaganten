@@ -29,7 +29,7 @@ namespace StammbaumDerVaganten
 
         private void pfadi_basic_grouplist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = ((MainViewmodel)DataContext).CreateGroup();
+            e.NewItem = (DataContext as MainViewmodel).CreateGroup();
         }
 
         private void pfadi_basic_grouplist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
@@ -39,7 +39,14 @@ namespace StammbaumDerVaganten
 
         private void pfadi_additionalphaseslist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-
+            GroupVm groupVm = pfadi_basic_grouplist.SelectedItem as GroupVm;
+            
+            if (groupVm is null)
+            {
+                return;
+            }
+            
+            e.NewItem = groupVm.CreateAdditionalPhase();
         }
 
         private void pfadi_additionalphaseslist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

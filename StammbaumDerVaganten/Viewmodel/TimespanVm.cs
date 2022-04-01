@@ -12,7 +12,7 @@ namespace StammbaumDerVaganten
             {
                 if (MainViewmodel.ActiveVm.GetSharedTimepointVm(model.StartTimepointRef.Latest) != value)
                 {
-                    Debug.Assert(MainViewmodel.ActiveVm.GetSharedTimepointVm(model.StartTimepointRef.Latest).Model == model.StartTimepointRef);
+                    Debug.Assert(MainViewmodel.ActiveVm.GetSharedTimepointVm(model.StartTimepointRef.Latest)?.Model == model.StartTimepointRef.Latest.GetObject());
 
                     model.StartTimepointRef.Latest = value.Model.Reference;
                     NotifyPropertyChanged();

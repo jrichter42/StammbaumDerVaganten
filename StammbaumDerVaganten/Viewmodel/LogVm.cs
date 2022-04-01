@@ -54,7 +54,7 @@ namespace StammbaumDerVaganten
 
         private void HandleLogEntryAdded(string author, string entry)
         {
-            if (history == null)
+            if (history is null)
             {
                 return;
             }

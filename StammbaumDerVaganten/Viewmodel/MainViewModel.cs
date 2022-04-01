@@ -17,7 +17,7 @@ namespace StammbaumDerVaganten
         {
             get
             {
-                if (ActiveVm == null || ActiveVm.Database == null)
+                if (ActiveVm is null || ActiveVm.Database is null)
                 {
                     return null;
                 }
@@ -30,7 +30,7 @@ namespace StammbaumDerVaganten
         public static MainViewmodel Cast(object dataContext)
         {
             MainViewmodel vm = dataContext as MainViewmodel;
-            Debug.Assert(vm != null);
+            Debug.Assert(vm is not null);
             return vm;
         }
 
@@ -146,7 +146,7 @@ namespace StammbaumDerVaganten
 
         public GroupPhaseVm CreateGroupPhase(GroupVm selectedGroup)
         {
-            if (selectedGroup == null)
+            if (selectedGroup is null)
             {
                 return null;
             }
@@ -200,7 +200,7 @@ namespace StammbaumDerVaganten
             where T : class, new()
             where VmT : Viewmodel<T>, new()
         {
-            if (viewmodelCollection == null)
+            if (viewmodelCollection is null)
             {
                 return;
             }

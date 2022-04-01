@@ -33,10 +33,10 @@ namespace StammbaumDerVaganten
                 if (!StartIsCustom())
                 {
                     Data data = MainViewmodel.ActiveData;
-                    if (data != null)
+                    if (data is not null)
                     {
                         Timepoint tp = data.GetObjectFromReference(StartTimepointRef);
-                        if (tp != null)
+                        if (tp is not null)
                         {
                             return tp.Date;
                         }
@@ -49,10 +49,10 @@ namespace StammbaumDerVaganten
                 if (!StartIsCustom())
                 {
                     Data data = MainViewmodel.ActiveData;
-                    if (data != null)
+                    if (data is not null)
                     {
                         Timepoint tp = data.GetObjectFromReference(StartTimepointRef);
-                        if (tp != null)
+                        if (tp is not null)
                         {
                             if (tp.Date.Latest != value)
                             {
@@ -72,10 +72,10 @@ namespace StammbaumDerVaganten
                 if (!EndIsCustom())
                 {
                     Data data = MainViewmodel.ActiveData;
-                    if (data != null)
+                    if (data is not null)
                     {
                         Timepoint tp = data.GetObjectFromReference(EndTimepointRef);
-                        if (tp != null)
+                        if (tp is not null)
                         {
                             return tp.Date;
                         }
@@ -88,10 +88,10 @@ namespace StammbaumDerVaganten
                 if (!EndIsCustom())
                 {
                     Data data = MainViewmodel.ActiveData;
-                    if (data != null)
+                    if (data is not null)
                     {
                         Timepoint tp = data.GetObjectFromReference(EndTimepointRef);
-                        if (tp != null)
+                        if (tp is not null)
                         {
                             if (tp.Date.Latest != value)
                             {

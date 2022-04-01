@@ -14,7 +14,7 @@ namespace StammbaumDerVaganten
         {
             get
             {
-                if (_serializer == null)
+                if (_serializer is null)
                 {
                     _serializer = new /*DataContractJsonSerializer*/DataContractSerializer (typeof(T),
                         /**/new List<Type>() { typeof(string) }
@@ -34,7 +34,7 @@ namespace StammbaumDerVaganten
                 StreamReader streamReader = new StreamReader(memoryStream);
                 string result = streamReader.ReadToEnd();
 
-                if (result == null)
+                if (result is null)
                 {
                     return false;
                 }
@@ -65,7 +65,7 @@ namespace StammbaumDerVaganten
                 MemoryStream memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(data));
                 T result = (T)serializer.ReadObject(memoryStream);
 
-                if (result == null)
+                if (result is null)
                 {
                     return false;
                 }

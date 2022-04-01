@@ -58,13 +58,13 @@ namespace StammbaumDerVaganten
         {
             get
             {
-                if (filteredTimepoints == null)
+                if (filteredTimepoints is null)
                 {
                     filteredTimepoints = new ObservableCollection<TimepointVm>();
                 }
 
                 Data data = MainViewmodel.ActiveData;
-                if (data != null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
+                if (data is not null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
                 {
                     UpdateFilteredTimepoints();
                 }
@@ -77,13 +77,13 @@ namespace StammbaumDerVaganten
             filteredTimepoints.Clear();
 
             MainViewmodel vm = MainViewmodel.ActiveVm;
-            if (vm == null)
+            if (vm is null)
             {
                 return;
             }
 
             ObservableCollection<TimepointVm> timepoints = vm.Timepoints;
-            if (timepoints == null)
+            if (timepoints is null)
             {
                 return;
             }
@@ -210,6 +210,11 @@ namespace StammbaumDerVaganten
                 GroupPhaseVm phaseVm = new GroupPhaseVm(phase);
                 additionalPhases.Add(phaseVm);
             }
+        }
+
+        public GroupPhaseVm CreateAdditionalPhase(Database context = null)
+        {
+            return GroupPhaseVm.CreateModelAndVmAndAddToLists(context ?? model.Reference.Context, model.AdditionalPhases, additionalPhases) as GroupPhaseVm;
         }
     }
 }

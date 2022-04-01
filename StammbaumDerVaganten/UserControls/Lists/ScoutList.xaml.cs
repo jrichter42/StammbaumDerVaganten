@@ -20,44 +20,14 @@ namespace StammbaumDerVaganten
     /// </summary>
     public partial class ScoutList : UserControl
     {
-        protected ScoutVm selectedScout;
-
-        public ScoutVm SelectedScout
-        {
-            get { return selectedScout; }
-            set { selectedScout = value; }
-        }
-
         public ScoutList()
         {
             InitializeComponent();
         }
-        
-        private ScoutVm GetSelectedScout()
-        {
-            return pfadi_scoutlist.SelectedItem as ScoutVm;
-        }
-
-        private void OnSelectedScoutChanged()
-        {
-            ScoutVm scout = GetSelectedScout();
-            //pfadi_membershiplist.Scout = scout;
-            //pfadi_activitylist.Scout = scout;
-        }
 
         private void pfadi_scoutlist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = ((MainViewmodel)DataContext).CreateScout();
-        }
-
-        private void pfadi_scoutlist_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
-        {
-            OnSelectedScoutChanged();
-        }
-
-        private void pfadi_scoutlist_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            OnSelectedScoutChanged();
+            e.NewItem = (DataContext as MainViewmodel).CreateScout();
         }
 
         private void pfadi_scoutlist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

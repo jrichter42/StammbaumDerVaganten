@@ -7,7 +7,7 @@
              d:DataContext="{d:DesignInstance Type=local:MainViewmodel}"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="600">
-    <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_scoutlist_AddingNewItem"  DataContextChanged="pfadi_scoutlist_DataContextChanged" SelectionChanged="pfadi_scoutlist_SelectionChanged" SelectionMode="Single" CellEditEnding="pfadi_scoutlist_CellEditEnding">
+    <DataGrid x:Name="pfadi_scoutlist" ItemsSource="{Binding Scouts}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" Padding="0" AddingNewItem="pfadi_scoutlist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_scoutlist_CellEditEnding">
         <DataGrid.Columns>
             <!--ID-->
             <DataGridTextColumn Header="ID" Binding="{Binding ObjectID}" IsReadOnly="True"/>

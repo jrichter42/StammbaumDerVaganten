@@ -19,7 +19,7 @@
             <!--ID-->
             <DataGridTextColumn Header="ID" Binding="{Binding ObjectID}" IsReadOnly="True"/>
             <!--Typ-->
-            <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>
+            <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding MainPhase.Type}"/>
             <!--Spezifischer Typ-->
             <DataGridTextColumn Header="Spezifischer Typ" Binding="{Binding MainPhase.CustomType}"/>
             <!--Name-->

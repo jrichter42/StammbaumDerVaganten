@@ -17,9 +17,9 @@
     <DataGrid x:Name="pfadi_basic_grouplist" ItemsSource="{Binding Groups}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" VerticalAlignment="Top" DockPanel.Dock="Top" AddingNewItem="pfadi_basic_grouplist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_basic_grouplist_CellEditEnding">
         <DataGrid.Columns>
             <!--Typ-->
-            <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding Type}"/>
+            <DataGridComboBoxColumn Header="Typ" ItemsSource="{Binding Source={StaticResource GroupTypes}}" SelectedItemBinding="{Binding MainPhase.Type}"/>
             <!--Spezifischer Typ-->
-            <DataGridTextColumn Header="Spezifischer Typ" Binding="{Binding CustomType}"/>
+            <DataGridTextColumn Header="Spezifischer Typ" Binding="{Binding MainPhase.CustomType}"/>
             <!--Name-->
             <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
             <!--Startpunkt-->

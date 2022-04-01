@@ -53,7 +53,7 @@ namespace StammbaumDerVaganten
 
         protected virtual void UpdateFilteredGroups()
         {
-            if (filteredGroups == null)
+            if (filteredGroups is null)
             {
                 filteredGroups = new ObservableCollection<GroupVm>();
             }
@@ -61,13 +61,13 @@ namespace StammbaumDerVaganten
             filteredGroups.Clear();
 
             MainViewmodel vm = MainViewmodel.ActiveVm;
-            if (vm == null)
+            if (vm is null)
             {
                 return;
             }
 
             ObservableCollection<GroupVm> groups = vm.Groups;
-            if (groups == null)
+            if (groups is null)
             {
                 return;
             }
@@ -106,13 +106,13 @@ namespace StammbaumDerVaganten
         {
             get
             {
-                if (filteredTimepoints == null)
+                if (filteredTimepoints is null)
                 {
                     filteredTimepoints = new ObservableCollection<TimepointVm>();
                 }
 
                 Data data = MainViewmodel.ActiveData;
-                if (data != null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
+                if (data is not null && (data.Timepoints.Count + 1) != filteredTimepoints.Count)
                 {
                     UpdateFilteredTimepoints();
                 }
@@ -125,13 +125,13 @@ namespace StammbaumDerVaganten
             filteredTimepoints.Clear();
 
             MainViewmodel vm = MainViewmodel.ActiveVm;
-            if (vm == null)
+            if (vm is null)
             {
                 return;
             }
 
             ObservableCollection<TimepointVm> timepoints = vm.Timepoints;
-            if (timepoints == null)
+            if (timepoints is null)
             {
                 return;
             }
@@ -222,7 +222,7 @@ namespace StammbaumDerVaganten
         #region FilteredGroups & FilteredRoles
         protected override void UpdateFilteredGroups()
         {
-            if (filteredGroups == null)
+            if (filteredGroups is null)
             {
                 filteredGroups = new ObservableCollection<GroupVm>();
             }
@@ -230,13 +230,13 @@ namespace StammbaumDerVaganten
             filteredGroups.Clear();
 
             MainViewmodel vm = MainViewmodel.ActiveVm;
-            if (vm == null)
+            if (vm is null)
             {
                 return;
             }
 
             ObservableCollection<GroupVm> groups = vm.Groups;
-            if (groups == null)
+            if (groups is null)
             {
                 return;
             }
@@ -245,10 +245,10 @@ namespace StammbaumDerVaganten
             if (model.RoleRef.Latest.IsValid())
             {
                 Data data = MainViewmodel.ActiveData;
-                if (data != null)
+                if (data is not null)
                 {
                     Role r = data.GetObjectFromReference(model.RoleRef);
-                    if (r != null)
+                    if (r is not null)
                     {
                         groupTypeFilter = r.GroupType;
                     }
@@ -295,7 +295,7 @@ namespace StammbaumDerVaganten
         }
         protected virtual void UpdateFilteredRoles()
         {
-            if (filteredRoles == null)
+            if (filteredRoles is null)
             {
                 filteredRoles = new ObservableCollection<RoleVm>();
             }
@@ -303,13 +303,13 @@ namespace StammbaumDerVaganten
             filteredRoles.Clear();
 
             MainViewmodel vm = MainViewmodel.ActiveVm;
-            if (vm == null)
+            if (vm is null)
             {
                 return;
             }
 
             ObservableCollection<RoleVm> roles = vm.Roles;
-            if (roles == null)
+            if (roles is null)
             {
                 return;
             }
@@ -318,10 +318,10 @@ namespace StammbaumDerVaganten
             if (group != ID_INVALID)
             {
                 Data data = MainViewModel.ActiveData;
-                if (data != null)
+                if (data is not null)
                 {
                     Group g = data.GetGroupByID(group);
-                    if (g != null)
+                    if (g is not null)
                     {
                         groupTypeFilter = g.Type;
                     }

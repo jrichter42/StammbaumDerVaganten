@@ -22,7 +22,7 @@ namespace StammbaumDerVaganten
         {
             get
             {
-                if (globalInstance == null)
+                if (globalInstance is null)
                 {
                     globalInstance = new Log();
                 }
@@ -62,7 +62,7 @@ namespace StammbaumDerVaganten
             Debug.Print(output);
             history.Add(output);
 
-            if (EntryAdded != null)
+            if (EntryAdded is not null)
             {
                 EntryAdded.Invoke(caller, output);
             }

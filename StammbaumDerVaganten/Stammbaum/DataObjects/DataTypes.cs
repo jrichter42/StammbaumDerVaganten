@@ -109,8 +109,7 @@ namespace StammbaumDerVaganten
 
         public T GetObject()
         {
-            Debug.Assert(IsValid());
-            return context.Data.GetObjectFromReference((dynamic)this);
+            return context?.Data.GetObjectFromReference((dynamic)this);
         }
 
         public override string ToString()
@@ -120,7 +119,7 @@ namespace StammbaumDerVaganten
 
         public string GetPathString()
         {
-            return (context != null ? context.ToString() : "null") + "/" + typeof(T).ToString() + "/" + objectID;
+            return (context is not null ? context.ToString() : "null") + "/" + typeof(T).ToString() + "/" + objectID;
         }
     }
 
@@ -143,17 +142,17 @@ namespace StammbaumDerVaganten
 
         public static bool operator ==(Referenceable<TDerived> obj, Reference<TDerived> reference)
         {
-            return obj.Reference == reference;
+            return obj?.Reference == reference;
         }
 
         public static bool operator !=(Referenceable<TDerived> obj, Reference<TDerived> reference)
         {
-            return !(obj.Reference == reference);
+            return !(obj?.Reference == reference);
         }
 
         public override bool Equals(Object obj)
         {
-            if (obj == null)
+            if (obj is null)
             {
                 return false;
             }
@@ -171,7 +170,7 @@ namespace StammbaumDerVaganten
 
         public static implicit operator Reference<TDerived>(Referenceable<TDerived> obj)
         {
-            return obj.Reference;
+            return obj?.Reference;
         }
 
         public Referenceable()
@@ -235,7 +234,7 @@ namespace StammbaumDerVaganten
                     return;
                 }
                 ConstructorInfo ctor = typeof(T).GetConstructor(Type.EmptyTypes);
-                if (ctor != null)
+                if (ctor is not null)
                 {
                     Value = (T)ctor.Invoke(new Object[0]);
                     return;
@@ -303,6 +302,11 @@ namespace StammbaumDerVaganten
 
         public static implicit operator T(VersionedData<T> obj)
         {
+            if (obj is null)
+            {
+                return default(T);
+            }
+
             return obj.Latest;
         }
 
@@ -406,6 +410,11 @@ namespace StammbaumDerVaganten
 
         public static implicit operator DateTime(Date obj)
         {
+            if (obj is null)
+            {
+                return new DateTime();
+            }
+
             return obj.Raw;
         }
     }
@@ -422,7 +431,7 @@ namespace StammbaumDerVaganten
         
         public static implicit operator string(strin obj)
         {
-            return obj.Raw;
+            return obj?.Raw;
         }
     }*/
 }

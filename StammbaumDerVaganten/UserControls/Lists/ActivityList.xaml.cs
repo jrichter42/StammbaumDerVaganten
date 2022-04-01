@@ -20,11 +20,6 @@ namespace StammbaumDerVaganten
     /// </summary>
     public partial class ActivityList : UserControl
     {
-        public ScoutVm Scout
-        {
-            get { return (ScoutVm)DataContext; }
-        }
-
         public ActivityList()
         {
             InitializeComponent();
@@ -32,16 +27,12 @@ namespace StammbaumDerVaganten
 
         private void pfadi_activitylist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            if (Scout == null)
-            {
-                return;
-            }
-            e.NewItem = Scout.CreateActivity();
+            e.NewItem = (DataContext as ScoutVm).CreateActivity();
         }
 
         private void pfadi_list_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
-
+            ListHelper.DataGrid_CellEditEnding(sender, e);
         }
     }
 }

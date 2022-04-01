@@ -27,7 +27,7 @@ namespace StammbaumDerVaganten
 
         private void pfadi_rolelist_AddingNewItem(object sender, AddingNewItemEventArgs e)
         {
-            e.NewItem = ((MainViewmodel)DataContext).CreateRole();
+            e.NewItem = (DataContext as MainViewmodel).CreateRole();
         }
 
         private void pfadi_rolelist_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
