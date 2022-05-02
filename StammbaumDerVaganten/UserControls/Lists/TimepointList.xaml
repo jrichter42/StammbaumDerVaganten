@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="StammbaumDerVaganten.TimepointList"
+﻿<local:UserControl x:Class="StammbaumDerVaganten.TimepointList"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -10,11 +10,11 @@
     <DataGrid x:Name="pfadi_timepointlist" ItemsSource="{Binding Timepoints}" AutoGenerateColumns="False" IsSynchronizedWithCurrentItem="True" DockPanel.Dock="Top" FlowDirection="LeftToRight" AddingNewItem="pfadi_timepointlist_AddingNewItem" SelectionMode="Single" CellEditEnding="pfadi_timepointlist_CellEditEnding">
         <DataGrid.Columns>
             <!--ID-->
-            <DataGridTextColumn Header="ID" Binding="{Binding ObjectID}" IsReadOnly="True"/>
+            <DataGridTextColumn Header="ID" Binding="{Binding ObjectID}" IsReadOnly="True" Visibility="{Binding IDColumnVisibility, Source={StaticResource UserControl}}"/>
             <!--Name-->
             <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
             <!--Datum-->
             <DataGridTextColumn Header="Datum" Binding="{Binding Date, StringFormat=d, ConverterCulture=de-DE}"/>
         </DataGrid.Columns>
     </DataGrid>
-</UserControl>
+</local:UserControl>

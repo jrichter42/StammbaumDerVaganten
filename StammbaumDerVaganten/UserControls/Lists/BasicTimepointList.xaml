@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="StammbaumDerVaganten.BasicTimepointList"
+﻿<local:UserControl x:Class="StammbaumDerVaganten.BasicTimepointList"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -15,4 +15,4 @@
             <DataGridTextColumn Header="Datum" Binding="{Binding Date, StringFormat=d, ConverterCulture=de-DE}"/>
         </DataGrid.Columns>
     </DataGrid>
-</UserControl>
+</local:UserControl>

@@ -9,7 +9,7 @@ using System.Windows;
 
 namespace StammbaumDerVaganten
 {
-    public class MainViewmodel
+    public class MainViewmodel : DependencyObject
     {
         public static MainViewmodel ActiveVm = null;
 
@@ -43,6 +43,22 @@ namespace StammbaumDerVaganten
         public ObservableCollection<RoleVm> Roles { get; set; } = new ObservableCollection<RoleVm>();
         public ObservableCollection<TimepointVm> Timepoints { get; set; } = new ObservableCollection<TimepointVm>();
         //protected ObservableCollection<GroupPhaseVm> selectedGroupPhases;
+
+        public static readonly DependencyProperty ShowIDsProperty =
+        DependencyProperty.Register(
+            name: "ShowIDs",
+            propertyType: typeof(bool),
+            ownerType: typeof(UserControl),
+            typeMetadata: new FrameworkPropertyMetadata(
+                defaultValue: false
+            )
+        );
+
+        public bool ShowIDs
+        {
+            get => (bool)GetValue(ShowIDsProperty);
+            set => SetValue(ShowIDsProperty, value);
+        }
 
         #region GetStuffByID
         public ScoutVm GetSharedScoutVm(Reference<Scout> scoutRef)

@@ -58,17 +58,20 @@
         <TabControl Name="TabControl" Grid.Row="0">
             <!--___BASIC___-->
             <TabItem Header="Basic">
-                <local:BasicTab DataContext="{Binding .}" />
+                <local:BasicTab DataContext="{Binding .}" ShowIDs="{Binding IsChecked, ElementName=ShowIDs, Mode=TwoWay}"/>
             </TabItem>
             <!--___ADVANCED___-->
             <TabItem Header="Erweitert">
-                <local:AdvancedTab DataContext="{Binding .}" />
+                <local:AdvancedTab DataContext="{Binding .}" ShowIDs="{Binding IsChecked, ElementName=ShowIDs, Mode=TwoWay}"/>
             </TabItem>
         </TabControl>
         <!--STATUS-->
         <StatusBar Grid.Row="1">
             <StatusBarItem>
                 <TextBlock Text="{Binding GlobalLog.HistoryTop}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <CheckBox x:Name="ShowIDs" IsChecked="False">showIDs</CheckBox>
             </StatusBarItem>
         </StatusBar>
     </Grid>

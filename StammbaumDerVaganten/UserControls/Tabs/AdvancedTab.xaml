@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="StammbaumDerVaganten.AdvancedTab"
+﻿<local:UserControl x:Class="StammbaumDerVaganten.AdvancedTab"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -85,4 +85,4 @@
             <!--___RIGHT BOTTOM___-->
         </Grid>
     </Grid>
-</UserControl>
+</local:UserControl>
