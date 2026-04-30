@@ -23,7 +23,8 @@ class VersionedData~T~ {
 }
 
 class Date {
-  DateTime rawValue %% sentinel value '0' is used for 'unset' components (day / month / year), precision can be year, month, day
+  %% sentinel value '0' is used for 'unset' components (day / month / year), precision can be year, month, day
+  DateTime rawValue
 }
 
 class Datapoint~T~ {
@@ -71,7 +72,8 @@ class RoleType {
 class Role {
   UUID id
   VersionedData~CertaintyLevel~ Certainty
-  VersionedData~UUID~ type %% roleType
+  %% roleType
+  VersionedData~UUID~ type
   VersionedData~UUID~ groupType
   VersionedData~String~ notes
 }
@@ -99,9 +101,11 @@ class Activity {
 
 class Period {
   VersionedData~UUID~ startTimepoint
-  VersionedData~Date~ customStart %% only valid when no startTimepoint is set
+  %% only valid when no startTimepoint is set
+  VersionedData~Date~ customStart
   VersionedData~UUID~ endTimepoint
-  VersionedData~Date~ customEnd %% only valid when no endTimepoint is set
+  %% only valid when no endTimepoint is set
+  VersionedData~Date~ customEnd
 }
 
 Person "1" *-- "0..*" Membership
