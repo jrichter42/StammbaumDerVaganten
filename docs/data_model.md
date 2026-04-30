@@ -3,6 +3,87 @@
 classDiagram
 direction LR
 
+class Person {
+  UUID id
+  VersionedData~CertaintyLevel~ Certainty
+  VersionedData~String~ forename
+  VersionedData~String~ lastname
+  VersionedData~String~ scoutname
+  VersionedData~Date~ birthdate
+  VersionedData~String~ contactInfo
+  VersionedData~String~ notes
+  Membership[] memberships
+  Activity[] activities
+}
+
+class Membership {
+  VersionedData~CertaintyLevel~ Certainty
+  VersionedData~UUID~ group
+  Period period
+}
+
+class Activity {
+  VersionedData~CertaintyLevel~ Certainty
+  VersionedData~UUID~ role
+  VersionedData~UUID~ group
+  Period period
+}
+
+class Role {
+  UUID id
+  VersionedData~CertaintyLevel~ Certainty
+  %% roleType
+  VersionedData~UUID~ type
+  VersionedData~UUID~ groupType
+  VersionedData~String~ notes
+}
+
+class RoleType {
+  UUID id
+  String label
+}
+
+class Group {
+  UUID id
+  VersionedData~CertaintyLevel~ Certainty
+  VersionedData~String~ name
+  GroupPhase mainPhase
+  GroupPhase[] additionalPhases
+  VersionedData~String~ notes
+}
+
+class GroupPhase {
+  VersionedData<GroupType> groupType
+  Period period
+}
+
+class GroupType {
+  UUID id
+  String label
+}
+
+class Period {
+  VersionedData~UUID~ startTimepoint
+  %% only valid when no startTimepoint is set
+  VersionedData~Date~ customStart
+  VersionedData~UUID~ endTimepoint
+  %% only valid when no endTimepoint is set
+  VersionedData~Date~ customEnd
+}
+
+class Timepoint {
+  UUID id
+  VersionedData~CertaintyLevel~ Certainty
+  VersionedData~String~ name
+  VersionedData~Date~ date
+  VersionedData~String~ notes
+}
+
+class Date {
+  %% sentinel value '0' is used for 'unset' components (day / month / year), precision can be year, month, day
+  DateTime rawValue
+}
+
 class CertaintyLevel <<Enumeration>> {
   None
   NoIdea
@@ -22,90 +103,9 @@ class VersionedData~T~ {
   Version~T~ versions
 }
 
-class Date {
-  %% sentinel value '0' is used for 'unset' components (day / month / year), precision can be year, month, day
-  DateTime rawValue
-}
-
 class Datapoint~T~ {
   VersionedData~T~[] versions
   VersionedData~CertaintyLevel~ certainty
-}
-
-class Person {
-  UUID id
-  VersionedData~CertaintyLevel~ Certainty
-  VersionedData~String~ forename
-  VersionedData~String~ lastname
-  VersionedData~String~ scoutname
-  VersionedData~Date~ birthdate
-  VersionedData~String~ contactInfo
-  VersionedData~String~ notes
-  Membership[] memberships
-  Activity[] activities
-}
-
-class GroupType {
-  UUID id
-  String label
-}
-
-class GroupPhase {
-  VersionedData<GroupType> groupType
-  Period period
-}
-
-class Group {
-  UUID id
-  VersionedData~CertaintyLevel~ Certainty
-  VersionedData~String~ name
-  GroupPhase mainPhase
-  GroupPhase[] additionalPhases
-  VersionedData~String~ notes
-}
-
-class RoleType {
-  UUID id
-  String label
-}
-
-class Role {
-  UUID id
-  VersionedData~CertaintyLevel~ Certainty
-  %% roleType
-  VersionedData~UUID~ type
-  VersionedData~UUID~ groupType
-  VersionedData~String~ notes
-}
-
-class Timepoint {
-  UUID id
-  VersionedData~CertaintyLevel~ Certainty
-  VersionedData~String~ name
-  VersionedData~Date~ date
-  VersionedData~String~ notes
-}
-
-class Membership {
-  VersionedData~CertaintyLevel~ Certainty
-  VersionedData~UUID~ group
-  Period period
-}
-
-class Activity {
-  VersionedData~CertaintyLevel~ Certainty
-  VersionedData~UUID~ role
-  VersionedData~UUID~ group
-  Period period
-}
-
-class Period {
-  VersionedData~UUID~ startTimepoint
-  %% only valid when no startTimepoint is set
-  VersionedData~Date~ customStart
-  VersionedData~UUID~ endTimepoint
-  %% only valid when no endTimepoint is set
-  VersionedData~Date~ customEnd
 }
 
 Person "1" *-- "0..*" Membership
