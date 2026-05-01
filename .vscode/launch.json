@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Deploy",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "${workspaceFolder}\\deploy.bat",
+      "cwd": "${workspaceFolder}",
+      "createTemporaryIntegratedConsole": true
+    }
+  ]
+}
