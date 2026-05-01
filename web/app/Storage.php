@@ -136,6 +136,10 @@ final class Storage
             throw new RuntimeException('Could not read data file.');
         }
 
+        if (strncmp($raw, "\xEF\xBB\xBF", 3) === 0) {
+            $raw = substr($raw, 3);
+        }
+
         try {
             $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
