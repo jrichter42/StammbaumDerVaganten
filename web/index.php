@@ -32,7 +32,6 @@ $configWarnings = array_map(
         </div>
         <div class="topbar-actions" aria-label="Application state">
           <span class="status-pill" id="connectionStatus">Loading</span>
-          <button class="button button-secondary" type="button" id="refreshButton">Refresh</button>
         </div>
       </header>
 

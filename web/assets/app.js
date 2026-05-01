@@ -14,13 +14,10 @@ const labels = {
 };
 
 const connectionStatus = document.querySelector('#connectionStatus');
-const refreshButton = document.querySelector('#refreshButton');
 
 document.querySelectorAll('[data-view]').forEach((button) => {
   button.addEventListener('click', () => activateView(button.dataset.view));
 });
-
-refreshButton.addEventListener('click', () => refresh());
 
 refresh();
 
