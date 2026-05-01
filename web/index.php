@@ -26,12 +26,11 @@ $configWarnings = array_map(
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Stammbaum</p>
+        <div class="brand-row">
           <h1><a class="site-title" href="./" aria-label="Zur Startseite"><?= $appTitle ?></a></h1>
+          <a class="version-chip" href="https://github.stammbaumdervaganten.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a>
         </div>
         <div class="topbar-actions" aria-label="Application state">
-          <a class="version-chip" href="https://github.stammbaumdervaganten.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a>
           <span class="status-pill" id="connectionStatus">Loading</span>
           <button class="button button-secondary" type="button" id="refreshButton">Refresh</button>
         </div>
