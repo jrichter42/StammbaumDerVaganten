@@ -332,7 +332,6 @@ final class AuthStore
         }
 
         $token = Base64Url::encode(random_bytes(32));
-        $setupCode = $this->generateSetupCode();
         $now = $this->now();
         $expiresAt = gmdate('Y-m-d\TH:i:s\Z', time() + max(1, min($ttlHours, 24 * 30)) * 3600);
 
@@ -340,7 +339,6 @@ final class AuthStore
             'id' => $this->randomId('setup'),
             'user_id' => $userId,
             'token_hash' => hash('sha256', $token),
-            'setup_code_hash' => hash('sha256', $this->normalizeSetupCode($setupCode)),
             'created_at' => $now,
             'created_by' => $createdBy,
             'expires_at' => $expiresAt,
@@ -361,7 +359,6 @@ final class AuthStore
             'id' => $row['id'],
             'user_id' => $userId,
             'token' => $token,
-            'setup_code' => $setupCode,
             'setup_path' => './?setup=' . rawurlencode($token),
             'expires_at' => $expiresAt,
         ];
@@ -378,7 +375,6 @@ final class AuthStore
         }
 
         $tokenHash = hash('sha256', $input);
-        $setupCodeHash = hash('sha256', $this->normalizeSetupCode($input));
         $data = $this->readJson($this->tokensPath, $this->defaultTokens());
 
         foreach ($data['tokens'] ?? [] as $token) {
@@ -386,8 +382,7 @@ final class AuthStore
                 continue;
             }
 
-            if (!hash_equals((string) ($token['token_hash'] ?? ''), $tokenHash)
-                && !hash_equals((string) ($token['setup_code_hash'] ?? ''), $setupCodeHash)) {
+            if (!hash_equals((string) ($token['token_hash'] ?? ''), $tokenHash)) {
                 continue;
             }
 
@@ -540,9 +535,6 @@ final class AuthStore
             'Open this path on the deployed site:',
             $setup['setup_path'],
             '',
-            'Or open the site and enter this setup code:',
-            $setup['setup_code'],
-            '',
             'This token is single-use and expires at ' . $setup['expires_at'] . '.',
         ]) . PHP_EOL;
 
@@ -659,22 +651,6 @@ final class AuthStore
         }
 
         return array_values(array_unique($normalized));
-    }
-
-    private function normalizeSetupCode(string $code): string
-    {
-        return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $code) ?? '');
-    }
-
-    private function generateSetupCode(): string
-    {
-        $alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-        $raw = '';
-        for ($i = 0; $i < 20; $i++) {
-            $raw .= $alphabet[random_int(0, strlen($alphabet) - 1)];
-        }
-
-        return implode('-', str_split($raw, 4));
     }
 
     /**

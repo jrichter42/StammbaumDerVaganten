@@ -60,17 +60,13 @@ $configWarnings = array_map(
           </section>
 
           <section class="panel" id="setupPanel" hidden>
-            <div class="panel-header">
+            <form class="panel-header" id="setupForm">
               <div>
                 <h2>Passkey Setup</h2>
                 <p>One-time setup link</p>
               </div>
-            </div>
-            <form class="form-grid" id="setupForm">
               <input id="setupInput" name="setup" type="hidden" required>
-              <div class="form-actions">
-                <button class="button" type="submit">Create passkey</button>
-              </div>
+              <button class="button" type="submit">Create passkey</button>
             </form>
           </section>
         </div>

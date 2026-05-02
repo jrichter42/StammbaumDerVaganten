@@ -32,6 +32,7 @@ const setupResult = document.querySelector('#setupResult');
 const userList = document.querySelector('#userList');
 
 const urlSetup = new URLSearchParams(window.location.search).get('setup');
+let isSetupPage = Boolean(urlSetup);
 if (urlSetup) {
   setupInput.value = urlSetup;
   setupPanel.hidden = false;
@@ -114,6 +115,8 @@ function renderShell() {
   loginButton.hidden = Boolean(user);
   logoutButton.hidden = !user;
   currentUserLabel.hidden = !user;
+  passkeyLoginButton.closest('#loginPanel').hidden = Boolean(user) || isSetupPage;
+  setupPanel.hidden = Boolean(user) || !isSetupPage;
 
   if (user) {
     currentUserLabel.textContent = user.display_name || user.username || 'Signed in';
@@ -208,7 +211,9 @@ async function beginSetup(event) {
     });
 
     window.history.replaceState(null, '', window.location.pathname);
+    isSetupPage = false;
     setupPanel.hidden = true;
+    passkeyLoginButton.closest('#loginPanel').hidden = false;
     await refresh();
   } catch (error) {
     console.error(error);
@@ -540,13 +545,6 @@ function renderSetupResult() {
     </label>
     <div class="form-actions">
       <button class="button button-secondary" type="button" data-copy="#setupUrlResult">Copy URL</button>
-    </div>
-    <label>
-      <span>Setup code</span>
-      <input id="setupCodeResult" readonly value="${escapeAttribute(state.setupResult.setup_code || '')}">
-    </label>
-    <div class="form-actions">
-      <button class="button button-secondary" type="button" data-copy="#setupCodeResult">Copy code</button>
     </div>
     <small>Expires ${escapeHtml(state.setupResult.expires_at || '')}</small>
   `;

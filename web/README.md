@@ -36,9 +36,8 @@ Login uses passkeys only. Users and passkey public keys are stored in
 blocks direct access on Apache-compatible hosts.
 
 On the first run with an empty `var/auth/users.json`, the app creates one admin
-account and writes its one-time setup path and setup code to
-`var/auth/bootstrap_setup.txt`. Open that path on the deployed site or enter the
-setup code on the sign-in screen. The token is single-use.
+account and writes its one-time setup path to `var/auth/bootstrap_setup.txt`.
+Open that path on the deployed site. The token is single-use.
 The passkey setup form is only shown when a user opens a setup URL.
 
 For production, set a stable passkey relying-party configuration in
