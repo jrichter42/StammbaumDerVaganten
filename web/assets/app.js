@@ -24,8 +24,8 @@ const authScreen = document.querySelector('#authScreen');
 const workspace = document.querySelector('#workspace');
 const authMessage = document.querySelector('#authMessage');
 const setupForm = document.querySelector('#setupForm');
+const setupPanel = document.querySelector('#setupPanel');
 const setupInput = document.querySelector('#setupInput');
-const setupUsernameInput = document.querySelector('#setupUsernameInput');
 const adminNav = document.querySelector('#adminNav');
 const createUserForm = document.querySelector('#createUserForm');
 const setupResult = document.querySelector('#setupResult');
@@ -34,6 +34,7 @@ const userList = document.querySelector('#userList');
 const urlSetup = new URLSearchParams(window.location.search).get('setup');
 if (urlSetup) {
   setupInput.value = urlSetup;
+  setupPanel.hidden = false;
 }
 
 document.querySelectorAll('[data-view]').forEach((button) => {
@@ -188,11 +189,10 @@ async function beginSetup(event) {
   }
 
   const setup = normalizeSetupInput(setupInput.value);
-  const username = setupUsernameInput.value.trim();
   setupInput.value = setup;
 
   try {
-    const options = await postJson('auth-register-options', { setup, username });
+    const options = await postJson('auth-register-options', { setup });
     const credential = await navigator.credentials.create({
       publicKey: decodeCreationOptions(options.publicKey),
     });
@@ -208,13 +208,11 @@ async function beginSetup(event) {
     });
 
     window.history.replaceState(null, '', window.location.pathname);
+    setupPanel.hidden = true;
     await refresh();
   } catch (error) {
     console.error(error);
     showAuthMessage(passkeyErrorMessage(error), true);
-    if (String(error.message || '').includes('Username is required')) {
-      setupUsernameInput.focus();
-    }
   }
 }
 
@@ -240,11 +238,17 @@ async function loadAdminUsers() {
 async function createUser(event) {
   event.preventDefault();
   const formData = new FormData(createUserForm);
+  const username = String(formData.get('username') || '').trim();
   const permissions = formData.getAll('permissions');
+  if (!username) {
+    showAuthMessage('Username is required.', true);
+    createUserForm.querySelector('input[name="username"]')?.focus();
+    return;
+  }
 
   try {
     const response = await postJson('admin-create-user', {
-      username: String(formData.get('username') || '').trim(),
+      username,
       display_name: String(formData.get('display_name') || '').trim(),
       permissions,
     });
@@ -1187,13 +1191,13 @@ function setText(selector, text) {
 function showAuthMessage(text, isError) {
   authMessage.hidden = false;
   authMessage.textContent = text;
-  authMessage.className = `message ${isError ? 'is-error' : 'is-good'}`;
+  authMessage.className = `message global-message ${isError ? 'is-error' : 'is-good'}`;
 }
 
 function clearAuthMessage() {
   authMessage.hidden = true;
   authMessage.textContent = '';
-  authMessage.className = 'message';
+  authMessage.className = 'message global-message';
 }
 
 function formatCount(value = 0, noun) {

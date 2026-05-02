@@ -218,9 +218,14 @@ try {
             $admin = require_permission($auth, 'manage_users');
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
+            $username = trim((string) ($body['username'] ?? ''));
+            if ($username === '') {
+                Http::json(['ok' => false, 'error' => 'Username is required'], 400);
+            }
+
             $permissions = is_array($body['permissions'] ?? null) ? $body['permissions'] : ['read'];
             $user = $auth->createUser(
-                (string) ($body['username'] ?? ''),
+                $username,
                 (string) ($body['display_name'] ?? ''),
                 $permissions,
                 (string) $admin['id']

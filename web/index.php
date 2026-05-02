@@ -59,22 +59,15 @@ $configWarnings = array_map(
             </div>
           </section>
 
-          <section class="panel" id="setupPanel">
+          <section class="panel" id="setupPanel" hidden>
             <div class="panel-header">
               <div>
                 <h2>Passkey Setup</h2>
-                <p>One-time setup</p>
+                <p>One-time setup link</p>
               </div>
             </div>
             <form class="form-grid" id="setupForm">
-              <label>
-                <span>Setup code or URL token</span>
-                <input id="setupInput" name="setup" autocomplete="one-time-code" required>
-              </label>
-              <label id="setupUsernameRow">
-                <span>Username</span>
-                <input id="setupUsernameInput" name="username" autocomplete="username">
-              </label>
+              <input id="setupInput" name="setup" type="hidden" required>
               <div class="form-actions">
                 <button class="button" type="submit">Create passkey</button>
               </div>
@@ -191,7 +184,7 @@ $configWarnings = array_map(
               <form class="form-grid admin-create" id="createUserForm">
                 <label>
                   <span>Username</span>
-                  <input name="username" autocomplete="off">
+                  <input name="username" autocomplete="off" required>
                 </label>
                 <label>
                   <span>Display name</span>
