@@ -56,26 +56,6 @@ function require_csrf(AuthStore $auth, array $body): void
     }
 }
 
-/**
- * @param array<string, mixed> $setup
- * @return array<string, mixed>
- */
-function present_setup(array $setup): array
-{
-    $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
-    $scheme = $https ? 'https' : 'http';
-    $base = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/api.php'))), '/');
-    if ($base === '' || $base === '.') {
-        $base = '';
-    }
-
-    return $setup + [
-        'setup_url' => $scheme . '://' . $host . $base . '/?setup=' . rawurlencode((string) $setup['token']),
-    ];
-}
-
 try {
     switch ($action) {
         case 'status':
@@ -231,7 +211,7 @@ try {
                 (string) $admin['id']
             );
             $setup = $auth->createSetupToken((string) $user['id'], (string) $admin['id']);
-            Http::json(['ok' => true, 'user' => $user, 'setup' => present_setup($setup)]);
+            Http::json(['ok' => true, 'user' => $user, 'setup' => $setup]);
             break;
 
         case 'admin-update-user':
@@ -259,7 +239,7 @@ try {
             }
 
             $setup = $auth->createSetupToken($userId, (string) $admin['id']);
-            Http::json(['ok' => true, 'setup' => present_setup($setup)]);
+            Http::json(['ok' => true, 'setup' => $setup]);
             break;
 
         default:

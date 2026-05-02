@@ -36,8 +36,9 @@ Login uses passkeys only. Users and passkey public keys are stored in
 blocks direct access on Apache-compatible hosts.
 
 On the first run with an empty `var/auth/users.json`, the app creates one admin
-account and writes its one-time setup path to `var/auth/bootstrap_setup.txt`.
-Open that path on the deployed site. The token is single-use.
+account and writes its one-time setup URL to `bootstrap_setup.txt` in the app
+root.
+Open that URL on the deployed site. The token is single-use.
 The passkey setup form is only shown when a user opens a setup URL.
 
 For production, set a stable passkey relying-party configuration in
@@ -46,6 +47,7 @@ For production, set a stable passkey relying-party configuration in
 ```json
 {
   "auth": {
+    "base_url": "https://stammbaumdervaganten.de",
     "rp_id": "stammbaumdervaganten.de",
     "origin": "https://stammbaumdervaganten.de",
     "initial_admin_username": "admin"
@@ -54,6 +56,8 @@ For production, set a stable passkey relying-party configuration in
 ```
 
 Passkeys require HTTPS except on local development origins such as `localhost`.
+`base_url` is used for generated setup links and should be the public URL of
+the deployed app without a trailing slash.
 The initial admin username is only used when `var/auth/users.json` has no users
 yet; changing it later does not rename an existing user. User display names are
 optional. If a display name is empty, the UI uses the username.

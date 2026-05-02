@@ -535,7 +535,7 @@ function renderSetupResult() {
   }
 
   setupResult.hidden = false;
-  const setupUrl = state.setupResult.setup_url || state.setupResult.setup_path || '';
+  const setupUrl = state.setupResult.setup_url || '';
   setupResult.innerHTML = `
     <h3>Setup Link</h3>
     <div class="qr-code" aria-label="Setup QR code">${qrSvg(setupUrl)}</div>

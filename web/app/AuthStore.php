@@ -17,6 +17,7 @@ final class AuthStore
     private string $auditPath;
     private string $bootstrapPath;
     private string $initialAdminUsername = 'admin';
+    private ?string $baseUrl = null;
 
     /**
      * @param array<string, mixed> $config
@@ -28,7 +29,7 @@ final class AuthStore
         $this->tokensPath = $this->authPath . '/setup_tokens.json';
         $this->challengesPath = $this->authPath . '/challenges.json';
         $this->auditPath = $this->authPath . '/audit.jsonl';
-        $this->bootstrapPath = $this->authPath . '/bootstrap_setup.txt';
+        $this->bootstrapPath = rtrim($basePath, '/\\') . '/bootstrap_setup.txt';
         $this->configureInitialAdmin($config);
 
         $this->ensureFiles();
@@ -46,7 +47,7 @@ final class AuthStore
             'csrf' => $user !== null ? $this->csrfToken() : null,
             'has_users' => $this->hasUsers(),
             'bootstrap_pending' => $this->bootstrapPending(),
-            'setup_url_hint' => $this->bootstrapPending() ? 'Read var/auth/bootstrap_setup.txt on the server.' : null,
+            'setup_url_hint' => $this->bootstrapPending() ? 'Read bootstrap_setup.txt on the server.' : null,
         ];
     }
 
@@ -195,9 +196,6 @@ final class AuthStore
             return [$data, null];
         });
 
-        if (!$this->bootstrapPending()) {
-            @unlink($this->bootstrapPath);
-        }
     }
 
     /**
@@ -359,7 +357,7 @@ final class AuthStore
             'id' => $row['id'],
             'user_id' => $userId,
             'token' => $token,
-            'setup_path' => './?setup=' . rawurlencode($token),
+            'setup_url' => $this->setupUrl($token),
             'expires_at' => $expiresAt,
         ];
     }
@@ -409,6 +407,10 @@ final class AuthStore
 
             throw new InvalidArgumentException('Setup token is not valid.');
         });
+
+        if (!$this->bootstrapPending()) {
+            $this->deleteBootstrapFiles();
+        }
     }
 
     /**
@@ -515,6 +517,10 @@ final class AuthStore
             : $this->initialAdminUsername;
 
         $this->initialAdminUsername = $this->normalizeUsername($username, false);
+
+        if (is_string($authConfig['base_url'] ?? null) && trim($authConfig['base_url']) !== '') {
+            $this->baseUrl = rtrim(trim($authConfig['base_url']), '/');
+        }
     }
 
     private function ensureBootstrapUser(): void
@@ -532,8 +538,8 @@ final class AuthStore
             'Initial admin username:',
             $this->initialAdminUsername,
             '',
-            'Open this path on the deployed site:',
-            $setup['setup_path'],
+            'Open this URL:',
+            $setup['setup_url'],
             '',
             'This token is single-use and expires at ' . $setup['expires_at'] . '.',
         ]) . PHP_EOL;
@@ -553,10 +559,24 @@ final class AuthStore
         return is_file($this->bootstrapPath);
     }
 
+    private function deleteBootstrapFiles(): void
+    {
+        @unlink($this->bootstrapPath);
+    }
+
     private function hasUsers(): bool
     {
         $data = $this->readJson($this->usersPath, $this->defaultUsers());
         return count($data['users'] ?? []) > 0;
+    }
+
+    private function setupUrl(string $token): string
+    {
+        if ($this->baseUrl === null) {
+            throw new RuntimeException('auth.base_url must be configured before setup links can be generated.');
+        }
+
+        return $this->baseUrl . '/?setup=' . rawurlencode($token);
     }
 
     /**

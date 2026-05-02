@@ -50,6 +50,14 @@ final class Config
             );
         }
 
+        $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+        $baseUrl = is_string($auth['base_url'] ?? null) ? rtrim(trim($auth['base_url']), '/') : '';
+        if ($baseUrl === '' || filter_var($baseUrl, FILTER_VALIDATE_URL) === false) {
+            $config['warnings'][] = 'auth.base_url must be set to the public app URL in config/app.json before setup links can be generated.';
+        } else {
+            $config['auth']['base_url'] = $baseUrl;
+        }
+
         return $config;
     }
 }

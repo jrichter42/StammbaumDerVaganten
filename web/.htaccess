@@ -5,7 +5,7 @@ DirectoryIndex index.php
   RewriteRule ^(app|config|data|var)(/|$) - [F,L]
 </IfModule>
 
-<FilesMatch "^(\.env|composer\.(json|lock)|.*\.md)$">
+<FilesMatch "^(\.env|bootstrap_setup\.txt|composer\.(json|lock)|.*\.md)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>

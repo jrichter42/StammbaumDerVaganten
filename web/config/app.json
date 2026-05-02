@@ -3,6 +3,7 @@
   "timezone": "Europe/Berlin",
   "show_warnings": true,
   "auth": {
+    "base_url": "https://stammbaumdervaganten.de",
     "initial_admin_username": "admin"
   }
 }

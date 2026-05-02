@@ -1,13 +1,37 @@
 @echo off
-echo Deploying to W:\stammbaumdervaganten...
+setlocal
 
-REM Check if destination exists
-if not exist "W:\stammbaumdervaganten" (
-    echo Error: W:\stammbaumdervaganten does not exist!
+set "DEST=W:\stammbaumdervaganten"
+set "ROBO=robocopy /NDL /NS /NJH /NJS /NP"
+
+if not exist "%DEST%" (
+    echo Error: %DEST% does not exist!
     exit /b 1
 )
 
-REM Copy all files from web directory, excluding mutable data/runtime directories
-robocopy "web" "W:\stammbaumdervaganten" /E /PURGE /XD "web\data" "web\var" /NDL /NC /NS
+REM Copy root files without purging mutable destination directories.
+call :run %ROBO% "web" "%DEST%" *.* /LEV:1 /XF "bootstrap_setup.txt" /XD "app" "assets" "config" "data" "var" || exit /b 1
 
-echo Deployment complete!
+REM Mirror app-owned directories only.
+for %%D in (app assets) do call :run %ROBO% "web\%%D" "%DEST%\%%D" /MIR || exit /b 1
+
+REM Never purge server config/data/runtime state; just refresh access protection.
+for %%D in (config data var) do call :run %ROBO% "web\%%D" "%DEST%\%%D" ".htaccess" || exit /b 1
+
+exit /b 0
+
+:run
+set "LOG=%TEMP%\stammbaum-deploy-%RANDOM%-%RANDOM%.log"
+%* > "%LOG%"
+set "RC=%ERRORLEVEL%"
+
+findstr /R /V /C:"^[ ]*$" "%LOG%" | findstr /L /V /C:"*EXTRA"
+
+if %RC% GEQ 8 (
+    echo Robocopy failed with exit code %RC%.
+    type "%LOG%"
+    del "%LOG%" >nul 2>nul
+    exit /b %RC%
+)
+del "%LOG%" >nul 2>nul
+exit /b 0
