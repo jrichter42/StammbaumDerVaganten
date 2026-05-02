@@ -1,5 +1,8 @@
 {
   "name": "Stammbaum der Vaganten",
   "timezone": "Europe/Berlin",
-  "show_warnings": true
+  "show_warnings": true,
+  "auth": {
+    "initial_admin_username": "admin"
+  }
 }

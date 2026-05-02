@@ -32,7 +32,7 @@ Http::configureSession();
 
 $storage = new Storage(STAMMBAUM_BASE_PATH);
 $storage->ensureStructure();
-$auth = new AuthStore(STAMMBAUM_BASE_PATH);
+$auth = new AuthStore(STAMMBAUM_BASE_PATH, $config);
 
 return [
     'config' => $config,

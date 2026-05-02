@@ -47,12 +47,16 @@ For production, set a stable passkey relying-party configuration in
 {
   "auth": {
     "rp_id": "stammbaumdervaganten.de",
-    "origin": "https://stammbaumdervaganten.de"
+    "origin": "https://stammbaumdervaganten.de",
+    "initial_admin_username": "admin"
   }
 }
 ```
 
 Passkeys require HTTPS except on local development origins such as `localhost`.
+The initial admin username is only used when `var/auth/users.json` has no users
+yet; changing it later does not rename an existing user. User display names are
+optional. If a display name is empty, the UI uses the username.
 
 ## Data Object Folders
 

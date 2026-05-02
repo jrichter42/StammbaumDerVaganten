@@ -16,8 +16,12 @@ final class AuthStore
     private string $challengesPath;
     private string $auditPath;
     private string $bootstrapPath;
+    private string $initialAdminUsername = 'admin';
 
-    public function __construct(string $basePath)
+    /**
+     * @param array<string, mixed> $config
+     */
+    public function __construct(string $basePath, array $config = [])
     {
         $this->authPath = rtrim($basePath, '/\\') . '/var/auth';
         $this->usersPath = $this->authPath . '/users.json';
@@ -25,6 +29,7 @@ final class AuthStore
         $this->challengesPath = $this->authPath . '/challenges.json';
         $this->auditPath = $this->authPath . '/audit.jsonl';
         $this->bootstrapPath = $this->authPath . '/bootstrap_setup.txt';
+        $this->configureInitialAdmin($config);
 
         $this->ensureFiles();
         $this->ensureBootstrapUser();
@@ -81,7 +86,7 @@ final class AuthStore
             $user = [
                 'id' => $this->randomId('user'),
                 'username' => $username,
-                'display_name' => $displayName !== '' ? $displayName : $username,
+                'display_name' => $displayName,
                 'enabled' => true,
                 'permissions' => $permissions,
                 'user_handle' => Base64Url::encode(random_bytes(32)),
@@ -156,9 +161,6 @@ final class AuthStore
 
             $this->assertUsernameAvailable($data, $username, $userId);
             $data['users'][$index]['username'] = $username;
-            $data['users'][$index]['display_name'] = (string) ($data['users'][$index]['display_name'] ?? '') !== ''
-                ? $data['users'][$index]['display_name']
-                : $username;
             $data['users'][$index]['updated_at'] = $this->now();
 
             return [$data, null];
@@ -506,17 +508,34 @@ final class AuthStore
         $this->ensureJsonFile($this->challengesPath, $this->defaultChallenges());
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function configureInitialAdmin(array $config): void
+    {
+        $authConfig = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+
+        $username = is_string($authConfig['initial_admin_username'] ?? null)
+            ? $authConfig['initial_admin_username']
+            : $this->initialAdminUsername;
+
+        $this->initialAdminUsername = $this->normalizeUsername($username, false);
+    }
+
     private function ensureBootstrapUser(): void
     {
         if ($this->hasUsers()) {
             return;
         }
 
-        $admin = $this->createUser('admin', 'Admin', self::PERMISSIONS, null);
+        $admin = $this->createUser($this->initialAdminUsername, '', self::PERMISSIONS, null);
         $setup = $this->createSetupToken((string) $admin['id'], null, 24 * 30);
 
         $content = implode(PHP_EOL, [
             'Initial admin passkey setup',
+            '',
+            'Initial admin username:',
+            $this->initialAdminUsername,
             '',
             'Open this path on the deployed site:',
             $setup['setup_path'],

@@ -296,8 +296,10 @@ async function handleUserAction(event) {
     if (button.dataset.action === 'save') {
       const permissions = Array.from(item.querySelectorAll('input[data-permission]:checked'))
         .map((input) => input.value);
+      const displayName = item.querySelector('input[data-display-name]')?.value.trim() || '';
       await postJson('admin-update-user', {
         user_id: userId,
+        display_name: displayName,
         permissions,
       });
       await reloadAfterUserChange(userId);
@@ -483,6 +485,10 @@ function renderAdmin() {
       <div>
         <h3>${escapeHtml(user.display_name || user.username || '(no username)')}</h3>
         <small>${escapeHtml(user.username || 'username pending')} / ${user.credential_count} passkey${user.credential_count === 1 ? '' : 's'} / ${user.enabled ? 'enabled' : 'disabled'}</small>
+        <label class="inline-field">
+          <span>Display name</span>
+          <input data-display-name value="${escapeAttribute(user.display_name || '')}" placeholder="${escapeAttribute(user.username || '')}">
+        </label>
         <div class="permission-row">
           ${renderPermissionCheckboxes(user.permissions)}
         </div>

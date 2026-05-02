@@ -543,6 +543,28 @@ h3 {
   margin-top: 8px;
 }
 
+.inline-field {
+  display: grid;
+  gap: 6px;
+  max-width: 320px;
+  margin-top: 10px;
+}
+
+.inline-field span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.inline-field input {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: #0f1418;
+}
+
 @media (max-width: 780px) {
   .topbar,
   .panel-header {
