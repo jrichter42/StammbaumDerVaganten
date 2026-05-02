@@ -32,6 +32,9 @@ $configWarnings = array_map(
         </div>
         <div class="topbar-actions" aria-label="Application state">
           <span class="status-pill" id="connectionStatus">Loading</span>
+          <span class="status-pill" id="currentUserLabel" hidden></span>
+          <button class="button button-secondary" id="loginButton" type="button" hidden>Sign in</button>
+          <button class="button button-secondary" id="logoutButton" type="button" hidden>Sign out</button>
         </div>
       </header>
 
@@ -44,13 +47,52 @@ $configWarnings = array_map(
         </aside>
       <?php endif; ?>
 
-      <main class="workspace">
+      <section class="auth-screen" id="authScreen" hidden>
+        <div class="auth-layout">
+          <section class="panel" id="loginPanel">
+            <div class="panel-header">
+              <div>
+                <h2>Sign In</h2>
+                <p>Passkey</p>
+              </div>
+              <button class="button" id="passkeyLoginButton" type="button">Use passkey</button>
+            </div>
+          </section>
+
+          <section class="panel" id="setupPanel">
+            <div class="panel-header">
+              <div>
+                <h2>Passkey Setup</h2>
+                <p>One-time setup</p>
+              </div>
+            </div>
+            <form class="form-grid" id="setupForm">
+              <label>
+                <span>Setup code or URL token</span>
+                <input id="setupInput" name="setup" autocomplete="one-time-code" required>
+              </label>
+              <label id="setupUsernameRow">
+                <span>Username</span>
+                <input id="setupUsernameInput" name="username" autocomplete="username">
+              </label>
+              <div class="form-actions">
+                <button class="button" type="submit">Create passkey</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <p class="message global-message" id="authMessage" role="alert" hidden></p>
+
+      <main class="workspace" id="workspace" hidden>
         <nav class="sidebar" aria-label="Sections">
           <button class="nav-item is-active" type="button" data-view="overview">Overview</button>
           <button class="nav-item" type="button" data-view="people">People</button>
           <button class="nav-item" type="button" data-view="groups">Groups</button>
           <button class="nav-item" type="button" data-view="role-types">Role Types</button>
           <button class="nav-item" type="button" data-view="timepoints">Timepoints</button>
+          <button class="nav-item" id="adminNav" type="button" data-view="admin" hidden>Users</button>
         </nav>
 
         <section class="content-area" aria-live="polite">
@@ -135,6 +177,39 @@ $configWarnings = array_map(
                 <button class="button" type="button" disabled>Add timepoint</button>
               </div>
               <div class="empty-state" id="timepointsList">No timepoints yet.</div>
+            </section>
+          </div>
+
+          <div class="view" id="view-admin">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2>Users</h2>
+                  <p id="userAdminCount">0 users</p>
+                </div>
+              </div>
+              <form class="form-grid admin-create" id="createUserForm">
+                <label>
+                  <span>Username</span>
+                  <input name="username" autocomplete="off">
+                </label>
+                <label>
+                  <span>Display name</span>
+                  <input name="display_name" autocomplete="off">
+                </label>
+                <fieldset>
+                  <legend>Permissions</legend>
+                  <label><input type="checkbox" name="permissions" value="read" checked> Read</label>
+                  <label><input type="checkbox" name="permissions" value="write"> Write</label>
+                  <label><input type="checkbox" name="permissions" value="sensitive"> Sensitive data</label>
+                  <label><input type="checkbox" name="permissions" value="manage_users"> Manage users</label>
+                </fieldset>
+                <div class="form-actions">
+                  <button class="button" type="submit">Create user</button>
+                </div>
+              </form>
+              <div class="setup-result" id="setupResult" hidden></div>
+              <div class="list user-list" id="userList"></div>
             </section>
           </div>
         </section>

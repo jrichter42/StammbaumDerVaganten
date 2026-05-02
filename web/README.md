@@ -26,8 +26,33 @@ root. Keep the included `.htaccess` files.
 The application reads its display name, display timezone, and warning visibility from
 `config/app.json`, object data from `data/`, and private runtime state from
 `var/`. Timestamps stored in data files should stay in UTC; the configured
-timezone is for frontend display. The initial runtime directory contains an
-empty `var/auth/users.json`; no default login exists.
+timezone is for frontend display.
+
+## Auth
+
+Login uses passkeys only. Users and passkey public keys are stored in
+`var/auth/users.json`; setup tokens, login challenges, and audit logs stay below
+`var/auth/`. These files must not be web-readable. The included `.htaccess`
+blocks direct access on Apache-compatible hosts.
+
+On the first run with an empty `var/auth/users.json`, the app creates one admin
+account and writes its one-time setup path and setup code to
+`var/auth/bootstrap_setup.txt`. Open that path on the deployed site or enter the
+setup code on the sign-in screen. The token is single-use.
+
+For production, set a stable passkey relying-party configuration in
+`config/app.json` if automatic host detection is not exact:
+
+```json
+{
+  "auth": {
+    "rp_id": "stammbaumdervaganten.de",
+    "origin": "https://stammbaumdervaganten.de"
+  }
+}
+```
+
+Passkeys require HTTPS except on local development origins such as `localhost`.
 
 ## Data Object Folders
 

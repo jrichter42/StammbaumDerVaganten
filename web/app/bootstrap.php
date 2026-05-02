@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Stammbaum\Config;
+use Stammbaum\AuthStore;
 use Stammbaum\Http;
 use Stammbaum\Storage;
 
@@ -31,9 +32,11 @@ Http::configureSession();
 
 $storage = new Storage(STAMMBAUM_BASE_PATH);
 $storage->ensureStructure();
+$auth = new AuthStore(STAMMBAUM_BASE_PATH);
 
 return [
     'config' => $config,
     'storage' => $storage,
+    'auth' => $auth,
     'version' => STAMMBAUM_VERSION,
 ];
