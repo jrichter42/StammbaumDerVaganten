@@ -1,5 +1,7 @@
 # Data model
 ```mermaid
+%% https://mermaid.ai/open-source/syntax/classDiagram.html
+
 classDiagram
 direction LR
 
@@ -8,6 +10,10 @@ class Object {
   -int _revision
   -DateTime _created
   -DateTime _modified
+  -String _modifiedBy
+  -Boolean _deleted
+  +String description
+  -String notes
 }
 
 class Datapoint {
@@ -19,9 +25,8 @@ class Person {
   -String forename
   -String lastname
   -String scoutname
-  -Date birthdate
-  -String contactInfo
-  -String notes
+  #Date birthdate
+  #String contactInfo
   +Membership[] memberships
   +Activity[] activities
 }
@@ -42,24 +47,17 @@ class Activity {
 Activity ..|> Datapoint
 
 class Role {
-  %% roleType
-  +UUID type
-  +UUID groupType
-  -String notes
+  +String label
+  %% GroupTypes in & for which this role can be held, empty means unrestricted/none
+  +UUID[] groupTypes
 }
 Role ..|> Object
 Role ..|> Datapoint
-
-class RoleType {
-  +String label
-}
-RoleType ..|> Object
 
 class Group {
   +String name
   +GroupPhase mainPhase
   +GroupPhase[] additionalPhases
-  -String notes
 }
 Group ..|> Object
 Group ..|> Datapoint
@@ -86,7 +84,6 @@ class Period {
 class Timepoint {
   +String name
   +Date date
-  -String notes
 }
 Timepoint ..|> Object
 Timepoint ..|> Datapoint
@@ -124,19 +121,33 @@ Timepoint "1" *-- "1" Date
 Period "1" *-- "0..2" Date
 ```
 ## Visibility
-`+` -> Property is public (visible to all users)
-`-` -> Property is private (visible only to users who are allowed to see sensitive data)
+`+` -> Property is public (visible to anyone)
+`-` -> Property is private (visible only to users who are allowed to read data)
+`#` -> Property is protected (visible only to users who are allowed to read senstive data)
+
+Everyone can read public fields - this data can potentially be shown publicly (e.g. on a website).
+Users with either read or write permission can receive public and private fields.
+Sensitive fields are only included when the user also has the sensitive permission.
+
+## Deletion
+Deleted objects are hidden from normal object list responses and will be private (they are only accessible for users who are allowed to read data);
+`_deleted` is written on the latest object JSON when an object is deleted.
+The deletion timestamp and deleting user are represented by `_modified` and `_modifiedBy` on that delete revision.
 
 # Versioning
-Every class that implements `Object` is stored as a json object.
-When a change to an object is getting commited, the revision number needs to be incremented by one.
-The `modified` property should reflect the timestamp of the latest change, the `created` property reflects the timestamp of creation of the data object.
+Every class that implements `Object` is stored as a JSON object.
+When a change to an object is committed, the revision number needs to be incremented by one.
+The `_modified` property should reflect the timestamp of the latest change, the `_created` property reflects the timestamp of creation of the data object.
 The latest version of an object is stored in a json file `<id>.json`.
-If no version control software is used, then previous versions can be stored as `<id>_<revision>.json`.
+Previous versions are stored next to the latest file as `<id>_<revision>.json`
+before the latest file is replaced. Delete is implemented as a soft-delete
+revision: the latest `<id>.json` remains present with `_deleted` set, while
+normal list responses hide the object. The delete time and deleting user are the
+delete revision's `_modified` and `_modifiedBy` values.
 
 # JSON
-The content of the object's JSON file will be the types properties exactly as deinfed in the class diagram.
-Properties from base classes will be part of the objec's properties as if they would have been defined as part of the class itself.
+The content of the object's JSON file will be the type's properties exactly as defined in the class diagram.
+Properties from base classes will be part of the object's properties as if they would have been defined as part of the class itself.
 
 # Folders
 One folder per object child class type in kebab-case and plural of the type name (folder name should be usable as REST resource collection).
@@ -156,7 +167,7 @@ Each object will use the respective value for the property mentioned in the head
 - Runde
 - Kreis
 
-## Role Types (label)
+## Roles (label)
 - Stammesführung
 - Stellv. Stammesführung
 - Kassenwart
