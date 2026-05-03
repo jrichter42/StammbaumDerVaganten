@@ -111,8 +111,7 @@ Activity "0..*" --> "1" Role
 Group "1" *-- "1" GroupPhase
 Group "1" *-- "0..*" GroupPhase
 GroupPhase "0..*" --> "1" GroupType
-Role "0..*" --> "1" RoleType
-Role "0..*" --> "0..1" GroupType
+Role "0..*" --> "0..*" GroupType
 Membership "1" *-- "1" Period
 Activity "1" *-- "1" Period
 GroupPhase "1" *-- "1" Period
