@@ -161,6 +161,17 @@ h3 {
   color: var(--brand-ink);
 }
 
+.button-danger {
+  color: #2a0806;
+  background: var(--danger);
+  border-color: rgba(214, 106, 98, 0.35);
+}
+
+.button-danger:hover {
+  color: #190403;
+  background: #ef8178;
+}
+
 .button:focus-visible,
 .nav-item:focus-visible {
   outline: 2px solid var(--brand-strong);
@@ -367,6 +378,103 @@ h3 {
 
 .list-item small {
   color: var(--muted);
+}
+
+.object-list .list-item {
+  align-items: start;
+}
+
+.object-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.object-title-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.object-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.object-create {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+
+.object-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 12px 0 0;
+}
+
+.object-create-form {
+  padding: 18px;
+}
+
+.object-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.object-field-wide {
+  grid-column: 1 / -1;
+}
+
+.object-field span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.object-field input,
+.object-field select,
+.object-field textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: #0f1418;
+}
+
+.object-field textarea {
+  resize: vertical;
+}
+
+.object-field input:focus-visible,
+.object-field select:focus-visible,
+.object-field textarea:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+.object-save-state {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.object-save-state.is-error {
+  color: #ffd5d1;
+}
+
+.delete-confirm {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #ffd5d1;
+  font-size: 0.86rem;
 }
 
 .tag {
@@ -608,5 +716,11 @@ h3 {
   .list-item,
   .status-list {
     grid-template-columns: 1fr;
+  }
+
+  .object-title-row,
+  .delete-confirm {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

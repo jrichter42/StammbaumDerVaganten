@@ -1,11 +1,3 @@
-const state = {
-  status: null,
-  groupTypes: [],
-  roleTypes: [],
-  users: [],
-  setupResult: null,
-};
-
 const labels = {
   people: 'People',
   groups: 'Groups',
@@ -13,6 +5,87 @@ const labels = {
   'role-types': 'Role types',
   roles: 'Roles',
   timepoints: 'Timepoints',
+};
+
+const objectCollections = ['people', 'groups', 'group-types', 'role-types', 'roles', 'timepoints'];
+
+const objectConfigs = {
+  people: {
+    list: '#peopleList',
+    count: '#peopleCount',
+    fields: [
+      { name: 'forename', label: 'Forename', sensitive: true },
+      { name: 'lastname', label: 'Lastname', sensitive: true },
+      { name: 'scoutname', label: 'Scout name', sensitive: true },
+      { name: 'birthdate', label: 'Birthdate', kind: 'date', sensitive: true },
+      { name: 'contactInfo', label: 'Contact', kind: 'textarea', sensitive: true },
+      { name: 'notes', label: 'Notes', kind: 'textarea', sensitive: true },
+      { name: '_certainty', label: 'Certainty' },
+      { name: '_sources', label: 'Sources', kind: 'textarea', sensitive: true },
+      { name: 'memberships', label: 'Memberships', kind: 'json', defaultValue: [] },
+      { name: 'activities', label: 'Activities', kind: 'json', defaultValue: [] },
+    ],
+  },
+  groups: {
+    list: '#groupsList',
+    count: '#groupsCount',
+    fields: [
+      { name: 'name', label: 'Name' },
+      { name: 'notes', label: 'Notes', kind: 'textarea', sensitive: true },
+      { name: '_certainty', label: 'Certainty' },
+      { name: '_sources', label: 'Sources', kind: 'textarea', sensitive: true },
+      { name: 'mainPhase', label: 'Main phase', kind: 'json', defaultValue: null },
+      { name: 'additionalPhases', label: 'Additional phases', kind: 'json', defaultValue: [] },
+    ],
+  },
+  'group-types': {
+    list: '#groupTypesList',
+    count: '#groupTypesCount',
+    fields: [
+      { name: 'label', label: 'Label' },
+    ],
+  },
+  'role-types': {
+    list: '#roleTypesList',
+    count: '#roleTypesCount',
+    fields: [
+      { name: 'label', label: 'Label' },
+    ],
+  },
+  roles: {
+    list: '#rolesList',
+    count: '#rolesCount',
+    fields: [
+      { name: 'type', label: 'Role type', kind: 'role-type-select' },
+      { name: 'groupType', label: 'Group type', kind: 'group-type-select' },
+      { name: 'notes', label: 'Notes', kind: 'textarea', sensitive: true },
+      { name: '_certainty', label: 'Certainty' },
+      { name: '_sources', label: 'Sources', kind: 'textarea', sensitive: true },
+    ],
+  },
+  timepoints: {
+    list: '#timepointsList',
+    count: '#timepointsCount',
+    fields: [
+      { name: 'name', label: 'Name' },
+      { name: 'date', label: 'Date', kind: 'date' },
+      { name: 'notes', label: 'Notes', kind: 'textarea', sensitive: true },
+      { name: '_certainty', label: 'Certainty' },
+      { name: '_sources', label: 'Sources', kind: 'textarea', sensitive: true },
+    ],
+  },
+};
+
+const state = {
+  status: null,
+  objects: Object.fromEntries(objectCollections.map((type) => [type, []])),
+  groupTypes: [],
+  roleTypes: [],
+  users: [],
+  setupResult: null,
+  createOpen: {},
+  editing: {},
+  editTimers: {},
 };
 
 const connectionStatus = document.querySelector('#connectionStatus');
@@ -54,8 +127,13 @@ setupForm.addEventListener('submit', beginSetup);
 createUserForm.addEventListener('submit', createUser);
 setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
+document.addEventListener('click', handleObjectClick);
+document.addEventListener('input', handleObjectInput);
+document.addEventListener('change', handleObjectChange);
+document.addEventListener('focusout', handleObjectBlur);
 
 refresh();
+window.setInterval(pollObjects, 12000);
 
 function activateView(viewName) {
   document.querySelectorAll('[data-view]').forEach((button) => {
@@ -82,16 +160,10 @@ async function refresh() {
       return;
     }
 
-    if (hasPermission('read')) {
-      const [groupTypes, roleTypes] = await Promise.all([
-        getJson('api.php?action=objects&type=group-types'),
-        getJson('api.php?action=objects&type=role-types'),
-      ]);
-      state.groupTypes = groupTypes.objects || [];
-      state.roleTypes = roleTypes.objects || [];
+    if (canAccessObjects()) {
+      await loadObjects();
     } else {
-      state.groupTypes = [];
-      state.roleTypes = [];
+      clearObjects();
     }
 
     if (hasPermission('manage_users')) {
@@ -127,6 +199,10 @@ function renderShell() {
   if (!canManageUsers && document.querySelector('#view-admin')?.classList.contains('is-active')) {
     activateView('overview');
   }
+
+  document.querySelectorAll('[data-create-type]').forEach((button) => {
+    button.hidden = !hasPermission('write');
+  });
 }
 
 function showBootstrapHint() {
@@ -226,7 +302,55 @@ async function logout() {
     await postJson('auth-logout');
   } finally {
     state.users = [];
+    clearObjects();
     await refresh();
+  }
+}
+
+async function loadObjects() {
+  const responses = await Promise.all(objectCollections.map((type) => (
+    getJson(`api.php?action=objects&type=${encodeURIComponent(type)}`)
+  )));
+
+  responses.forEach((response) => {
+    state.objects[response.type] = response.objects || [];
+  });
+  syncReferenceState();
+}
+
+function clearObjects() {
+  objectCollections.forEach((type) => {
+    state.objects[type] = [];
+  });
+  syncReferenceState();
+}
+
+function syncReferenceState() {
+  state.groupTypes = state.objects['group-types'] || [];
+  state.roleTypes = state.objects['role-types'] || [];
+}
+
+async function reloadObjectData() {
+  state.status = await getJson('api.php?action=status');
+  renderShell();
+  if (canAccessObjects()) {
+    await loadObjects();
+  } else {
+    clearObjects();
+  }
+  render();
+}
+
+async function pollObjects() {
+  if (document.hidden || !state.status?.auth?.user || !canAccessObjects() || hasPendingObjectEdits()) {
+    return;
+  }
+
+  try {
+    await loadObjects();
+    render();
+  } catch (error) {
+    console.error(error);
   }
 }
 
@@ -371,7 +495,10 @@ async function postJson(action, body = {}) {
 async function readJsonResponse(response) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Request failed: ${response.status}`);
+    const error = new Error(payload.error || `Request failed: ${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
 
   return payload;
@@ -382,7 +509,7 @@ function render() {
   renderReferenceData();
   renderSystem();
   renderSectionCounts();
-  renderRoleTypes();
+  renderObjectCollections();
   renderAdmin();
 }
 
@@ -402,14 +529,14 @@ function renderMetrics() {
 function renderReferenceData() {
   const list = document.querySelector('#referenceList');
   const items = [
-    ...state.groupTypes.map((object) => ({ ...object, tag: 'Group type' })),
-    ...state.roleTypes.slice(0, 6).map((object) => ({ ...object, tag: 'Role type' })),
+    ...state.groupTypes.map((object) => ({ ...object, objectType: 'group-types', tag: 'Group type' })),
+    ...state.roleTypes.slice(0, 6).map((object) => ({ ...object, objectType: 'role-types', tag: 'Role type' })),
   ];
 
   list.innerHTML = items.map((object) => `
     <article class="list-item">
       <div>
-        <h3>${escapeHtml(objectLabel(object))}</h3>
+        <h3>${escapeHtml(objectLabel(object, object.objectType))}</h3>
         <small>${escapeHtml(objectId(object))}</small>
       </div>
       <span class="tag">${escapeHtml(object.tag)}</span>
@@ -464,21 +591,581 @@ function renderSectionCounts() {
   const collections = state.status?.storage?.collections || {};
   setText('#peopleCount', formatCount(collections.people, 'record'));
   setText('#groupsCount', formatCount(collections.groups, 'record'));
+  setText('#groupTypesCount', formatCount(collections['group-types'], 'record'));
+  setText('#rolesCount', formatCount(collections.roles, 'record'));
   setText('#roleTypesCount', formatCount(collections['role-types'], 'record'));
   setText('#timepointsCount', formatCount(collections.timepoints, 'record'));
 }
 
-function renderRoleTypes() {
-  const list = document.querySelector('#roleTypesList');
-  list.innerHTML = state.roleTypes.map((object) => `
-    <article class="list-item">
-      <div>
-        <h3>${escapeHtml(objectLabel(object))}</h3>
-        <small>${escapeHtml(objectId(object))}</small>
+function renderObjectCollections() {
+  objectCollections.forEach(renderObjectCollection);
+}
+
+function renderObjectCollection(type) {
+  const config = objectConfigs[type];
+  const list = document.querySelector(config.list);
+  if (!list) {
+    return;
+  }
+
+  renderCreatePanel(type);
+  if (!canAccessObjects()) {
+    list.innerHTML = '<div class="empty-state">No object access.</div>';
+    return;
+  }
+
+  const objects = state.objects[type] || [];
+  list.innerHTML = objects.map((object) => renderObjectItem(type, object)).join('')
+    || `<div class="empty-state">No ${escapeHtml((labels[type] || type).toLowerCase())} yet.</div>`;
+}
+
+function renderObjectItem(type, object) {
+  const key = objectKey(type, objectId(object));
+  const isEditing = Boolean(state.editing[key]);
+  const canWrite = hasPermission('write');
+  const summary = objectSummary(type, object);
+
+  return `
+    <article class="list-item object-item" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}">
+      <div class="object-main">
+        <div class="object-title-row">
+          <div>
+            <h3 data-object-title>${escapeHtml(objectLabel(object, type))}</h3>
+            <small data-object-meta>${escapeHtml(objectMeta(object))}</small>
+          </div>
+          <span class="tag">${escapeHtml(labels[type] || type)}</span>
+        </div>
+        ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
+        ${isEditing ? renderObjectEditor(type, object) : ''}
+        <p class="object-save-state" data-save-state hidden></p>
       </div>
-      <span class="tag">Role type</span>
+      <div class="user-actions object-actions">
+        ${canWrite ? `
+          <button class="button button-secondary" type="button" data-object-action="${isEditing ? 'close' : 'edit'}">${isEditing ? 'Close' : 'Edit'}</button>
+          <button class="button button-danger" type="button" data-object-action="delete">Delete</button>
+        ` : ''}
+      </div>
     </article>
-  `).join('') || '<div class="empty-state">No role types available.</div>';
+  `;
+}
+
+function renderObjectEditor(type, object) {
+  return `
+    <form class="object-editor" data-object-editor>
+      ${visibleFields(type).map((field) => renderFieldInput(field, object[field.name], false)).join('')}
+    </form>
+  `;
+}
+
+function renderCreatePanel(type) {
+  const panel = document.querySelector(`[data-create-panel="${cssEscape(type)}"]`);
+  if (!panel) {
+    return;
+  }
+
+  if (!state.createOpen[type] || !hasPermission('write')) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    return;
+  }
+
+  panel.hidden = false;
+  panel.innerHTML = `
+    <form class="object-editor object-create-form" data-create-form="${escapeAttribute(type)}">
+      ${visibleFields(type).map((field) => renderFieldInput(field, defaultFieldValue(field), true)).join('')}
+      <div class="form-actions">
+        <button class="button button-secondary" type="button" data-create-cancel="${escapeAttribute(type)}">Cancel</button>
+        <button class="button" type="submit">Create</button>
+      </div>
+      <p class="object-save-state" data-create-state hidden></p>
+    </form>
+  `;
+}
+
+function renderFieldInput(field, value, isCreate) {
+  const id = `${isCreate ? 'new' : 'edit'}-${field.name}-${Math.random().toString(36).slice(2)}`;
+  const fieldAttrs = `data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind || 'text')}"`;
+  const renderedValue = inputValue(value, field);
+
+  if (field.kind === 'textarea') {
+    return `
+      <label class="object-field" for="${escapeAttribute(id)}">
+        <span>${escapeHtml(field.label)}</span>
+        <textarea id="${escapeAttribute(id)}" ${fieldAttrs} rows="3">${escapeHtml(renderedValue)}</textarea>
+      </label>
+    `;
+  }
+
+  if (field.kind === 'json') {
+    return `
+      <label class="object-field object-field-wide" for="${escapeAttribute(id)}">
+        <span>${escapeHtml(field.label)}</span>
+        <textarea id="${escapeAttribute(id)}" ${fieldAttrs} rows="4" spellcheck="false">${escapeHtml(renderedValue)}</textarea>
+      </label>
+    `;
+  }
+
+  if (field.kind === 'role-type-select' || field.kind === 'group-type-select') {
+    return renderSelectField(field, renderedValue, fieldAttrs, id);
+  }
+
+  return `
+    <label class="object-field" for="${escapeAttribute(id)}">
+      <span>${escapeHtml(field.label)}</span>
+      <input id="${escapeAttribute(id)}" ${fieldAttrs} value="${escapeAttribute(renderedValue)}" autocomplete="off">
+    </label>
+  `;
+}
+
+function renderSelectField(field, value, fieldAttrs, id) {
+  const options = field.kind === 'role-type-select' ? state.roleTypes : state.groupTypes;
+  const optionHtml = [
+    '<option value="">None</option>',
+    ...options.map((object) => `<option value="${escapeAttribute(objectId(object))}" ${objectId(object) === value ? 'selected' : ''}>${escapeHtml(objectLabel(object, field.kind === 'role-type-select' ? 'role-types' : 'group-types'))}</option>`),
+  ].join('');
+
+  return `
+    <label class="object-field" for="${escapeAttribute(id)}">
+      <span>${escapeHtml(field.label)}</span>
+      <select id="${escapeAttribute(id)}" ${fieldAttrs}>${optionHtml}</select>
+    </label>
+  `;
+}
+
+async function handleObjectClick(event) {
+  const createButton = event.target.closest('[data-create-type]');
+  if (createButton) {
+    state.createOpen[createButton.dataset.createType] = true;
+    renderObjectCollection(createButton.dataset.createType);
+    return;
+  }
+
+  const createCancel = event.target.closest('[data-create-cancel]');
+  if (createCancel) {
+    state.createOpen[createCancel.dataset.createCancel] = false;
+    renderObjectCollection(createCancel.dataset.createCancel);
+    return;
+  }
+
+  const createForm = event.target.closest('[data-create-form]');
+  if (createForm && event.target.closest('button[type="submit"]')) {
+    return;
+  }
+
+  const button = event.target.closest('[data-object-action]');
+  if (!button) {
+    return;
+  }
+
+  const item = button.closest('[data-object-type][data-object-id]');
+  if (!item) {
+    return;
+  }
+
+  const type = item.dataset.objectType;
+  const id = item.dataset.objectId;
+  const key = objectKey(type, id);
+  const action = button.dataset.objectAction;
+
+  if (action === 'edit') {
+    state.editing[key] = true;
+    renderObjectCollection(type);
+    return;
+  }
+
+  if (action === 'close') {
+    await flushObjectEdit(item, true);
+    state.editing[key] = false;
+    renderObjectCollection(type);
+    return;
+  }
+
+  if (action === 'delete') {
+    showDeleteConfirm(item);
+    return;
+  }
+
+  if (action === 'cancel-delete') {
+    clearDeleteConfirm(item);
+    return;
+  }
+
+  if (action === 'confirm-delete') {
+    await deleteObject(item);
+  }
+}
+
+async function handleObjectInput(event) {
+  const input = event.target.closest('[data-object-field]');
+  if (!input) {
+    return;
+  }
+
+  const item = input.closest('[data-object-type][data-object-id]');
+  if (!item) {
+    return;
+  }
+
+  markObjectDirty(item);
+  scheduleObjectSave(item, 1400);
+}
+
+async function handleObjectChange(event) {
+  const input = event.target.closest('[data-object-field]');
+  if (!input) {
+    return;
+  }
+
+  const item = input.closest('[data-object-type][data-object-id]');
+  if (item) {
+    markObjectDirty(item);
+    scheduleObjectSave(item, 600);
+    return;
+  }
+
+  const createForm = input.closest('[data-create-form]');
+  if (createForm) {
+    clearCreateState(createForm);
+  }
+}
+
+function handleObjectBlur(event) {
+  const input = event.target.closest('[data-object-field]');
+  const item = input?.closest('[data-object-type][data-object-id]');
+  if (item) {
+    scheduleObjectSave(item, 250);
+  }
+}
+
+document.addEventListener('submit', async (event) => {
+  const form = event.target.closest('[data-create-form]');
+  if (!form) {
+    return;
+  }
+
+  event.preventDefault();
+  await createObjectFromForm(form);
+});
+
+function markObjectDirty(item) {
+  item.dataset.dirty = '1';
+  setObjectSaveState(item, 'Unsaved', false);
+}
+
+function scheduleObjectSave(item, delay) {
+  const key = objectKey(item.dataset.objectType, item.dataset.objectId);
+  window.clearTimeout(state.editTimers[key]);
+  state.editTimers[key] = window.setTimeout(() => {
+    flushObjectEdit(item, false);
+  }, delay);
+}
+
+async function flushObjectEdit(item, force) {
+  if (!item?.isConnected || item.dataset.saving === '1') {
+    return;
+  }
+
+  if (item.dataset.dirty !== '1') {
+    return;
+  }
+
+  const type = item.dataset.objectType;
+  const id = item.dataset.objectId;
+  const revision = Number(item.dataset.revision || 0);
+  let payload;
+  try {
+    payload = collectObjectFields(item);
+  } catch (error) {
+    setObjectSaveState(item, error.message, true);
+    return;
+  }
+
+  const payloadKey = JSON.stringify(payload);
+  if (item.dataset.lastSavedPayload === payloadKey && item.dataset.dirty !== '1') {
+    return;
+  }
+
+  item.dataset.saving = '1';
+  setObjectSaveState(item, 'Saving', false);
+
+  try {
+    const response = await postJson('object-update', {
+      type,
+      id,
+      base_revision: revision,
+      object: payload,
+    });
+
+    updateObjectInState(type, response.object);
+    item.dataset.revision = Number(response.object._revision || revision);
+    updateObjectChrome(item, type, response.object);
+
+    const currentPayloadKey = JSON.stringify(collectObjectFields(item));
+    if (currentPayloadKey === payloadKey) {
+      item.dataset.dirty = '';
+      item.dataset.lastSavedPayload = payloadKey;
+      setObjectSaveState(item, 'Saved', false, true);
+    } else {
+      item.dataset.dirty = '1';
+      scheduleObjectSave(item, 900);
+    }
+  } catch (error) {
+    handleObjectSaveError(item, error);
+  } finally {
+    item.dataset.saving = '';
+  }
+}
+
+async function createObjectFromForm(form) {
+  const type = form.dataset.createForm;
+  let payload;
+  try {
+    payload = collectObjectFields(form);
+  } catch (error) {
+    setCreateState(form, error.message, true);
+    return;
+  }
+
+  setCreateState(form, 'Creating', false);
+  try {
+    await postJson('object-create', { type, object: payload });
+    state.createOpen[type] = false;
+    await reloadObjectData();
+  } catch (error) {
+    setCreateState(form, error.message || 'Object could not be created.', true);
+  }
+}
+
+async function deleteObject(item) {
+  const type = item.dataset.objectType;
+  const id = item.dataset.objectId;
+  try {
+    await postJson('object-delete', {
+      type,
+      id,
+      base_revision: Number(item.dataset.revision || 0),
+    });
+
+    state.editing[objectKey(type, id)] = false;
+    await reloadObjectData();
+  } catch (error) {
+    handleObjectSaveError(item, error);
+  }
+}
+
+function showDeleteConfirm(item) {
+  clearDeleteConfirm(item);
+  const actions = item.querySelector('.object-actions');
+  if (!actions) {
+    return;
+  }
+
+  actions.insertAdjacentHTML('beforeend', `
+    <div class="delete-confirm">
+      <span>Delete this object?</span>
+      <button class="button button-danger" type="button" data-object-action="confirm-delete">Confirm</button>
+      <button class="button button-secondary" type="button" data-object-action="cancel-delete">Cancel</button>
+    </div>
+  `);
+}
+
+function clearDeleteConfirm(item) {
+  item.querySelector('.delete-confirm')?.remove();
+}
+
+function collectObjectFields(root) {
+  const type = root.dataset.objectType || root.dataset.createForm;
+  const payload = {};
+  visibleFields(type).forEach((field) => {
+    const input = root.querySelector(`[data-object-field="${cssEscape(field.name)}"]`);
+    if (!input) {
+      return;
+    }
+
+    payload[field.name] = readFieldValue(input, field);
+  });
+
+  return payload;
+}
+
+function readFieldValue(input, field) {
+  const raw = input.value;
+  if (field.kind === 'json') {
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      return defaultFieldValue(field);
+    }
+
+    try {
+      return JSON.parse(trimmed);
+    } catch (_error) {
+      throw new Error(`${field.label} must be valid JSON.`);
+    }
+  }
+
+  if (field.kind === 'date') {
+    return raw.trim() || null;
+  }
+
+  return raw;
+}
+
+function visibleFields(type) {
+  const fields = objectConfigs[type]?.fields || [];
+  if (hasPermission('sensitive')) {
+    return fields;
+  }
+
+  return fields.filter((field) => !field.sensitive);
+}
+
+function defaultFieldValue(field) {
+  if (Object.prototype.hasOwnProperty.call(field, 'defaultValue')) {
+    return structuredCloneSafe(field.defaultValue);
+  }
+
+  if (field.kind === 'json') {
+    return null;
+  }
+
+  if (field.kind === 'date') {
+    return '';
+  }
+
+  return '';
+}
+
+function inputValue(value, field) {
+  const actual = value === undefined ? defaultFieldValue(field) : value;
+  if (field.kind === 'json') {
+    return actual === null || actual === undefined ? '' : JSON.stringify(actual, null, 2);
+  }
+
+  if (field.kind === 'date') {
+    if (actual && typeof actual === 'object') {
+      return actual.value || actual.rawValue || actual.display || '';
+    }
+
+    return actual || '';
+  }
+
+  return actual === null || actual === undefined ? '' : String(actual);
+}
+
+function updateObjectInState(type, object) {
+  const id = objectId(object);
+  const list = state.objects[type] || [];
+  const index = list.findIndex((candidate) => objectId(candidate) === id);
+  if (index === -1) {
+    list.push(object);
+  } else {
+    list[index] = object;
+  }
+
+  state.objects[type] = list;
+  syncReferenceState();
+}
+
+function updateObjectChrome(item, type, object) {
+  const title = item.querySelector('[data-object-title]');
+  const meta = item.querySelector('[data-object-meta]');
+  if (title) {
+    title.textContent = objectLabel(object, type);
+  }
+  if (meta) {
+    meta.textContent = objectMeta(object);
+  }
+}
+
+function handleObjectSaveError(item, error) {
+  if (error.status === 409 && error.payload?.current) {
+    updateObjectInState(item.dataset.objectType, error.payload.current);
+    setObjectSaveState(item, 'Conflict: reload before editing this object again.', true);
+    return;
+  }
+
+  setObjectSaveState(item, error.message || 'Object update failed.', true);
+}
+
+function setObjectSaveState(item, text, isError, autoHide = false) {
+  const element = item.querySelector('[data-save-state]');
+  if (!element) {
+    return;
+  }
+
+  element.hidden = false;
+  element.textContent = text;
+  element.className = `object-save-state ${isError ? 'is-error' : ''}`;
+  if (autoHide) {
+    window.setTimeout(() => {
+      if (element.textContent === text) {
+        element.hidden = true;
+      }
+    }, 1400);
+  }
+}
+
+function setCreateState(form, text, isError) {
+  const element = form.querySelector('[data-create-state]');
+  if (!element) {
+    return;
+  }
+
+  element.hidden = false;
+  element.textContent = text;
+  element.className = `object-save-state ${isError ? 'is-error' : ''}`;
+}
+
+function clearCreateState(form) {
+  const element = form.querySelector('[data-create-state]');
+  if (element) {
+    element.hidden = true;
+    element.textContent = '';
+  }
+}
+
+function objectMeta(object) {
+  const parts = [
+    objectId(object),
+    `rev ${Number(object._revision || 0)}`,
+  ];
+  if (object._modified) {
+    parts.push(`modified ${object._modified}`);
+  }
+
+  return parts.join(' / ');
+}
+
+function objectSummary(type, object) {
+  if (type === 'roles') {
+    const roleType = state.roleTypes.find((candidate) => objectId(candidate) === object.type);
+    const groupType = state.groupTypes.find((candidate) => objectId(candidate) === object.groupType);
+    return [roleType ? objectLabel(roleType, 'role-types') : '', groupType ? objectLabel(groupType, 'group-types') : '']
+      .filter(Boolean)
+      .join(' / ');
+  }
+
+  if (type === 'timepoints' && object.date) {
+    return typeof object.date === 'string' ? object.date : inputValue(object.date, { kind: 'date' });
+  }
+
+  return '';
+}
+
+function hasPendingObjectEdits() {
+  return Boolean(document.querySelector('[data-object-editor], [data-create-form], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
+}
+
+function objectKey(type, id) {
+  return `${type}:${id}`;
+}
+
+function structuredCloneSafe(value) {
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+
+  return JSON.parse(JSON.stringify(value));
 }
 
 function renderAdmin() {
@@ -1166,7 +1853,21 @@ function hasPermission(permission) {
   return permissions.includes(permission);
 }
 
-function objectLabel(object) {
+function canAccessObjects() {
+  return hasPermission('read') || hasPermission('write');
+}
+
+function objectLabel(object, type = '') {
+  if (type === 'people') {
+    const parts = [object.forename, object.lastname].filter(Boolean).join(' ');
+    return object.scoutname || parts || objectId(object);
+  }
+
+  if (type === 'roles') {
+    const roleType = state.roleTypes.find((candidate) => objectId(candidate) === object.type);
+    return roleType ? objectLabel(roleType, 'role-types') : object.type || objectId(object);
+  }
+
   return object.label || object.name || object.data?.label || objectId(object);
 }
 
@@ -1214,4 +1915,12 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
   return escapeHtml(value).replaceAll('`', '&#096;');
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) {
+    return window.CSS.escape(String(value));
+  }
+
+  return String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 }

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use Stammbaum\AuthStore;
 use Stammbaum\Http;
+use Stammbaum\StorageConflictException;
 use Stammbaum\WebAuthn;
 
 $app = require __DIR__ . '/app/bootstrap.php';
@@ -43,6 +44,22 @@ function require_permission(AuthStore $auth, string $permission): array
 }
 
 /**
+ * @param array<int, string> $permissions
+ * @return array<string, mixed>
+ */
+function require_any_permission(AuthStore $auth, array $permissions): array
+{
+    $user = require_user($auth);
+    foreach ($permissions as $permission) {
+        if (in_array($permission, $user['permissions'], true)) {
+            return $user;
+        }
+    }
+
+    Http::json(['ok' => false, 'error' => 'Permission denied'], 403);
+}
+
+/**
  * @param array<string, mixed> $body
  */
 function require_csrf(AuthStore $auth, array $body): void
@@ -61,7 +78,7 @@ try {
         case 'status':
             Http::requireMethod('GET');
             $authStatus = $auth->status();
-            $canRead = $auth->hasPermission('read');
+            $canUseObjects = $auth->hasPermission('read') || $auth->hasPermission('write');
             Http::json([
                 'ok' => true,
                 'app' => [
@@ -73,18 +90,84 @@ try {
                 ],
                 'auth' => $authStatus,
                 'webauthn' => $webauthn->publicContext(),
-                'storage' => $canRead ? $storage->status() : null,
+                'storage' => $canUseObjects ? $storage->status() : null,
             ]);
             break;
 
         case 'objects':
             Http::requireMethod('GET');
-            require_permission($auth, 'read');
+            require_any_permission($auth, ['read', 'write']);
             $type = (string) ($_GET['type'] ?? '');
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'objects' => $storage->listObjects($type),
+                'objects' => $storage->listObjects($type, $auth->hasPermission('sensitive')),
+            ]);
+            break;
+
+        case 'object':
+            Http::requireMethod('GET');
+            require_any_permission($auth, ['read', 'write']);
+            $type = (string) ($_GET['type'] ?? '');
+            $id = (string) ($_GET['id'] ?? '');
+            Http::json([
+                'ok' => true,
+                'type' => $type,
+                'object' => $storage->readObject($type, $id, $auth->hasPermission('sensitive')),
+            ]);
+            break;
+
+        case 'object-schema':
+            Http::requireMethod('GET');
+            require_any_permission($auth, ['read', 'write']);
+            Http::json([
+                'ok' => true,
+                'schemas' => $storage->schemas($auth->hasPermission('sensitive')),
+            ]);
+            break;
+
+        case 'object-create':
+            Http::requireMethod('POST');
+            $editor = require_permission($auth, 'write');
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $type = (string) ($body['type'] ?? '');
+            $payload = is_array($body['object'] ?? null) ? $body['object'] : [];
+            Http::json([
+                'ok' => true,
+                'type' => $type,
+                'object' => $storage->createObject($type, $payload, (string) $editor['id'], $auth->hasPermission('sensitive')),
+            ]);
+            break;
+
+        case 'object-update':
+            Http::requireMethod('POST');
+            $editor = require_permission($auth, 'write');
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $type = (string) ($body['type'] ?? '');
+            $id = (string) ($body['id'] ?? '');
+            $payload = is_array($body['object'] ?? null) ? $body['object'] : (is_array($body['patch'] ?? null) ? $body['patch'] : []);
+            $baseRevision = (int) ($body['base_revision'] ?? 0);
+            Http::json([
+                'ok' => true,
+                'type' => $type,
+                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, (string) $editor['id'], $auth->hasPermission('sensitive')),
+            ]);
+            break;
+
+        case 'object-delete':
+            Http::requireMethod('POST');
+            $editor = require_permission($auth, 'write');
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $type = (string) ($body['type'] ?? '');
+            $id = (string) ($body['id'] ?? '');
+            $baseRevision = (int) ($body['base_revision'] ?? 0);
+            Http::json([
+                'ok' => true,
+                'type' => $type,
+                'object' => $storage->deleteObject($type, $id, $baseRevision, (string) $editor['id'], $auth->hasPermission('sensitive')),
             ]);
             break;
 
@@ -245,6 +328,13 @@ try {
         default:
             Http::json(['ok' => false, 'error' => 'Unknown action'], 404);
     }
+} catch (StorageConflictException $exception) {
+    Http::json([
+        'ok' => false,
+        'error' => $exception->getMessage(),
+        'conflict' => true,
+        'current' => $exception->currentObject(),
+    ], 409);
 } catch (InvalidArgumentException $exception) {
     Http::json(['ok' => false, 'error' => $exception->getMessage()], 400);
 } catch (Throwable $exception) {

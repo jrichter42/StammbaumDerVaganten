@@ -79,6 +79,8 @@ $configWarnings = array_map(
           <button class="nav-item is-active" type="button" data-view="overview">Overview</button>
           <button class="nav-item" type="button" data-view="people">People</button>
           <button class="nav-item" type="button" data-view="groups">Groups</button>
+          <button class="nav-item" type="button" data-view="group-types">Group Types</button>
+          <button class="nav-item" type="button" data-view="roles">Roles</button>
           <button class="nav-item" type="button" data-view="role-types">Role Types</button>
           <button class="nav-item" type="button" data-view="timepoints">Timepoints</button>
           <button class="nav-item" id="adminNav" type="button" data-view="admin" hidden>Users</button>
@@ -125,9 +127,10 @@ $configWarnings = array_map(
                   <h2>People</h2>
                   <p id="peopleCount">0 records</p>
                 </div>
-                <button class="button" type="button" disabled>Add person</button>
+                <button class="button" type="button" data-create-type="people">Add person</button>
               </div>
-              <div class="empty-state" id="peopleList">No people yet.</div>
+              <div class="object-create" data-create-panel="people" hidden></div>
+              <div class="list object-list" id="peopleList"></div>
             </section>
           </div>
 
@@ -138,9 +141,38 @@ $configWarnings = array_map(
                   <h2>Groups</h2>
                   <p id="groupsCount">0 records</p>
                 </div>
-                <button class="button" type="button" disabled>Add group</button>
+                <button class="button" type="button" data-create-type="groups">Add group</button>
               </div>
-              <div class="empty-state" id="groupsList">No groups yet.</div>
+              <div class="object-create" data-create-panel="groups" hidden></div>
+              <div class="list object-list" id="groupsList"></div>
+            </section>
+          </div>
+
+          <div class="view" id="view-group-types">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2>Group Types</h2>
+                  <p id="groupTypesCount">0 records</p>
+                </div>
+                <button class="button" type="button" data-create-type="group-types">Add group type</button>
+              </div>
+              <div class="object-create" data-create-panel="group-types" hidden></div>
+              <div class="list object-list" id="groupTypesList"></div>
+            </section>
+          </div>
+
+          <div class="view" id="view-roles">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h2>Roles</h2>
+                  <p id="rolesCount">0 records</p>
+                </div>
+                <button class="button" type="button" data-create-type="roles">Add role</button>
+              </div>
+              <div class="object-create" data-create-panel="roles" hidden></div>
+              <div class="list object-list" id="rolesList"></div>
             </section>
           </div>
 
@@ -151,8 +183,10 @@ $configWarnings = array_map(
                   <h2>Role Types</h2>
                   <p id="roleTypesCount">0 records</p>
                 </div>
+                <button class="button" type="button" data-create-type="role-types">Add role type</button>
               </div>
-              <div class="list" id="roleTypesList"></div>
+              <div class="object-create" data-create-panel="role-types" hidden></div>
+              <div class="list object-list" id="roleTypesList"></div>
             </section>
           </div>
 
@@ -163,9 +197,10 @@ $configWarnings = array_map(
                   <h2>Timepoints</h2>
                   <p id="timepointsCount">0 records</p>
                 </div>
-                <button class="button" type="button" disabled>Add timepoint</button>
+                <button class="button" type="button" data-create-type="timepoints">Add timepoint</button>
               </div>
-              <div class="empty-state" id="timepointsList">No timepoints yet.</div>
+              <div class="object-create" data-create-panel="timepoints" hidden></div>
+              <div class="list object-list" id="timepointsList"></div>
             </section>
           </div>
 
