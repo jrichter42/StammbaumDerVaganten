@@ -43,20 +43,14 @@ function require_permission(AuthStore $auth, string $permission): array
     return $user;
 }
 
-/**
- * @param array<int, string> $permissions
- * @return array<string, mixed>
- */
-function require_any_permission(AuthStore $auth, array $permissions): array
+function object_access(AuthStore $auth): string
 {
-    $user = require_user($auth);
-    foreach ($permissions as $permission) {
-        if (in_array($permission, $user['permissions'], true)) {
-            return $user;
-        }
+    $canReadData = $auth->hasPermission('read') || $auth->hasPermission('write');
+    if ($canReadData && $auth->hasPermission('sensitive')) {
+        return 'protected';
     }
 
-    Http::json(['ok' => false, 'error' => 'Permission denied'], 403);
+    return $canReadData ? 'private' : 'public';
 }
 
 /**
@@ -78,7 +72,7 @@ try {
         case 'status':
             Http::requireMethod('GET');
             $authStatus = $auth->status();
-            $canUseObjects = $auth->hasPermission('read') || $auth->hasPermission('write');
+            $access = object_access($auth);
             Http::json([
                 'ok' => true,
                 'app' => [
@@ -90,39 +84,38 @@ try {
                 ],
                 'auth' => $authStatus,
                 'webauthn' => $webauthn->publicContext(),
-                'storage' => $canUseObjects ? $storage->status() : null,
+                'storage' => $storage->status($access),
             ]);
             break;
 
         case 'objects':
             Http::requireMethod('GET');
-            require_any_permission($auth, ['read', 'write']);
+            $access = object_access($auth);
             $type = (string) ($_GET['type'] ?? '');
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'objects' => $storage->listObjects($type, $auth->hasPermission('sensitive')),
+                'objects' => $storage->listObjects($type, $access),
             ]);
             break;
 
         case 'object':
             Http::requireMethod('GET');
-            require_any_permission($auth, ['read', 'write']);
+            $access = object_access($auth);
             $type = (string) ($_GET['type'] ?? '');
             $id = (string) ($_GET['id'] ?? '');
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->readObject($type, $id, $auth->hasPermission('sensitive')),
+                'object' => $storage->readObject($type, $id, $access),
             ]);
             break;
 
         case 'object-schema':
             Http::requireMethod('GET');
-            require_any_permission($auth, ['read', 'write']);
             Http::json([
                 'ok' => true,
-                'schemas' => $storage->schemas($auth->hasPermission('sensitive')),
+                'schemas' => $storage->schemas(object_access($auth)),
             ]);
             break;
 
@@ -136,7 +129,7 @@ try {
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->createObject($type, $payload, (string) $editor['id'], $auth->hasPermission('sensitive')),
+                'object' => $storage->createObject($type, $payload, (string) $editor['id'], object_access($auth)),
             ]);
             break;
 
@@ -152,7 +145,7 @@ try {
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, (string) $editor['id'], $auth->hasPermission('sensitive')),
+                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, (string) $editor['id'], object_access($auth)),
             ]);
             break;
 
@@ -167,7 +160,7 @@ try {
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->deleteObject($type, $id, $baseRevision, (string) $editor['id'], $auth->hasPermission('sensitive')),
+                'object' => $storage->deleteObject($type, $id, $baseRevision, (string) $editor['id'], object_access($auth)),
             ]);
             break;
 

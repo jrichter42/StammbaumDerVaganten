@@ -2,26 +2,26 @@ const labels = {
   people: 'People',
   groups: 'Groups',
   'group-types': 'Group types',
-  'role-types': 'Role types',
   roles: 'Roles',
   timepoints: 'Timepoints',
 };
 
-const objectCollections = ['people', 'groups', 'group-types', 'role-types', 'roles', 'timepoints'];
+const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
 
 const objectConfigs = {
   people: {
     list: '#peopleList',
     count: '#peopleCount',
     fields: [
-      { name: 'forename', label: 'Forename', sensitive: true },
-      { name: 'lastname', label: 'Lastname', sensitive: true },
-      { name: 'scoutname', label: 'Scout name', sensitive: true },
-      { name: 'birthdate', label: 'Birthdate', kind: 'date', sensitive: true },
-      { name: 'contactInfo', label: 'Contact', kind: 'textarea', sensitive: true },
-      { name: 'notes', label: 'Notes', kind: 'textarea', sensitive: true },
+      { name: 'description', label: 'Description', kind: 'textarea' },
+      { name: 'forename', label: 'Forename', visibility: 'private' },
+      { name: 'lastname', label: 'Lastname', visibility: 'private' },
+      { name: 'scoutname', label: 'Scout name', visibility: 'private' },
+      { name: 'birthdate', label: 'Birthdate', kind: 'date', visibility: 'protected' },
+      { name: 'contactInfo', label: 'Contact', kind: 'textarea', visibility: 'protected' },
+      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Certainty' },
-      { name: '_sources', label: 'Sources', kind: 'textarea', sensitive: true },
+      { name: '_sources', label: 'Sources', kind: 'textarea' },
       { name: 'memberships', label: 'Memberships', kind: 'json', defaultValue: [] },
       { name: 'activities', label: 'Activities', kind: 'json', defaultValue: [] },
     ],
@@ -30,10 +30,11 @@ const objectConfigs = {
     list: '#groupsList',
     count: '#groupsCount',
     fields: [
+      { name: 'description', label: 'Description', kind: 'textarea' },
       { name: 'name', label: 'Name' },
-      { name: 'notes', label: 'Notes', kind: 'textarea', sensitive: true },
+      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Certainty' },
-      { name: '_sources', label: 'Sources', kind: 'textarea', sensitive: true },
+      { name: '_sources', label: 'Sources', kind: 'textarea' },
       { name: 'mainPhase', label: 'Main phase', kind: 'json', defaultValue: null },
       { name: 'additionalPhases', label: 'Additional phases', kind: 'json', defaultValue: [] },
     ],
@@ -42,36 +43,33 @@ const objectConfigs = {
     list: '#groupTypesList',
     count: '#groupTypesCount',
     fields: [
+      { name: 'description', label: 'Description', kind: 'textarea' },
       { name: 'label', label: 'Label' },
-    ],
-  },
-  'role-types': {
-    list: '#roleTypesList',
-    count: '#roleTypesCount',
-    fields: [
-      { name: 'label', label: 'Label' },
+      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
     ],
   },
   roles: {
     list: '#rolesList',
     count: '#rolesCount',
     fields: [
-      { name: 'type', label: 'Role type', kind: 'role-type-select' },
-      { name: 'groupType', label: 'Group type', kind: 'group-type-select' },
-      { name: 'notes', label: 'Notes', kind: 'textarea', sensitive: true },
+      { name: 'description', label: 'Description', kind: 'textarea' },
+      { name: 'label', label: 'Label' },
+      { name: 'groupTypes', label: 'Group types', kind: 'group-types-multi', defaultValue: [] },
+      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Certainty' },
-      { name: '_sources', label: 'Sources', kind: 'textarea', sensitive: true },
+      { name: '_sources', label: 'Sources', kind: 'textarea' },
     ],
   },
   timepoints: {
     list: '#timepointsList',
     count: '#timepointsCount',
     fields: [
+      { name: 'description', label: 'Description', kind: 'textarea' },
       { name: 'name', label: 'Name' },
       { name: 'date', label: 'Date', kind: 'date' },
-      { name: 'notes', label: 'Notes', kind: 'textarea', sensitive: true },
+      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Certainty' },
-      { name: '_sources', label: 'Sources', kind: 'textarea', sensitive: true },
+      { name: '_sources', label: 'Sources', kind: 'textarea' },
     ],
   },
 };
@@ -80,7 +78,6 @@ const state = {
   status: null,
   objects: Object.fromEntries(objectCollections.map((type) => [type, []])),
   groupTypes: [],
-  roleTypes: [],
   users: [],
   setupResult: null,
   createOpen: {},
@@ -154,17 +151,7 @@ async function refresh() {
     renderShell();
 
     const user = state.status.auth?.user || null;
-    if (!user) {
-      setConnection('Signed out', '');
-      showBootstrapHint();
-      return;
-    }
-
-    if (canAccessObjects()) {
-      await loadObjects();
-    } else {
-      clearObjects();
-    }
+    await loadObjects();
 
     if (hasPermission('manage_users')) {
       await loadAdminUsers();
@@ -172,7 +159,10 @@ async function refresh() {
 
     render();
     const writable = Boolean(state.status.storage && state.status.storage.writable);
-    setConnection(writable ? 'Online' : 'Signed in', writable ? 'is-online' : '');
+    setConnection(user ? (writable ? 'Online' : 'Signed in') : 'Public', user && writable ? 'is-online' : '');
+    if (!user) {
+      showBootstrapHint();
+    }
   } catch (error) {
     console.error(error);
     setConnection('Offline', 'is-offline');
@@ -182,12 +172,12 @@ async function refresh() {
 
 function renderShell() {
   const user = state.status?.auth?.user || null;
-  authScreen.hidden = Boolean(user);
-  workspace.hidden = !user;
+  authScreen.hidden = Boolean(user) || !isSetupPage;
+  workspace.hidden = false;
   loginButton.hidden = Boolean(user);
   logoutButton.hidden = !user;
   currentUserLabel.hidden = !user;
-  passkeyLoginButton.closest('#loginPanel').hidden = Boolean(user) || isSetupPage;
+  passkeyLoginButton.closest('#loginPanel').hidden = true;
   setupPanel.hidden = Boolean(user) || !isSetupPage;
 
   if (user) {
@@ -327,7 +317,6 @@ function clearObjects() {
 
 function syncReferenceState() {
   state.groupTypes = state.objects['group-types'] || [];
-  state.roleTypes = state.objects['role-types'] || [];
 }
 
 async function reloadObjectData() {
@@ -342,7 +331,7 @@ async function reloadObjectData() {
 }
 
 async function pollObjects() {
-  if (document.hidden || !state.status?.auth?.user || !canAccessObjects() || hasPendingObjectEdits()) {
+  if (document.hidden || !canAccessObjects() || hasPendingObjectEdits()) {
     return;
   }
 
@@ -516,7 +505,7 @@ function render() {
 function renderMetrics() {
   const grid = document.querySelector('#metricGrid');
   const collections = state.status?.storage?.collections || {};
-  const visible = ['people', 'groups', 'group-types', 'role-types', 'roles', 'timepoints'];
+  const visible = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
 
   grid.innerHTML = visible.map((key) => `
     <article class="metric">
@@ -530,7 +519,7 @@ function renderReferenceData() {
   const list = document.querySelector('#referenceList');
   const items = [
     ...state.groupTypes.map((object) => ({ ...object, objectType: 'group-types', tag: 'Group type' })),
-    ...state.roleTypes.slice(0, 6).map((object) => ({ ...object, objectType: 'role-types', tag: 'Role type' })),
+    ...(state.objects.roles || []).slice(0, 6).map((object) => ({ ...object, objectType: 'roles', tag: 'Role' })),
   ];
 
   list.innerHTML = items.map((object) => `
@@ -593,7 +582,6 @@ function renderSectionCounts() {
   setText('#groupsCount', formatCount(collections.groups, 'record'));
   setText('#groupTypesCount', formatCount(collections['group-types'], 'record'));
   setText('#rolesCount', formatCount(collections.roles, 'record'));
-  setText('#roleTypesCount', formatCount(collections['role-types'], 'record'));
   setText('#timepointsCount', formatCount(collections.timepoints, 'record'));
 }
 
@@ -705,7 +693,7 @@ function renderFieldInput(field, value, isCreate) {
     `;
   }
 
-  if (field.kind === 'role-type-select' || field.kind === 'group-type-select') {
+  if (field.kind === 'group-type-select' || field.kind === 'group-types-multi') {
     return renderSelectField(field, renderedValue, fieldAttrs, id);
   }
 
@@ -718,16 +706,17 @@ function renderFieldInput(field, value, isCreate) {
 }
 
 function renderSelectField(field, value, fieldAttrs, id) {
-  const options = field.kind === 'role-type-select' ? state.roleTypes : state.groupTypes;
+  const isMultiple = field.kind === 'group-types-multi';
+  const selected = new Set(isMultiple && Array.isArray(value) ? value : [value]);
   const optionHtml = [
-    '<option value="">None</option>',
-    ...options.map((object) => `<option value="${escapeAttribute(objectId(object))}" ${objectId(object) === value ? 'selected' : ''}>${escapeHtml(objectLabel(object, field.kind === 'role-type-select' ? 'role-types' : 'group-types'))}</option>`),
+    ...(isMultiple ? [] : ['<option value="">None</option>']),
+    ...state.groupTypes.map((object) => `<option value="${escapeAttribute(objectId(object))}" ${selected.has(objectId(object)) ? 'selected' : ''}>${escapeHtml(objectLabel(object, 'group-types'))}</option>`),
   ].join('');
 
   return `
     <label class="object-field" for="${escapeAttribute(id)}">
       <span>${escapeHtml(field.label)}</span>
-      <select id="${escapeAttribute(id)}" ${fieldAttrs}>${optionHtml}</select>
+      <select id="${escapeAttribute(id)}" ${fieldAttrs} ${isMultiple ? 'multiple size="5"' : ''}>${optionHtml}</select>
     </label>
   `;
 }
@@ -989,6 +978,10 @@ function collectObjectFields(root) {
 }
 
 function readFieldValue(input, field) {
+  if (field.kind === 'group-types-multi') {
+    return Array.from(input.selectedOptions).map((option) => option.value).filter(Boolean);
+  }
+
   const raw = input.value;
   if (field.kind === 'json') {
     const trimmed = raw.trim();
@@ -1012,11 +1005,7 @@ function readFieldValue(input, field) {
 
 function visibleFields(type) {
   const fields = objectConfigs[type]?.fields || [];
-  if (hasPermission('sensitive')) {
-    return fields;
-  }
-
-  return fields.filter((field) => !field.sensitive);
+  return fields.filter((field) => field.visibility !== 'protected' || hasPermission('sensitive'));
 }
 
 function defaultFieldValue(field) {
@@ -1026,6 +1015,10 @@ function defaultFieldValue(field) {
 
   if (field.kind === 'json') {
     return null;
+  }
+
+  if (field.kind === 'group-types-multi') {
+    return [];
   }
 
   if (field.kind === 'date') {
@@ -1047,6 +1040,10 @@ function inputValue(value, field) {
     }
 
     return actual || '';
+  }
+
+  if (field.kind === 'group-types-multi') {
+    return Array.isArray(actual) ? actual : [];
   }
 
   return actual === null || actual === undefined ? '' : String(actual);
@@ -1125,10 +1122,10 @@ function clearCreateState(form) {
 }
 
 function objectMeta(object) {
-  const parts = [
-    objectId(object),
-    `rev ${Number(object._revision || 0)}`,
-  ];
+  const parts = [objectId(object)];
+  if (object._revision) {
+    parts.push(`rev ${Number(object._revision)}`);
+  }
   if (object._modified) {
     parts.push(`modified ${object._modified}`);
   }
@@ -1138,11 +1135,11 @@ function objectMeta(object) {
 
 function objectSummary(type, object) {
   if (type === 'roles') {
-    const roleType = state.roleTypes.find((candidate) => objectId(candidate) === object.type);
-    const groupType = state.groupTypes.find((candidate) => objectId(candidate) === object.groupType);
-    return [roleType ? objectLabel(roleType, 'role-types') : '', groupType ? objectLabel(groupType, 'group-types') : '']
+    const labels = (Array.isArray(object.groupTypes) ? object.groupTypes : [])
+      .map((id) => state.groupTypes.find((candidate) => objectId(candidate) === id))
       .filter(Boolean)
-      .join(' / ');
+      .map((groupType) => objectLabel(groupType, 'group-types'));
+    return labels.length ? labels.join(', ') : 'Unrestricted';
   }
 
   if (type === 'timepoints' && object.date) {
@@ -1854,7 +1851,7 @@ function hasPermission(permission) {
 }
 
 function canAccessObjects() {
-  return hasPermission('read') || hasPermission('write');
+  return true;
 }
 
 function objectLabel(object, type = '') {
@@ -1864,11 +1861,10 @@ function objectLabel(object, type = '') {
   }
 
   if (type === 'roles') {
-    const roleType = state.roleTypes.find((candidate) => objectId(candidate) === object.type);
-    return roleType ? objectLabel(roleType, 'role-types') : object.type || objectId(object);
+    return object.label || objectId(object);
   }
 
-  return object.label || object.name || object.data?.label || objectId(object);
+  return object.label || object.name || object.description || object.data?.label || objectId(object);
 }
 
 function objectId(object) {

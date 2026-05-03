@@ -81,7 +81,6 @@ $configWarnings = array_map(
           <button class="nav-item" type="button" data-view="groups">Groups</button>
           <button class="nav-item" type="button" data-view="group-types">Group Types</button>
           <button class="nav-item" type="button" data-view="roles">Roles</button>
-          <button class="nav-item" type="button" data-view="role-types">Role Types</button>
           <button class="nav-item" type="button" data-view="timepoints">Timepoints</button>
           <button class="nav-item" id="adminNav" type="button" data-view="admin" hidden>Users</button>
         </nav>
@@ -103,7 +102,7 @@ $configWarnings = array_map(
                 <div class="panel-header">
                   <div>
                     <h2>Reference Data</h2>
-                    <p>Group types and role types</p>
+                    <p>Group types and roles</p>
                   </div>
                 </div>
                 <div class="list" id="referenceList"></div>
@@ -173,20 +172,6 @@ $configWarnings = array_map(
               </div>
               <div class="object-create" data-create-panel="roles" hidden></div>
               <div class="list object-list" id="rolesList"></div>
-            </section>
-          </div>
-
-          <div class="view" id="view-role-types">
-            <section class="panel">
-              <div class="panel-header">
-                <div>
-                  <h2>Role Types</h2>
-                  <p id="roleTypesCount">0 records</p>
-                </div>
-                <button class="button" type="button" data-create-type="role-types">Add role type</button>
-              </div>
-              <div class="object-create" data-create-panel="role-types" hidden></div>
-              <div class="list object-list" id="roleTypesList"></div>
             </section>
           </div>
 

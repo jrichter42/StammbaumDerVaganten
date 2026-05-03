@@ -12,51 +12,53 @@ final class Storage
         'people' => 'people',
         'groups' => 'groups',
         'group-types' => 'group-types',
-        'role-types' => 'role-types',
         'roles' => 'roles',
         'timepoints' => 'timepoints',
     ];
 
     private const FIELD_SCHEMAS = [
         'people' => [
-            '_certainty' => ['type' => 'string', 'default' => 'none'],
-            '_sources' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'forename' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'lastname' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'scoutname' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'birthdate' => ['type' => 'json', 'default' => null, 'sensitive' => true],
-            'contactInfo' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'notes' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'memberships' => ['type' => 'array', 'default' => []],
-            'activities' => ['type' => 'array', 'default' => []],
+            'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            '_certainty' => ['type' => 'string', 'default' => 'none', 'visibility' => 'public'],
+            '_sources' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'forename' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'lastname' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'scoutname' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'birthdate' => ['type' => 'json', 'default' => null, 'visibility' => 'protected'],
+            'contactInfo' => ['type' => 'string', 'default' => '', 'visibility' => 'protected'],
+            'memberships' => ['type' => 'array', 'default' => [], 'visibility' => 'public'],
+            'activities' => ['type' => 'array', 'default' => [], 'visibility' => 'public'],
         ],
         'groups' => [
-            '_certainty' => ['type' => 'string', 'default' => 'none'],
-            '_sources' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'name' => ['type' => 'string', 'default' => ''],
-            'mainPhase' => ['type' => 'json', 'default' => null],
-            'additionalPhases' => ['type' => 'array', 'default' => []],
-            'notes' => ['type' => 'string', 'default' => '', 'sensitive' => true],
+            'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            '_certainty' => ['type' => 'string', 'default' => 'none', 'visibility' => 'public'],
+            '_sources' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'name' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'mainPhase' => ['type' => 'json', 'default' => null, 'visibility' => 'public'],
+            'additionalPhases' => ['type' => 'array', 'default' => [], 'visibility' => 'public'],
         ],
         'group-types' => [
-            'label' => ['type' => 'string', 'default' => ''],
-        ],
-        'role-types' => [
-            'label' => ['type' => 'string', 'default' => ''],
+            'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'label' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
         ],
         'roles' => [
-            '_certainty' => ['type' => 'string', 'default' => 'none'],
-            '_sources' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'type' => ['type' => 'string', 'default' => ''],
-            'groupType' => ['type' => 'string', 'default' => ''],
-            'notes' => ['type' => 'string', 'default' => '', 'sensitive' => true],
+            'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            '_certainty' => ['type' => 'string', 'default' => 'none', 'visibility' => 'public'],
+            '_sources' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'label' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'groupTypes' => ['type' => 'array', 'default' => [], 'visibility' => 'public'],
         ],
         'timepoints' => [
-            '_certainty' => ['type' => 'string', 'default' => 'none'],
-            '_sources' => ['type' => 'string', 'default' => '', 'sensitive' => true],
-            'name' => ['type' => 'string', 'default' => ''],
-            'date' => ['type' => 'json', 'default' => null],
-            'notes' => ['type' => 'string', 'default' => '', 'sensitive' => true],
+            'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            '_certainty' => ['type' => 'string', 'default' => 'none', 'visibility' => 'public'],
+            '_sources' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'name' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'date' => ['type' => 'json', 'default' => null, 'visibility' => 'public'],
         ],
     ];
 
@@ -69,10 +71,12 @@ final class Storage
         '_deleted',
     ];
 
-    private const SENSITIVE_META_FIELDS = [
+    private const PRIVATE_META_FIELDS = [
+        '_revision',
         '_created',
         '_modified',
         '_modifiedBy',
+        '_deleted',
     ];
 
     private string $basePath;
@@ -98,8 +102,10 @@ final class Storage
     /**
      * @return array<string, mixed>
      */
-    public function status(): array
+    public function status(string $access = 'public'): array
     {
+        $this->assertAccess($access);
+
         return [
             'data_path' => $this->relativeDataPath(),
             'var_path' => $this->relativeVarPath(),
@@ -107,7 +113,7 @@ final class Storage
             'writable' => is_writable($this->dataPath()),
             'runtime_writable' => is_writable($this->varPath()),
             'collections' => $this->counts(),
-            'schemas' => $this->schemas(false),
+            'schemas' => $this->schemas($access),
         ];
     }
 
@@ -129,18 +135,19 @@ final class Storage
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function listObjects(string $type, bool $includeSensitive = false, bool $includeDeleted = false): array
+    public function listObjects(string $type, string $access = 'public', bool $includeDeleted = false): array
     {
         $this->assertCollection($type);
+        $this->assertAccess($access);
 
         $objects = [];
         foreach ($this->objectFiles($type) as $file) {
             $object = $this->readJson($file);
-            if (!$includeDeleted && $this->isDeletedObject($object)) {
+            if ($this->isDeletedObject($object) && (!$includeDeleted || !$this->canReadPrivate($access))) {
                 continue;
             }
 
-            $objects[] = $this->objectForRead($type, $object, $includeSensitive);
+            $objects[] = $this->objectForRead($type, $object, $access);
         }
 
         usort($objects, static function (array $left, array $right): int {
@@ -155,25 +162,27 @@ final class Storage
     /**
      * @return array<string, mixed>
      */
-    public function readObject(string $type, string $id, bool $includeSensitive = false): array
+    public function readObject(string $type, string $id, string $access = 'public'): array
     {
+        $this->assertAccess($access);
         $object = $this->readCurrentObject($type, $id);
-        if ($this->isDeletedObject($object)) {
-            throw new InvalidArgumentException('Object has been deleted.');
+        if ($this->isDeletedObject($object) && !$this->canReadPrivate($access)) {
+            throw new InvalidArgumentException('Unknown object.');
         }
 
-        return $this->objectForRead($type, $object, $includeSensitive);
+        return $this->objectForRead($type, $object, $access);
     }
 
     /**
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    public function createObject(string $type, array $payload, string $userId, bool $canUseSensitive): array
+    public function createObject(string $type, array $payload, string $userId, string $access): array
     {
         $this->assertCollection($type);
+        $this->assertAccess($access);
 
-        return $this->withLock($type . '-collection', function () use ($type, $payload, $userId, $canUseSensitive): array {
+        return $this->withLock($type . '-collection', function () use ($type, $payload, $userId, $access): array {
             $id = $this->uuid();
             $path = $this->objectPath($type, $id);
             while (is_file($path)) {
@@ -190,12 +199,12 @@ final class Storage
                 '_modifiedBy' => $userId,
             ] + $this->defaultObjectFields($type);
 
-            foreach ($this->normalizePayload($type, $payload, $canUseSensitive) as $field => $value) {
+            foreach ($this->normalizePayload($type, $payload, $access) as $field => $value) {
                 $object[$field] = $value;
             }
 
             $this->writeJson($path, $object);
-            return $this->objectForRead($type, $object, $canUseSensitive);
+            return $this->objectForRead($type, $object, $access);
         });
     }
 
@@ -203,19 +212,20 @@ final class Storage
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    public function updateObject(string $type, string $id, int $baseRevision, array $payload, string $userId, bool $canUseSensitive): array
+    public function updateObject(string $type, string $id, int $baseRevision, array $payload, string $userId, string $access): array
     {
         $this->assertCollection($type);
+        $this->assertAccess($access);
 
-        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $payload, $userId, $canUseSensitive): array {
+        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $payload, $userId, $access): array {
             $path = $this->objectPath($type, $id);
             $current = $this->readCurrentObject($type, $id);
             if ($this->isDeletedObject($current)) {
                 throw new InvalidArgumentException('Object has been deleted.');
             }
 
-            $this->assertBaseRevision($type, $current, $baseRevision, $canUseSensitive);
-            $patch = $this->normalizePayload($type, $payload, $canUseSensitive);
+            $this->assertBaseRevision($type, $current, $baseRevision, $access);
+            $patch = $this->normalizePayload($type, $payload, $access);
             $updated = $current;
             $changed = false;
             foreach ($patch as $field => $value) {
@@ -226,7 +236,7 @@ final class Storage
             }
 
             if (!$changed) {
-                return $this->objectForRead($type, $current, $canUseSensitive);
+                return $this->objectForRead($type, $current, $access);
             }
 
             $this->archiveRevision($type, $current);
@@ -235,25 +245,26 @@ final class Storage
             $updated['_modifiedBy'] = $userId;
             $this->writeJson($path, $updated);
 
-            return $this->objectForRead($type, $updated, $canUseSensitive);
+            return $this->objectForRead($type, $updated, $access);
         });
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function deleteObject(string $type, string $id, int $baseRevision, string $userId, bool $includeSensitive = false): array
+    public function deleteObject(string $type, string $id, int $baseRevision, string $userId, string $access): array
     {
         $this->assertCollection($type);
+        $this->assertAccess($access);
 
-        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $userId, $includeSensitive): array {
+        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $userId, $access): array {
             $path = $this->objectPath($type, $id);
             $current = $this->readCurrentObject($type, $id);
             if ($this->isDeletedObject($current)) {
                 throw new InvalidArgumentException('Object has already been deleted.');
             }
 
-            $this->assertBaseRevision($type, $current, $baseRevision, $includeSensitive);
+            $this->assertBaseRevision($type, $current, $baseRevision, $access);
             $this->archiveRevision($type, $current);
             $deleted = $current;
             $deleted['_revision'] = ((int) ($current['_revision'] ?? 0)) + 1;
@@ -262,26 +273,29 @@ final class Storage
             $deleted['_deleted'] = true;
             $this->writeJson($path, $deleted);
 
-            return $this->objectForRead($type, $deleted, $includeSensitive);
+            return $this->objectForRead($type, $deleted, $access);
         });
     }
 
     /**
      * @return array<string, array<string, mixed>>
      */
-    public function schemas(bool $includeSensitive): array
+    public function schemas(string $access): array
     {
+        $this->assertAccess($access);
+
         $schemas = [];
         foreach (self::FIELD_SCHEMAS as $type => $fields) {
             $visibleFields = [];
             foreach ($fields as $field => $definition) {
-                if (($definition['sensitive'] ?? false) && !$includeSensitive) {
+                $visibility = (string) ($definition['visibility'] ?? 'public');
+                if (!$this->canReadVisibility($visibility, $access)) {
                     continue;
                 }
 
                 $visibleFields[$field] = [
                     'type' => $definition['type'],
-                    'sensitive' => (bool) ($definition['sensitive'] ?? false),
+                    'visibility' => $visibility,
                 ];
             }
 
@@ -393,25 +407,25 @@ final class Storage
      * @param array<string, mixed> $object
      * @return array<string, mixed>
      */
-    private function objectForRead(string $type, array $object, bool $includeSensitive): array
+    private function objectForRead(string $type, array $object, string $access): array
     {
         $this->assertCollection($type);
-        if ($includeSensitive) {
-            return $object;
-        }
+        $this->assertAccess($access);
 
         $redacted = $object;
-        foreach (self::SENSITIVE_META_FIELDS as $field) {
-            unset($redacted[$field]);
-        }
-
-        foreach (self::FIELD_SCHEMAS[$type] ?? [] as $field => $definition) {
-            if ($definition['sensitive'] ?? false) {
+        if (!$this->canReadPrivate($access)) {
+            foreach (self::PRIVATE_META_FIELDS as $field) {
                 unset($redacted[$field]);
             }
         }
 
-        $redacted['_sensitive_redacted'] = true;
+        foreach (self::FIELD_SCHEMAS[$type] ?? [] as $field => $definition) {
+            $visibility = (string) ($definition['visibility'] ?? 'public');
+            if (!$this->canReadVisibility($visibility, $access)) {
+                unset($redacted[$field]);
+            }
+        }
+
         return $redacted;
     }
 
@@ -434,9 +448,10 @@ final class Storage
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    private function normalizePayload(string $type, array $payload, bool $canUseSensitive): array
+    private function normalizePayload(string $type, array $payload, string $access): array
     {
         $this->assertCollection($type);
+        $this->assertAccess($access);
 
         $normalized = [];
         foreach ($payload as $field => $value) {
@@ -449,7 +464,8 @@ final class Storage
             }
 
             $definition = self::FIELD_SCHEMAS[$type][$field];
-            if (($definition['sensitive'] ?? false) && !$canUseSensitive) {
+            $visibility = (string) ($definition['visibility'] ?? 'public');
+            if ($visibility === 'protected' && !$this->canReadProtected($access)) {
                 throw new InvalidArgumentException('Sensitive permission is required for this field.');
             }
 
@@ -487,13 +503,13 @@ final class Storage
     /**
      * @param array<string, mixed> $current
      */
-    private function assertBaseRevision(string $type, array $current, int $baseRevision, bool $includeSensitive): void
+    private function assertBaseRevision(string $type, array $current, int $baseRevision, string $access): void
     {
         $currentRevision = (int) ($current['_revision'] ?? 0);
         if ($baseRevision < 1 || $currentRevision !== $baseRevision) {
             throw new StorageConflictException(
                 'Object was changed by someone else.',
-                $this->objectForRead($type, $current, $includeSensitive)
+                $this->objectForRead($type, $current, $access)
             );
         }
     }
@@ -565,6 +581,40 @@ final class Storage
         if (!array_key_exists($type, self::COLLECTIONS)) {
             throw new InvalidArgumentException('Unknown collection.');
         }
+    }
+
+    private function assertAccess(string $access): void
+    {
+        if (!in_array($access, ['public', 'private', 'protected'], true)) {
+            throw new InvalidArgumentException('Unknown access level.');
+        }
+    }
+
+    private function canReadPrivate(string $access): bool
+    {
+        return $access === 'private' || $access === 'protected';
+    }
+
+    private function canReadProtected(string $access): bool
+    {
+        return $access === 'protected';
+    }
+
+    private function canReadVisibility(string $visibility, string $access): bool
+    {
+        if ($visibility === 'public') {
+            return true;
+        }
+
+        if ($visibility === 'private') {
+            return $this->canReadPrivate($access);
+        }
+
+        if ($visibility === 'protected') {
+            return $this->canReadProtected($access);
+        }
+
+        throw new RuntimeException('Unknown field visibility.');
     }
 
     private function assertId(string $id): void
