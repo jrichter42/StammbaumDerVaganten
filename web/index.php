@@ -74,6 +74,34 @@ $configWarnings = array_map(
 
       <p class="message global-message" id="authMessage" role="alert" hidden></p>
 
+      <main class="public-overview" id="publicOverview" hidden>
+        <section class="public-hero" aria-label="Öffentliche Übersicht">
+          <div>
+            <p id="publicOverviewText">Öffentliche Daten werden geladen.</p>
+          </div>
+          <div class="public-stats" id="publicStats" aria-label="Öffentliche Daten"></div>
+        </section>
+
+        <section class="public-map" aria-labelledby="publicTreeTitle">
+          <div class="public-section-heading">
+            <h2 id="publicTreeTitle">Stammbaum</h2>
+            <p id="publicTreeSubtitle"></p>
+          </div>
+          <div class="tree-board" id="publicTree"></div>
+        </section>
+
+        <section class="public-grid">
+          <section class="public-panel" aria-labelledby="publicRolesTitle">
+            <h2 id="publicRolesTitle">Rollen</h2>
+            <div class="public-chip-list" id="publicRoleList"></div>
+          </section>
+          <section class="public-panel" aria-labelledby="publicTimelineTitle">
+            <h2 id="publicTimelineTitle">Zeitpunkte</h2>
+            <div class="public-timeline" id="publicTimeline"></div>
+          </section>
+        </section>
+      </main>
+
       <main class="workspace" id="workspace" hidden>
         <nav class="sidebar" aria-label="Sections">
           <button class="nav-item is-active" type="button" data-view="overview">Overview</button>

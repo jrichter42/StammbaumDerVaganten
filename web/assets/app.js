@@ -91,6 +91,7 @@ const loginButton = document.querySelector('#loginButton');
 const logoutButton = document.querySelector('#logoutButton');
 const passkeyLoginButton = document.querySelector('#passkeyLoginButton');
 const authScreen = document.querySelector('#authScreen');
+const publicOverview = document.querySelector('#publicOverview');
 const workspace = document.querySelector('#workspace');
 const authMessage = document.querySelector('#authMessage');
 const setupForm = document.querySelector('#setupForm');
@@ -173,7 +174,8 @@ async function refresh() {
 function renderShell() {
   const user = state.status?.auth?.user || null;
   authScreen.hidden = Boolean(user) || !isSetupPage;
-  workspace.hidden = false;
+  publicOverview.hidden = Boolean(user) || isSetupPage;
+  workspace.hidden = !user;
   loginButton.hidden = Boolean(user);
   logoutButton.hidden = !user;
   currentUserLabel.hidden = !user;
@@ -494,12 +496,131 @@ async function readJsonResponse(response) {
 }
 
 function render() {
+  renderPublicOverview();
   renderMetrics();
   renderReferenceData();
   renderSystem();
   renderSectionCounts();
   renderObjectCollections();
   renderAdmin();
+}
+
+function renderPublicOverview() {
+  if (!publicOverview) {
+    return;
+  }
+
+  const groups = state.objects.groups || [];
+  const people = state.objects.people || [];
+  const roles = state.objects.roles || [];
+  const timepoints = state.objects.timepoints || [];
+  const groupTypes = state.groupTypes || [];
+
+  setText('#publicOverviewText', publicOverviewText(groups, people, roles, timepoints));
+  renderPublicStats(groups, people, roles, timepoints);
+  renderPublicTree(groups, people, groupTypes);
+  renderPublicRoles(roles);
+  renderPublicTimeline(timepoints);
+}
+
+function publicOverviewText(groups, people, roles, timepoints) {
+  const parts = [
+    formatCount(groups.length, 'group'),
+    formatCount(people.length, 'person record'),
+    formatCount(roles.length, 'role'),
+    formatCount(timepoints.length, 'timepoint'),
+  ];
+
+  return parts.join(' / ');
+}
+
+function renderPublicStats(groups, people, roles, timepoints) {
+  const stats = document.querySelector('#publicStats');
+  if (!stats) {
+    return;
+  }
+
+  stats.innerHTML = [
+    ['Groups', groups.length],
+    ['People', people.length],
+    ['Roles', roles.length],
+    ['Timepoints', timepoints.length],
+  ].map(([label, value]) => `
+    <div class="public-stat">
+      <strong>${Number(value || 0)}</strong>
+      <span>${escapeHtml(label)}</span>
+    </div>
+  `).join('');
+}
+
+function renderPublicTree(groups, people, groupTypes) {
+  const tree = document.querySelector('#publicTree');
+  if (!tree) {
+    return;
+  }
+
+  setText('#publicTreeSubtitle', groups.length
+    ? `${formatCount(groups.length, 'public group')} in the current data`
+    : 'Reference structure');
+
+  if (!groups.length) {
+    tree.innerHTML = `
+      <div class="tree-empty">
+        ${groupTypes.map((type) => `
+          <span class="tree-type-chip">${escapeHtml(objectLabel(type, 'group-types'))}</span>
+        `).join('') || '<span class="tree-type-chip">No public groups yet</span>'}
+      </div>
+    `;
+    return;
+  }
+
+  tree.innerHTML = groups.map((group) => {
+    const groupId = objectId(group);
+    const groupType = groupTypeLabel(group, groupTypes);
+    const memberCount = people.filter((person) => personHasGroup(person, groupId)).length;
+    const description = group.description || '';
+    return `
+      <article class="tree-node">
+        <div class="tree-node-top">
+          <span>${escapeHtml(groupType || 'Group')}</span>
+          <strong>${escapeHtml(objectLabel(group, 'groups'))}</strong>
+        </div>
+        ${description ? `<p>${escapeHtml(description)}</p>` : ''}
+        <div class="tree-node-foot">
+          <span>${formatCount(memberCount, 'public person record')}</span>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function renderPublicRoles(roles) {
+  const list = document.querySelector('#publicRoleList');
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML = roles.map((role) => `
+    <span class="public-chip">${escapeHtml(objectLabel(role, 'roles'))}</span>
+  `).join('') || '<p class="public-muted">No public roles yet.</p>';
+}
+
+function renderPublicTimeline(timepoints) {
+  const list = document.querySelector('#publicTimeline');
+  if (!list) {
+    return;
+  }
+
+  const ordered = timepoints.slice().sort((left, right) => {
+    return String(timepointValue(left)).localeCompare(String(timepointValue(right)));
+  });
+
+  list.innerHTML = ordered.map((timepoint) => `
+    <article class="timeline-item">
+      <strong>${escapeHtml(objectLabel(timepoint, 'timepoints'))}</strong>
+      <span>${escapeHtml(timepointValue(timepoint) || 'undated')}</span>
+    </article>
+  `).join('') || '<p class="public-muted">No public timepoints yet.</p>';
 }
 
 function renderMetrics() {
@@ -1144,6 +1265,42 @@ function objectSummary(type, object) {
 
   if (type === 'timepoints' && object.date) {
     return typeof object.date === 'string' ? object.date : inputValue(object.date, { kind: 'date' });
+  }
+
+  return '';
+}
+
+function groupTypeLabel(group, groupTypes) {
+  const phase = group.mainPhase && typeof group.mainPhase === 'object' ? group.mainPhase : null;
+  const id = phase?.groupType || phase?.groupTypeId || phase?.group_type_id || '';
+  if (!id) {
+    return '';
+  }
+
+  const groupType = groupTypes.find((candidate) => objectId(candidate) === id);
+  return groupType ? objectLabel(groupType, 'group-types') : '';
+}
+
+function personHasGroup(person, groupId) {
+  const memberships = Array.isArray(person.memberships) ? person.memberships : [];
+  return memberships.some((membership) => {
+    const id = membership?.group || membership?.groupId || membership?.group_id || '';
+    return id === groupId;
+  });
+}
+
+function timepointValue(timepoint) {
+  const date = timepoint.date;
+  if (!date) {
+    return '';
+  }
+
+  if (typeof date === 'string') {
+    return date;
+  }
+
+  if (typeof date === 'object') {
+    return date.display || date.value || date.rawValue || '';
   }
 
   return '';
