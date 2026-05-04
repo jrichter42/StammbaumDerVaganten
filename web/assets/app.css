@@ -617,6 +617,17 @@ h3 {
   background: #0f1418;
 }
 
+.object-check-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 36px;
+}
+
+.object-check-field input {
+  width: auto;
+  min-height: 0;
+}
+
 .object-field textarea {
   resize: vertical;
 }
@@ -636,6 +647,106 @@ h3 {
 
 .object-save-state.is-error {
   color: #ffd5d1;
+}
+
+.composite-field {
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 20, 24, 0.7);
+}
+
+.composite-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.composite-header > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.composite-list {
+  display: grid;
+  gap: 10px;
+}
+
+.composite-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid rgba(50, 58, 53, 0.75);
+  border-radius: 8px;
+  background: rgba(21, 27, 32, 0.78);
+}
+
+.reference-list-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.nested-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.nested-editor.is-compact {
+  grid-column: 1 / -1;
+}
+
+.period-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.period-editor legend {
+  padding: 0 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.icon-button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 0, 0.26);
+  border-radius: 8px;
+  color: var(--brand-strong);
+  background: #242717;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  color: var(--brand-ink);
+  background: var(--brand-strong);
+}
+
+.icon-button-danger {
+  color: #ffd5d1;
+  border-color: rgba(214, 106, 98, 0.42);
+  background: #2b1514;
+}
+
+.icon-button-danger:hover {
+  color: #210807;
+  background: var(--danger);
+}
+
+.add-list-button {
+  justify-self: end;
 }
 
 .delete-confirm {
@@ -897,7 +1008,8 @@ h3 {
   }
 
   .list-item,
-  .status-list {
+  .status-list,
+  .composite-item {
     grid-template-columns: 1fr;
   }
 

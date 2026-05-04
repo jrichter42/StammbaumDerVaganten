@@ -6,7 +6,24 @@ const labels = {
   timepoints: 'Timepoints',
 };
 
+const objectTypeLabels = {
+  people: 'Person',
+  groups: 'Group',
+  'group-types': 'Group type',
+  roles: 'Role',
+  timepoints: 'Timepoint',
+};
+
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
+const certaintyOptions = [
+  ['none', 'None'],
+  ['no_idea', 'No idea'],
+  ['estimation_bad', 'Bad estimate'],
+  ['estimation_medium', 'Medium estimate'],
+  ['estimation_good', 'Good estimate'],
+  ['confident', 'Confident'],
+  ['set_in_stone', 'Set in stone'],
+];
 
 const objectConfigs = {
   people: {
@@ -20,10 +37,10 @@ const objectConfigs = {
       { name: 'birthdate', label: 'Birthdate', kind: 'date', visibility: 'protected' },
       { name: 'contactInfo', label: 'Contact', kind: 'textarea', visibility: 'protected' },
       { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
-      { name: '_certainty', label: 'Certainty' },
+      { name: '_certainty', label: 'Certainty', kind: 'certainty' },
       { name: '_sources', label: 'Sources', kind: 'textarea' },
-      { name: 'memberships', label: 'Memberships', kind: 'json', defaultValue: [] },
-      { name: 'activities', label: 'Activities', kind: 'json', defaultValue: [] },
+      { name: 'memberships', label: 'Memberships', kind: 'membership-list', defaultValue: [] },
+      { name: 'activities', label: 'Activities', kind: 'activity-list', defaultValue: [] },
     ],
   },
   groups: {
@@ -33,10 +50,10 @@ const objectConfigs = {
       { name: 'description', label: 'Description', kind: 'textarea' },
       { name: 'name', label: 'Name' },
       { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
-      { name: '_certainty', label: 'Certainty' },
+      { name: '_certainty', label: 'Certainty', kind: 'certainty' },
       { name: '_sources', label: 'Sources', kind: 'textarea' },
-      { name: 'mainPhase', label: 'Main phase', kind: 'json', defaultValue: null },
-      { name: 'additionalPhases', label: 'Additional phases', kind: 'json', defaultValue: [] },
+      { name: 'mainPhase', label: 'Main phase', kind: 'group-phase', defaultValue: null },
+      { name: 'additionalPhases', label: 'Additional phases', kind: 'group-phase-list', defaultValue: [] },
     ],
   },
   'group-types': {
@@ -54,9 +71,9 @@ const objectConfigs = {
     fields: [
       { name: 'description', label: 'Description', kind: 'textarea' },
       { name: 'label', label: 'Label' },
-      { name: 'groupTypes', label: 'Group types', kind: 'group-types-multi', defaultValue: [] },
+      { name: 'groupTypes', label: 'Group types', kind: 'reference-list', collection: 'group-types', defaultValue: [] },
       { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
-      { name: '_certainty', label: 'Certainty' },
+      { name: '_certainty', label: 'Certainty', kind: 'certainty' },
       { name: '_sources', label: 'Sources', kind: 'textarea' },
     ],
   },
@@ -68,7 +85,7 @@ const objectConfigs = {
       { name: 'name', label: 'Name' },
       { name: 'date', label: 'Date', kind: 'date' },
       { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
-      { name: '_certainty', label: 'Certainty' },
+      { name: '_certainty', label: 'Certainty', kind: 'certainty' },
       { name: '_sources', label: 'Sources', kind: 'textarea' },
     ],
   },
@@ -129,6 +146,7 @@ document.addEventListener('click', handleObjectClick);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleObjectChange);
 document.addEventListener('focusout', handleObjectBlur);
+document.addEventListener('focusin', handleEditorFocus);
 
 refresh();
 window.setInterval(pollObjects, 12000);
@@ -742,7 +760,7 @@ function renderObjectItem(type, object) {
             <h3 data-object-title>${escapeHtml(objectLabel(object, type))}</h3>
             <small data-object-meta>${escapeHtml(objectMeta(object))}</small>
           </div>
-          <span class="tag">${escapeHtml(labels[type] || type)}</span>
+          <span class="tag">${escapeHtml(objectTypeLabels[type] || labels[type] || type)}</span>
         </div>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
@@ -796,6 +814,44 @@ function renderFieldInput(field, value, isCreate) {
   const fieldAttrs = `data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind || 'text')}"`;
   const renderedValue = inputValue(value, field);
 
+  if (field.kind === 'date') {
+    return `
+      <label class="object-field" for="${escapeAttribute(id)}">
+        <span>${escapeHtml(field.label)}</span>
+        <input id="${escapeAttribute(id)}" ${fieldAttrs} type="date" value="${escapeAttribute(renderedValue)}">
+      </label>
+    `;
+  }
+
+  if (field.kind === 'certainty') {
+    return renderCertaintyField(field, renderedValue, fieldAttrs, id);
+  }
+
+  if (field.kind === 'boolean') {
+    return `
+      <label class="object-field object-check-field" for="${escapeAttribute(id)}">
+        <input id="${escapeAttribute(id)}" ${fieldAttrs} type="checkbox" ${value ? 'checked' : ''}>
+        <span>${escapeHtml(field.label)}</span>
+      </label>
+    `;
+  }
+
+  if (field.kind === 'reference') {
+    return renderReferenceField(field, renderedValue, fieldAttrs, id);
+  }
+
+  if (field.kind === 'reference-list') {
+    return renderReferenceListField(field, value);
+  }
+
+  if (field.kind === 'group-phase') {
+    return renderGroupPhaseField(field, value);
+  }
+
+  if (field.kind === 'group-phase-list' || field.kind === 'membership-list' || field.kind === 'activity-list') {
+    return renderObjectListField(field, value);
+  }
+
   if (field.kind === 'textarea') {
     return `
       <label class="object-field" for="${escapeAttribute(id)}">
@@ -814,10 +870,6 @@ function renderFieldInput(field, value, isCreate) {
     `;
   }
 
-  if (field.kind === 'group-type-select' || field.kind === 'group-types-multi') {
-    return renderSelectField(field, renderedValue, fieldAttrs, id);
-  }
-
   return `
     <label class="object-field" for="${escapeAttribute(id)}">
       <span>${escapeHtml(field.label)}</span>
@@ -826,23 +878,191 @@ function renderFieldInput(field, value, isCreate) {
   `;
 }
 
-function renderSelectField(field, value, fieldAttrs, id) {
-  const isMultiple = field.kind === 'group-types-multi';
-  const selected = new Set(isMultiple && Array.isArray(value) ? value : [value]);
-  const optionHtml = [
-    ...(isMultiple ? [] : ['<option value="">None</option>']),
-    ...state.groupTypes.map((object) => `<option value="${escapeAttribute(objectId(object))}" ${selected.has(objectId(object)) ? 'selected' : ''}>${escapeHtml(objectLabel(object, 'group-types'))}</option>`),
-  ].join('');
-
+function renderCertaintyField(field, value, fieldAttrs, id) {
+  const listId = `${id}-options`;
   return `
     <label class="object-field" for="${escapeAttribute(id)}">
       <span>${escapeHtml(field.label)}</span>
-      <select id="${escapeAttribute(id)}" ${fieldAttrs} ${isMultiple ? 'multiple size="5"' : ''}>${optionHtml}</select>
+      <input id="${escapeAttribute(id)}" ${fieldAttrs} data-certainty-input list="${escapeAttribute(listId)}" value="${escapeAttribute(value || 'none')}" autocomplete="off">
+      <datalist id="${escapeAttribute(listId)}">
+        ${certaintyOptions.map(([optionValue, label]) => `<option value="${escapeAttribute(optionValue)}">${escapeHtml(label)}</option>`).join('')}
+      </datalist>
+    </label>
+  `;
+}
+
+function renderReferenceField(field, value, fieldAttrs, id) {
+  return renderReferenceControl({
+    id,
+    label: field.label,
+    value,
+    collection: field.collection,
+    objectFieldAttrs: fieldAttrs,
+  });
+}
+
+function renderReferenceControl({ id, label, value, collection, objectFieldAttrs = '', nestedField = '' }) {
+  const listId = `${id}-options`;
+  const attrs = [
+    objectFieldAttrs,
+    nestedField ? `data-nested-field="${escapeAttribute(nestedField)}"` : '',
+    'data-reference-input',
+    `data-reference-collection="${escapeAttribute(collection)}"`,
+    `list="${escapeAttribute(listId)}"`,
+  ].filter(Boolean).join(' ');
+
+  return `
+    <label class="object-field" for="${escapeAttribute(id)}">
+      <span>${escapeHtml(label)}</span>
+      <input id="${escapeAttribute(id)}" ${attrs} value="${escapeAttribute(value || '')}" autocomplete="off">
+      <datalist id="${escapeAttribute(listId)}">
+        ${referenceOptions(collection)}
+      </datalist>
+    </label>
+  `;
+}
+
+function referenceOptions(collection) {
+  return (state.objects[collection] || []).map((object) => `
+    <option value="${escapeAttribute(referenceDisplayValue(object, collection))}"></option>
+  `).join('');
+}
+
+function renderReferenceListField(field, value) {
+  const values = Array.isArray(value) && value.length ? value : [''];
+  return `
+    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}" data-reference-collection="${escapeAttribute(field.collection)}">
+      <div class="composite-header">
+        <span>${escapeHtml(field.label)}</span>
+      </div>
+      <div class="composite-list" data-list-items>
+        ${values.map((itemValue) => renderReferenceListItem(field.collection, itemValue)).join('')}
+      </div>
+      <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="Add ${escapeAttribute(field.label)}">+</button>
+    </section>
+  `;
+}
+
+function renderReferenceListItem(collection, value = '') {
+  const id = `ref-${collection}-${Math.random().toString(36).slice(2)}`;
+  return `
+    <div class="composite-item reference-list-item" data-list-item>
+      ${renderReferenceControl({ id, label: 'Reference', value, collection, nestedField: 'value' })}
+      <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Remove">-</button>
+    </div>
+  `;
+}
+
+function renderGroupPhaseField(field, value) {
+  return `
+    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
+      <div class="composite-header">
+        <span>${escapeHtml(field.label)}</span>
+      </div>
+      ${renderGroupPhaseEditor(value || {}, false)}
+    </section>
+  `;
+}
+
+function renderObjectListField(field, value) {
+  const values = Array.isArray(value) && value.length ? value : [{}];
+  return `
+    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
+      <div class="composite-header">
+        <span>${escapeHtml(field.label)}</span>
+      </div>
+      <div class="composite-list" data-list-items>
+        ${values.map((itemValue) => renderComplexListItem(field.kind, itemValue)).join('')}
+      </div>
+      <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="Add ${escapeAttribute(field.label)}">+</button>
+    </section>
+  `;
+}
+
+function renderComplexListItem(kind, value = {}) {
+  return `
+    <div class="composite-item" data-list-item>
+      ${renderComplexEditor(kind, value, true)}
+      <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Remove">-</button>
+    </div>
+  `;
+}
+
+function renderComplexEditor(kind, value = {}, compact = false) {
+  if (kind === 'group-phase-list' || kind === 'group-phase') {
+    return renderGroupPhaseEditor(value, compact);
+  }
+
+  if (kind === 'membership-list') {
+    return renderMembershipEditor(value);
+  }
+
+  if (kind === 'activity-list') {
+    return renderActivityEditor(value);
+  }
+
+  return '';
+}
+
+function renderGroupPhaseEditor(value = {}, compact = false) {
+  const idBase = `group-phase-${Math.random().toString(36).slice(2)}`;
+  return `
+    <div class="nested-editor ${compact ? 'is-compact' : ''}">
+      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Group type', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType' })}
+      ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
+    </div>
+  `;
+}
+
+function renderMembershipEditor(value = {}) {
+  const idBase = `membership-${Math.random().toString(36).slice(2)}`;
+  return `
+    <div class="nested-editor">
+      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Group', value: value.group || '', collection: 'groups', nestedField: 'group' })}
+      ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
+    </div>
+  `;
+}
+
+function renderActivityEditor(value = {}) {
+  const idBase = `activity-${Math.random().toString(36).slice(2)}`;
+  return `
+    <div class="nested-editor">
+      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Group', value: value.group || '', collection: 'groups', nestedField: 'group' })}
+      ${renderReferenceControl({ id: `${idBase}-role`, label: 'Role', value: value.role || '', collection: 'roles', nestedField: 'role' })}
+      ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
+    </div>
+  `;
+}
+
+function renderPeriodEditor(value = {}, idBase = `period-${Math.random().toString(36).slice(2)}`) {
+  return `
+    <fieldset class="period-editor" data-period-editor>
+      <legend>Period</legend>
+      ${renderReferenceControl({ id: `${idBase}-start`, label: 'Start timepoint', value: value.startTimepoint || '', collection: 'timepoints', nestedField: 'startTimepoint' })}
+      ${renderNestedDateControl(`${idBase}-custom-start`, 'Custom start', value.customStart, 'customStart')}
+      ${renderReferenceControl({ id: `${idBase}-end`, label: 'End timepoint', value: value.endTimepoint || '', collection: 'timepoints', nestedField: 'endTimepoint' })}
+      ${renderNestedDateControl(`${idBase}-custom-end`, 'Custom end', value.customEnd, 'customEnd')}
+    </fieldset>
+  `;
+}
+
+function renderNestedDateControl(id, label, value, nestedField) {
+  return `
+    <label class="object-field" for="${escapeAttribute(id)}">
+      <span>${escapeHtml(label)}</span>
+      <input id="${escapeAttribute(id)}" type="date" data-date-control data-nested-field="${escapeAttribute(nestedField)}" value="${escapeAttribute(dateInputValue(value))}">
     </label>
   `;
 }
 
 async function handleObjectClick(event) {
+  const listButton = event.target.closest('[data-list-action]');
+  if (listButton) {
+    handleListAction(listButton);
+    return;
+  }
+
   const createButton = event.target.closest('[data-create-type]');
   if (createButton) {
     state.createOpen[createButton.dataset.createType] = true;
@@ -905,6 +1125,59 @@ async function handleObjectClick(event) {
   }
 }
 
+function handleListAction(button) {
+  const fieldRoot = button.closest('[data-object-field]');
+  if (!fieldRoot) {
+    return;
+  }
+
+  if (button.dataset.listAction === 'remove') {
+    const item = button.closest('[data-list-item]');
+    if (item) {
+      const list = item.parentElement;
+      item.remove();
+      if (list && list.children.length === 0) {
+        appendBlankListItem(fieldRoot);
+      }
+    }
+  }
+
+  if (button.dataset.listAction === 'add') {
+    appendBlankListItem(fieldRoot);
+  }
+
+  markCompositeChanged(fieldRoot);
+}
+
+function appendBlankListItem(fieldRoot) {
+  const list = fieldRoot.querySelector('[data-list-items]');
+  const kind = fieldRoot.dataset.fieldKind;
+  if (!list) {
+    return;
+  }
+
+  if (kind === 'reference-list') {
+    list.insertAdjacentHTML('beforeend', renderReferenceListItem(fieldRoot.dataset.referenceCollection || ''));
+    return;
+  }
+
+  list.insertAdjacentHTML('beforeend', renderComplexListItem(kind, {}));
+}
+
+function markCompositeChanged(fieldRoot) {
+  const item = fieldRoot.closest('[data-object-type][data-object-id]');
+  if (item) {
+    markObjectDirty(item);
+    scheduleObjectSave(item, 600);
+    return;
+  }
+
+  const createForm = fieldRoot.closest('[data-create-form]');
+  if (createForm) {
+    clearCreateState(createForm);
+  }
+}
+
 async function handleObjectInput(event) {
   const input = event.target.closest('[data-object-field]');
   if (!input) {
@@ -944,6 +1217,27 @@ function handleObjectBlur(event) {
   const item = input?.closest('[data-object-type][data-object-id]');
   if (item) {
     scheduleObjectSave(item, 250);
+  }
+}
+
+function handleEditorFocus(event) {
+  const input = event.target.closest('[data-reference-input], [data-certainty-input], input[type="date"]');
+  if (!input) {
+    return;
+  }
+
+  if (typeof input.select === 'function' && input.type !== 'date') {
+    input.select();
+  }
+
+  if (typeof input.showPicker === 'function') {
+    window.setTimeout(() => {
+      try {
+        input.showPicker();
+      } catch (_error) {
+        // Some browsers require direct user activation for picker popups.
+      }
+    }, 0);
   }
 }
 
@@ -1099,8 +1393,27 @@ function collectObjectFields(root) {
 }
 
 function readFieldValue(input, field) {
-  if (field.kind === 'group-types-multi') {
-    return Array.from(input.selectedOptions).map((option) => option.value).filter(Boolean);
+  if (field.kind === 'reference-list') {
+    return Array.from(input.querySelectorAll('[data-reference-input]'))
+      .map((control) => normalizeReferenceValue(control.value))
+      .filter(Boolean);
+  }
+
+  if (field.kind === 'group-phase') {
+    const value = readGroupPhase(input);
+    return groupPhaseHasValue(value) ? value : null;
+  }
+
+  if (field.kind === 'group-phase-list') {
+    return readComplexList(input, readGroupPhase, groupPhaseHasValue);
+  }
+
+  if (field.kind === 'membership-list') {
+    return readComplexList(input, readMembership, membershipHasValue);
+  }
+
+  if (field.kind === 'activity-list') {
+    return readComplexList(input, readActivity, activityHasValue);
   }
 
   const raw = input.value;
@@ -1118,10 +1431,98 @@ function readFieldValue(input, field) {
   }
 
   if (field.kind === 'date') {
-    return raw.trim() || null;
+    return readDateValue(raw);
+  }
+
+  if (field.kind === 'boolean') {
+    return input.checked;
   }
 
   return raw;
+}
+
+function readComplexList(root, reader, hasValue) {
+  return Array.from(root.querySelectorAll(':scope [data-list-item]'))
+    .map((item) => reader(item))
+    .filter(hasValue);
+}
+
+function readGroupPhase(root) {
+  return {
+    groupType: nestedValue(root, 'groupType'),
+    period: readPeriod(root.querySelector('[data-period-editor]')),
+  };
+}
+
+function readMembership(root) {
+  return {
+    group: nestedValue(root, 'group'),
+    period: readPeriod(root.querySelector('[data-period-editor]')),
+  };
+}
+
+function readActivity(root) {
+  return {
+    role: nestedValue(root, 'role'),
+    group: nestedValue(root, 'group'),
+    period: readPeriod(root.querySelector('[data-period-editor]')),
+  };
+}
+
+function readPeriod(root) {
+  if (!root) {
+    return emptyPeriod();
+  }
+
+  return {
+    startTimepoint: nestedValue(root, 'startTimepoint'),
+    customStart: readDateValue(nestedValue(root, 'customStart')),
+    endTimepoint: nestedValue(root, 'endTimepoint'),
+    customEnd: readDateValue(nestedValue(root, 'customEnd')),
+  };
+}
+
+function nestedValue(root, field) {
+  const input = root?.querySelector(`[data-nested-field="${cssEscape(field)}"]`);
+  if (!input) {
+    return '';
+  }
+
+  if (input.matches('[data-reference-input]')) {
+    return normalizeReferenceValue(input.value);
+  }
+
+  return input.value.trim();
+}
+
+function readDateValue(value) {
+  const raw = String(value || '').trim();
+  return raw ? { rawValue: raw } : null;
+}
+
+function emptyPeriod() {
+  return {
+    startTimepoint: '',
+    customStart: null,
+    endTimepoint: '',
+    customEnd: null,
+  };
+}
+
+function periodHasValue(period) {
+  return Boolean(period?.startTimepoint || period?.endTimepoint || period?.customStart || period?.customEnd);
+}
+
+function groupPhaseHasValue(value) {
+  return Boolean(value?.groupType || periodHasValue(value?.period));
+}
+
+function membershipHasValue(value) {
+  return Boolean(value?.group || periodHasValue(value?.period));
+}
+
+function activityHasValue(value) {
+  return Boolean(value?.role || value?.group || periodHasValue(value?.period));
 }
 
 function visibleFields(type) {
@@ -1138,12 +1539,24 @@ function defaultFieldValue(field) {
     return null;
   }
 
-  if (field.kind === 'group-types-multi') {
+  if (field.kind === 'reference-list' || field.kind === 'group-phase-list' || field.kind === 'membership-list' || field.kind === 'activity-list') {
     return [];
   }
 
+  if (field.kind === 'group-phase') {
+    return null;
+  }
+
   if (field.kind === 'date') {
-    return '';
+    return null;
+  }
+
+  if (field.kind === 'boolean') {
+    return false;
+  }
+
+  if (field.kind === 'certainty') {
+    return 'none';
   }
 
   return '';
@@ -1156,18 +1569,42 @@ function inputValue(value, field) {
   }
 
   if (field.kind === 'date') {
-    if (actual && typeof actual === 'object') {
-      return actual.value || actual.rawValue || actual.display || '';
-    }
-
-    return actual || '';
+    return dateInputValue(actual);
   }
 
-  if (field.kind === 'group-types-multi') {
+  if (field.kind === 'reference-list' || field.kind === 'group-phase-list' || field.kind === 'membership-list' || field.kind === 'activity-list') {
     return Array.isArray(actual) ? actual : [];
   }
 
   return actual === null || actual === undefined ? '' : String(actual);
+}
+
+function dateInputValue(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'object') {
+    return value.rawValue || value.value || '';
+  }
+
+  return '';
+}
+
+function referenceDisplayValue(object, collection) {
+  const label = objectLabel(object, collection);
+  const id = objectId(object);
+  return label && label !== id ? `${label} (${id})` : id;
+}
+
+function normalizeReferenceValue(value) {
+  const trimmed = String(value || '').trim();
+  const match = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return match ? match[0] : trimmed;
 }
 
 function updateObjectInState(type, object) {
