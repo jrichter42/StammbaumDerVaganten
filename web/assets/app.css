@@ -843,6 +843,10 @@ h3 {
   background: #0f1418;
 }
 
+.object-field select {
+  cursor: pointer;
+}
+
 .object-check-field {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;

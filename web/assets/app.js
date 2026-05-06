@@ -35,6 +35,8 @@ const emptyCollectionLabels = {
 };
 
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
+const pickerActionShowAllGroups = '__picker_show_all_groups__';
+const pickerActionShowAllRoles = '__picker_show_all_roles__';
 const certaintyOptions = [
   ['none', 'Keine'],
   ['no_idea', 'Unbekannt'],
@@ -170,6 +172,7 @@ document.addEventListener('click', handleNavigationJump);
 document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
 document.addEventListener('input', handleObjectInput);
+document.addEventListener('change', handleReferencePickerChange);
 document.addEventListener('change', handleObjectChange);
 document.addEventListener('focusout', handleObjectBlur);
 document.addEventListener('focusin', handleEditorFocus);
@@ -827,7 +830,7 @@ function renderScopedCreatePanel(selector, type, fields) {
 function renderCreateForm(type, fields) {
   return `
     <form class="object-editor object-create-form" data-create-form="${escapeAttribute(type)}">
-      ${fields.map((field) => renderFieldInput(field, defaultFieldValue(field), true)).join('')}
+      ${fields.map((field) => renderFieldInput(field, defaultFieldValue(field), true, { ownerType: type, ownerObject: {} })).join('')}
       <div class="form-actions">
         <button class="button button-secondary" type="button" data-create-cancel="${escapeAttribute(type)}">Abbrechen</button>
         <button class="button" type="submit">Erstellen</button>
@@ -1101,7 +1104,7 @@ function renderObjectItem(type, object) {
 function renderObjectEditor(type, object) {
   return `
     <form class="object-editor" data-object-editor>
-      ${visibleFields(type).map((field) => renderFieldInput(field, object[field.name], false)).join('')}
+      ${visibleFields(type).map((field) => renderFieldInput(field, object[field.name], false, { ownerType: type, ownerObject: object })).join('')}
     </form>
   `;
 }
@@ -1122,7 +1125,7 @@ function renderCreatePanel(type) {
   panel.innerHTML = renderCreateForm(type, visibleFields(type));
 }
 
-function renderFieldInput(field, value, isCreate) {
+function renderFieldInput(field, value, isCreate, context = {}) {
   const id = `${isCreate ? 'new' : 'edit'}-${field.name}-${Math.random().toString(36).slice(2)}`;
   const fieldAttrs = `data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind || 'text')}"`;
   const renderedValue = inputValue(value, field);
@@ -1150,19 +1153,19 @@ function renderFieldInput(field, value, isCreate) {
   }
 
   if (field.kind === 'reference') {
-    return renderReferenceField(field, renderedValue, fieldAttrs, id);
+    return renderReferenceField(field, renderedValue, fieldAttrs, id, context);
   }
 
   if (field.kind === 'reference-list') {
-    return renderReferenceListField(field, value);
+    return renderReferenceListField(field, value, context);
   }
 
   if (field.kind === 'group-phase') {
-    return renderGroupPhaseField(field, value);
+    return renderGroupPhaseField(field, value, context);
   }
 
   if (field.kind === 'group-phase-list' || field.kind === 'membership-list' || field.kind === 'activity-list') {
-    return renderObjectListField(field, value);
+    return renderObjectListField(field, value, context);
   }
 
   if (field.kind === 'textarea') {
@@ -1192,58 +1195,177 @@ function renderFieldInput(field, value, isCreate) {
 }
 
 function renderCertaintyField(field, value, fieldAttrs, id) {
-  const listId = `${id}-options`;
   return `
     <label class="object-field" for="${escapeAttribute(id)}">
       <span>${escapeHtml(field.label)}</span>
-      <input id="${escapeAttribute(id)}" ${fieldAttrs} data-certainty-input list="${escapeAttribute(listId)}" value="${escapeAttribute(value || 'none')}" autocomplete="off">
-      <datalist id="${escapeAttribute(listId)}">
-        ${certaintyOptions.map(([optionValue, label]) => `<option value="${escapeAttribute(optionValue)}">${escapeHtml(label)}</option>`).join('')}
-      </datalist>
+      <select id="${escapeAttribute(id)}" ${fieldAttrs} data-certainty-input>
+        ${certaintyOptions.map(([optionValue, label]) => `<option value="${escapeAttribute(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+      </select>
     </label>
   `;
 }
 
-function renderReferenceField(field, value, fieldAttrs, id) {
+function renderReferenceField(field, value, fieldAttrs, id, context = {}) {
   return renderReferenceControl({
     id,
     label: field.label,
     value,
     collection: field.collection,
     objectFieldAttrs: fieldAttrs,
+    pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject },
   });
 }
 
-function renderReferenceControl({ id, label, value, collection, objectFieldAttrs = '', nestedField = '', showIds = true }) {
-  const listId = `${id}-options`;
+function renderReferenceControl({ id, label, value, collection, objectFieldAttrs = '', nestedField = '', showIds = false, pickerContext = {} }) {
   const storedValue = value || '';
+  const picker = pickerContext.picker || '';
+  const birthYear = birthYearFromDateValue(pickerContext.ownerObject?.birthdate);
+  const optionConfig = referenceOptionConfigFromContext(pickerContext, storedValue);
   const attrs = [
     objectFieldAttrs,
     nestedField ? `data-nested-field="${escapeAttribute(nestedField)}"` : '',
     'data-reference-input',
     `data-reference-collection="${escapeAttribute(collection)}"`,
     `data-reference-value="${escapeAttribute(storedValue)}"`,
-    `list="${escapeAttribute(listId)}"`,
+    `data-reference-show-ids="${showIds ? '1' : '0'}"`,
+    picker ? `data-reference-picker="${escapeAttribute(picker)}"` : '',
+    birthYear ? `data-owner-birth-year="${escapeAttribute(String(birthYear))}"` : '',
   ].filter(Boolean).join(' ');
 
   return `
     <label class="object-field" for="${escapeAttribute(id)}">
       <span>${escapeHtml(label)}</span>
-      <input id="${escapeAttribute(id)}" ${attrs} value="${escapeAttribute(referenceInputValue(storedValue, collection, showIds))}" autocomplete="off">
-      <datalist id="${escapeAttribute(listId)}">
-        ${referenceOptions(collection, showIds)}
-      </datalist>
+      <select id="${escapeAttribute(id)}" ${attrs}>
+        ${referenceOptions(collection, showIds, { ...optionConfig, currentValue: storedValue })}
+      </select>
     </label>
   `;
 }
 
-function referenceOptions(collection, showIds = true) {
-  return (state.objects[collection] || []).map((object) => `
-    <option value="${escapeAttribute(showIds ? referenceDisplayValue(object, collection) : objectLabel(object, collection))}"></option>
-  `).join('');
+function referenceOptions(collection, showIds = false, config = {}) {
+  const objects = referencePickerObjects(collection, config);
+  const current = config.currentValue || '';
+  const options = [
+    `<option value="" ${current ? '' : 'selected'}>Keine Auswahl</option>`,
+  ];
+
+  if (config.actionValue && config.actionLabel) {
+    options.push(`<option value="${escapeAttribute(config.actionValue)}">${escapeHtml(config.actionLabel)}</option>`);
+  }
+
+  objects.forEach((object) => {
+    const id = objectId(object);
+    options.push(`<option value="${escapeAttribute(id)}" ${id === current ? 'selected' : ''}>${escapeHtml(referenceOptionLabel(object, collection, objects, showIds))}</option>`);
+  });
+
+  return options.join('');
 }
 
-function renderReferenceListField(field, value) {
+function referenceOptionConfigFromContext(context = {}, currentValue = '') {
+  const config = { currentValue };
+  const birthYear = birthYearFromDateValue(context.ownerObject?.birthdate);
+
+  if (context.picker === 'membership-group') {
+    config.birthYear = birthYear;
+    config.period = context.period;
+  }
+
+  if (context.picker === 'activity-group') {
+    const roleId = context.activity?.role || '';
+    config.birthYear = birthYear;
+    config.roleId = roleId;
+    config.period = context.activity?.period;
+    if (roleHasGroupTypeRestrictions(findReferenceObject('roles', roleId))) {
+      config.actionValue = pickerActionShowAllGroups;
+      config.actionLabel = 'Alle Gruppen anzeigen (Rolle leeren)';
+    }
+  }
+
+  if (context.picker === 'activity-role') {
+    const groupId = context.activity?.group || '';
+    config.groupId = groupId;
+    if (groupTypeIds(findReferenceObject('groups', groupId)).length) {
+      config.actionValue = pickerActionShowAllRoles;
+      config.actionLabel = 'Alle Rollen anzeigen (Gruppe leeren)';
+    }
+  }
+
+  if (context.picker === 'period-start-timepoint') {
+    config.maxYear = periodBoundaryYearFromValue(context.period?.endTimepoint, context.period?.customEnd);
+  }
+
+  if (context.picker === 'period-end-timepoint') {
+    config.minYear = periodBoundaryYearFromValue(context.period?.startTimepoint, context.period?.customStart);
+  }
+
+  return config;
+}
+
+function referencePickerObjects(collection, config = {}) {
+  let objects = (state.objects[collection] || []).filter((object) => !object._deleted);
+
+  if (collection === 'groups') {
+    if (config.birthYear) {
+      objects = objects.filter((group) => !groupEndedBeforeYear(group, config.birthYear));
+    }
+
+    if (config.period) {
+      objects = objects.filter((group) => groupCouldOverlapPeriod(group, config.period));
+    }
+
+    const role = findReferenceObject('roles', config.roleId || '');
+    if (roleHasGroupTypeRestrictions(role)) {
+      objects = objects.filter((group) => groupMatchesRole(group, role));
+    }
+  }
+
+  if (collection === 'roles') {
+    const group = findReferenceObject('groups', config.groupId || '');
+    if (groupTypeIds(group).length) {
+      objects = objects.filter((role) => roleUsableForGroup(role, group));
+    }
+  }
+
+  if (collection === 'timepoints') {
+    if (config.minYear) {
+      objects = objects.filter((timepoint) => {
+        const year = timepointYear(timepoint);
+        return !year || year >= config.minYear;
+      });
+    }
+
+    if (config.maxYear) {
+      objects = objects.filter((timepoint) => {
+        const year = timepointYear(timepoint);
+        return !year || year <= config.maxYear;
+      });
+    }
+  }
+
+  const currentObject = findReferenceObject(collection, config.currentValue || '');
+  if (currentObject && !currentObject._deleted && !objects.some((object) => objectId(object) === objectId(currentObject))) {
+    objects = [currentObject, ...objects];
+  }
+
+  return objects.slice().sort((left, right) => objectLabel(left, collection).localeCompare(objectLabel(right, collection), 'de'));
+}
+
+function referenceOptionLabel(object, collection, objects, showIds = false) {
+  const label = objectLabel(object, collection);
+  const duplicate = objects.filter((candidate) => objectLabel(candidate, collection) === label).length > 1;
+  if (!showIds && !duplicate) {
+    return label;
+  }
+
+  const id = objectId(object);
+  return label && label !== id ? `${label} (${shortObjectId(id)})` : id;
+}
+
+function shortObjectId(id) {
+  return String(id || '').slice(0, 8);
+}
+
+function renderReferenceListField(field, value, context = {}) {
   const values = Array.isArray(value) && value.length ? value : [''];
   return `
     <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}" data-reference-collection="${escapeAttribute(field.collection)}">
@@ -1251,35 +1373,35 @@ function renderReferenceListField(field, value) {
         <span>${escapeHtml(field.label)}</span>
       </div>
       <div class="composite-list" data-list-items>
-        ${values.map((itemValue) => renderReferenceListItem(field.collection, itemValue)).join('')}
+        ${values.map((itemValue) => renderReferenceListItem(field.collection, itemValue, context)).join('')}
       </div>
       <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="${escapeAttribute(field.label)} hinzufügen">+</button>
     </section>
   `;
 }
 
-function renderReferenceListItem(collection, value = '') {
+function renderReferenceListItem(collection, value = '', context = {}) {
   const id = `ref-${collection}-${Math.random().toString(36).slice(2)}`;
   return `
     <div class="composite-item reference-list-item" data-list-item>
-      ${renderReferenceControl({ id, label: 'Referenz', value, collection, nestedField: 'value' })}
+      ${renderReferenceControl({ id, label: 'Referenz', value, collection, nestedField: 'value', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject } })}
       <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
     </div>
   `;
 }
 
-function renderGroupPhaseField(field, value) {
+function renderGroupPhaseField(field, value, context = {}) {
   return `
     <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
       <div class="composite-header">
         <span>${escapeHtml(field.label)}</span>
       </div>
-      ${renderGroupPhaseEditor(value || {}, false)}
+      ${renderGroupPhaseEditor(value || {}, false, context)}
     </section>
   `;
 }
 
-function renderObjectListField(field, value) {
+function renderObjectListField(field, value, context = {}) {
   const values = Array.isArray(value) && value.length ? value : [{}];
   return `
     <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
@@ -1287,64 +1409,64 @@ function renderObjectListField(field, value) {
         <span>${escapeHtml(field.label)}</span>
       </div>
       <div class="composite-list" data-list-items>
-        ${values.map((itemValue) => renderComplexListItem(field.kind, itemValue)).join('')}
+        ${values.map((itemValue) => renderComplexListItem(field.kind, itemValue, context)).join('')}
       </div>
       <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="${escapeAttribute(field.label)} hinzufügen">+</button>
     </section>
   `;
 }
 
-function renderComplexListItem(kind, value = {}) {
+function renderComplexListItem(kind, value = {}, context = {}) {
   return `
     <div class="composite-item" data-list-item>
-      ${renderComplexEditor(kind, value, true)}
+      ${renderComplexEditor(kind, value, true, context)}
       <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
     </div>
   `;
 }
 
-function renderComplexEditor(kind, value = {}, compact = false) {
+function renderComplexEditor(kind, value = {}, compact = false, context = {}) {
   if (kind === 'group-phase-list' || kind === 'group-phase') {
-    return renderGroupPhaseEditor(value, compact);
+    return renderGroupPhaseEditor(value, compact, context);
   }
 
   if (kind === 'membership-list') {
-    return renderMembershipEditor(value);
+    return renderMembershipEditor(value, context);
   }
 
   if (kind === 'activity-list') {
-    return renderActivityEditor(value);
+    return renderActivityEditor(value, context);
   }
 
   return '';
 }
 
-function renderGroupPhaseEditor(value = {}, compact = false) {
+function renderGroupPhaseEditor(value = {}, compact = false, context = {}) {
   const idBase = `group-phase-${Math.random().toString(36).slice(2)}`;
   return `
     <div class="nested-editor ${compact ? 'is-compact' : ''}">
-      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Gruppenart', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType' })}
+      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Gruppenart', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
     </div>
   `;
 }
 
-function renderMembershipEditor(value = {}) {
+function renderMembershipEditor(value = {}, context = {}) {
   const idBase = `membership-${Math.random().toString(36).slice(2)}`;
   return `
-    <div class="nested-editor">
-      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group' })}
+    <div class="nested-editor" data-membership-editor>
+      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'membership-group', period: value.period } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
     </div>
   `;
 }
 
-function renderActivityEditor(value = {}) {
+function renderActivityEditor(value = {}, context = {}) {
   const idBase = `activity-${Math.random().toString(36).slice(2)}`;
   return `
-    <div class="nested-editor">
-      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group' })}
-      ${renderReferenceControl({ id: `${idBase}-role`, label: 'Rolle', value: value.role || '', collection: 'roles', nestedField: 'role' })}
+    <div class="nested-editor" data-activity-editor>
+      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-group', activity: value } })}
+      ${renderReferenceControl({ id: `${idBase}-role`, label: 'Rolle', value: value.role || '', collection: 'roles', nestedField: 'role', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-role', activity: value } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
     </div>
   `;
@@ -1355,13 +1477,13 @@ function renderPeriodEditor(value = {}, idBase = `period-${Math.random().toStrin
   return `
     <fieldset class="period-editor ${compact ? 'is-rough' : ''}" data-period-editor>
       <legend>Zeitraum</legend>
-      ${renderPeriodBoundary({ idBase: `${idBase}-start`, label: 'Start', timepointField: 'startTimepoint', dateField: 'customStart', timepointValue: value.startTimepoint || '', dateValue: value.customStart, showReferenceIds })}
-      ${renderPeriodBoundary({ idBase: `${idBase}-end`, label: 'Ende', timepointField: 'endTimepoint', dateField: 'customEnd', timepointValue: value.endTimepoint || '', dateValue: value.customEnd, showReferenceIds })}
+      ${renderPeriodBoundary({ idBase: `${idBase}-start`, label: 'Start', timepointField: 'startTimepoint', dateField: 'customStart', timepointValue: value.startTimepoint || '', dateValue: value.customStart, showReferenceIds, picker: 'period-start-timepoint', period: value })}
+      ${renderPeriodBoundary({ idBase: `${idBase}-end`, label: 'Ende', timepointField: 'endTimepoint', dateField: 'customEnd', timepointValue: value.endTimepoint || '', dateValue: value.customEnd, showReferenceIds, picker: 'period-end-timepoint', period: value })}
     </fieldset>
   `;
 }
 
-function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepointValue, dateValue, showReferenceIds = true }) {
+function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepointValue, dateValue, showReferenceIds = true, picker = '', period = {} }) {
   const hasCustomDate = Boolean(dateInputValue(dateValue));
   const mode = !timepointValue && hasCustomDate ? 'custom' : 'timepoint';
   const timepointHidden = mode === 'custom' ? ' hidden' : '';
@@ -1376,7 +1498,7 @@ function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepo
         <button class="period-toggle" type="button" data-period-action="${escapeAttribute(action)}">${escapeHtml(actionLabel)}</button>
       </div>
       <div data-period-timepoint${timepointHidden}>
-        ${renderReferenceControl({ id: `${idBase}-timepoint`, label: `${label}-Zeitpunkt`, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds })}
+        ${renderReferenceControl({ id: `${idBase}-timepoint`, label: `${label}-Zeitpunkt`, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds, pickerContext: { picker, period } })}
       </div>
       <div data-period-custom${customHidden}>
         ${renderNestedDateControl(`${idBase}-custom`, `${label} eigenes Datum`, dateValue, dateField)}
@@ -1506,6 +1628,7 @@ function handlePeriodModeAction(button) {
     button.textContent = 'Rückgängig';
     focusDateControl(dateInput);
     markPeriodBoundaryChanged(boundary);
+    refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), dateInput);
     return;
   }
 
@@ -1524,6 +1647,7 @@ function handlePeriodModeAction(button) {
     button.dataset.periodAction = 'custom-date';
     button.textContent = 'Eigenes Datum verwenden';
     markPeriodBoundaryChanged(boundary);
+    refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), timepointInput);
     return;
   }
 
@@ -1535,6 +1659,7 @@ function handlePeriodModeAction(button) {
     button.dataset.periodAction = 'custom-date';
     button.textContent = 'Eigenes Datum verwenden';
     markPeriodBoundaryChanged(boundary);
+    refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), timepointInput);
   }
 }
 
@@ -1614,11 +1739,11 @@ function appendBlankListItem(fieldRoot) {
   }
 
   if (kind === 'reference-list') {
-    list.insertAdjacentHTML('beforeend', renderReferenceListItem(fieldRoot.dataset.referenceCollection || ''));
+    list.insertAdjacentHTML('beforeend', renderReferenceListItem(fieldRoot.dataset.referenceCollection || '', '', ownerContextForElement(fieldRoot)));
     return;
   }
 
-  list.insertAdjacentHTML('beforeend', renderComplexListItem(kind, {}));
+  list.insertAdjacentHTML('beforeend', renderComplexListItem(kind, {}, ownerContextForElement(fieldRoot)));
 }
 
 function markCompositeChanged(fieldRoot) {
@@ -1633,6 +1758,280 @@ function markCompositeChanged(fieldRoot) {
   if (createForm) {
     clearCreateState(createForm);
   }
+}
+
+function handleReferencePickerChange(event) {
+  const birthdateInput = event.target.closest('[data-object-field="birthdate"]');
+  if (birthdateInput) {
+    refreshReferencePickers(ownerRootForElement(birthdateInput));
+    return;
+  }
+
+  const periodDateInput = event.target.closest('[data-date-control]');
+  if (periodDateInput) {
+    const periodEditor = periodDateInput.closest('[data-period-editor]');
+    refreshPeriodDependentPickers(periodEditor, periodDateInput);
+    return;
+  }
+
+  const select = event.target.closest('[data-reference-input]');
+  if (!select) {
+    return;
+  }
+
+  const periodEditor = select.closest('[data-period-editor]');
+  if (periodEditor) {
+    refreshPeriodDependentPickers(periodEditor, select);
+    return;
+  }
+
+  const action = select.value;
+  const activityEditor = select.closest('[data-activity-editor]');
+  if (activityEditor && action === pickerActionShowAllGroups) {
+    clearActivityPicker(activityEditor, 'role');
+    select.value = '';
+    refreshActivityPickerPair(activityEditor, select);
+    return;
+  }
+
+  if (activityEditor && action === pickerActionShowAllRoles) {
+    clearActivityPicker(activityEditor, 'group');
+    select.value = '';
+    refreshActivityPickerPair(activityEditor, select);
+    return;
+  }
+
+  if (activityEditor) {
+    refreshActivityPickerPair(activityEditor, select);
+    return;
+  }
+
+  if (select.dataset.referencePicker === 'membership-group') {
+    updateReferenceSelectOptions(select);
+  }
+}
+
+function refreshReferencePickers(root) {
+  if (!root) {
+    return;
+  }
+
+  root.querySelectorAll('[data-reference-input]').forEach((select) => {
+    if (!select.closest('[data-membership-editor], [data-activity-editor]')) {
+      updateReferenceSelectOptions(select);
+    }
+  });
+
+  root.querySelectorAll('[data-membership-editor] [data-reference-picker="membership-group"]').forEach((select) => {
+    updateReferenceSelectOptions(select);
+  });
+
+  root.querySelectorAll('[data-period-editor]').forEach((editor) => {
+    refreshPeriodTimepointPair(editor);
+  });
+
+  root.querySelectorAll('[data-activity-editor]').forEach((editor) => {
+    refreshActivityPickerPair(editor);
+  });
+}
+
+function refreshPeriodDependentPickers(periodEditor, changedControl = null) {
+  refreshPeriodTimepointPair(periodEditor, changedControl);
+
+  const membershipEditor = periodEditor?.closest('[data-membership-editor]');
+  if (membershipEditor) {
+    const groupSelect = membershipEditor.querySelector('[data-reference-picker="membership-group"]');
+    if (groupSelect) {
+      updateReferenceSelectOptions(groupSelect);
+    }
+  }
+
+  const activityEditor = periodEditor?.closest('[data-activity-editor]');
+  if (activityEditor) {
+    refreshActivityPickerPair(activityEditor);
+  }
+}
+
+function refreshPeriodTimepointPair(editor, changedControl = null) {
+  if (!editor) {
+    return;
+  }
+
+  const startBoundary = editor.querySelector('[data-period-boundary="startTimepoint"]');
+  const endBoundary = editor.querySelector('[data-period-boundary="endTimepoint"]');
+  const startYear = periodBoundaryYear(startBoundary);
+  const endYear = periodBoundaryYear(endBoundary);
+  if (startYear && endYear && startYear > endYear) {
+    if (changedControl && startBoundary?.contains(changedControl)) {
+      clearPeriodBoundary(endBoundary);
+    } else {
+      clearPeriodBoundary(startBoundary);
+    }
+  }
+
+  editor.querySelectorAll('[data-reference-picker="period-start-timepoint"], [data-reference-picker="period-end-timepoint"]').forEach((select) => {
+    updateReferenceSelectOptions(select);
+  });
+}
+
+function clearPeriodBoundary(boundary) {
+  const select = boundary?.querySelector('[data-reference-input]');
+  if (select) {
+    select.value = '';
+  }
+
+  const dateInput = boundary?.querySelector('[data-date-control]');
+  if (dateInput) {
+    dateInput.value = '';
+  }
+}
+
+function refreshActivityPickerPair(editor, changedSelect = null) {
+  const groupSelect = editor.querySelector('[data-reference-picker="activity-group"]');
+  const roleSelect = editor.querySelector('[data-reference-picker="activity-role"]');
+  if (!groupSelect || !roleSelect) {
+    return;
+  }
+
+  let groupId = referenceSelectValue(groupSelect);
+  let roleId = referenceSelectValue(roleSelect);
+  const group = findReferenceObject('groups', groupId);
+  const role = findReferenceObject('roles', roleId);
+
+  if (groupId && roleId && !roleUsableForGroup(role, group)) {
+    if (changedSelect === roleSelect) {
+      groupSelect.value = '';
+      groupId = '';
+    } else {
+      roleSelect.value = '';
+      roleId = '';
+    }
+  }
+
+  updateReferenceSelectOptions(groupSelect);
+  updateReferenceSelectOptions(roleSelect);
+}
+
+function clearActivityPicker(editor, nestedField) {
+  const select = editor.querySelector(`[data-nested-field="${cssEscape(nestedField)}"]`);
+  if (select) {
+    select.value = '';
+  }
+}
+
+function updateReferenceSelectOptions(select) {
+  const current = referenceSelectValue(select);
+  const collection = select.dataset.referenceCollection || '';
+  const showIds = select.dataset.referenceShowIds === '1';
+  const config = referenceOptionConfigForSelect(select, current);
+  const nextValue = referenceValueInScope(collection, current, config) ? current : '';
+  select.innerHTML = referenceOptions(collection, showIds, { ...config, currentValue: nextValue });
+  select.value = Array.from(select.options).some((option) => option.value === nextValue) ? nextValue : '';
+}
+
+function referenceValueInScope(collection, value, config = {}) {
+  if (!value) {
+    return true;
+  }
+
+  return referencePickerObjects(collection, { ...config, currentValue: '' })
+    .some((object) => objectId(object) === value);
+}
+
+function referenceOptionConfigForSelect(select, currentValue = '') {
+  const picker = select.dataset.referencePicker || '';
+  const config = { currentValue };
+
+  if (picker === 'membership-group') {
+    config.birthYear = pickerBirthYear(select);
+    config.period = pickerPeriod(select);
+  }
+
+  const activityEditor = select.closest('[data-activity-editor]');
+  if (picker === 'activity-group') {
+    const roleId = referenceSelectValue(activityEditor?.querySelector('[data-reference-picker="activity-role"]'));
+    config.birthYear = pickerBirthYear(select);
+    config.roleId = roleId;
+    config.period = pickerPeriod(select);
+    if (roleHasGroupTypeRestrictions(findReferenceObject('roles', roleId))) {
+      config.actionValue = pickerActionShowAllGroups;
+      config.actionLabel = 'Alle Gruppen anzeigen (Rolle leeren)';
+    }
+  }
+
+  if (picker === 'activity-role') {
+    const groupId = referenceSelectValue(activityEditor?.querySelector('[data-reference-picker="activity-group"]'));
+    config.groupId = groupId;
+    if (groupTypeIds(findReferenceObject('groups', groupId)).length) {
+      config.actionValue = pickerActionShowAllRoles;
+      config.actionLabel = 'Alle Rollen anzeigen (Gruppe leeren)';
+    }
+  }
+
+  if (picker === 'period-start-timepoint') {
+    config.maxYear = periodBoundaryYear(oppositePeriodBoundary(select, 'endTimepoint'));
+  }
+
+  if (picker === 'period-end-timepoint') {
+    config.minYear = periodBoundaryYear(oppositePeriodBoundary(select, 'startTimepoint'));
+  }
+
+  return config;
+}
+
+function referenceSelectValue(select) {
+  const value = String(select?.value || '');
+  return value === pickerActionShowAllGroups || value === pickerActionShowAllRoles ? '' : value;
+}
+
+function pickerBirthYear(select) {
+  const root = ownerRootForElement(select);
+  const ownerType = root?.dataset.objectType || root?.dataset.createForm || '';
+  if (ownerType !== 'people') {
+    return 0;
+  }
+
+  const birthdateInput = root.querySelector('[data-object-field="birthdate"]');
+  return birthYearFromDateValue(birthdateInput?.value) || Number(select.dataset.ownerBirthYear || 0);
+}
+
+function pickerPeriod(select) {
+  const periodEditor = select.closest('[data-membership-editor], [data-activity-editor]')?.querySelector('[data-period-editor]');
+  return readPeriod(periodEditor);
+}
+
+function oppositePeriodBoundary(select, field) {
+  return select.closest('[data-period-editor]')?.querySelector(`[data-period-boundary="${cssEscape(field)}"]`) || null;
+}
+
+function periodBoundaryYear(boundary) {
+  if (!boundary) {
+    return 0;
+  }
+
+  if (boundary.dataset.periodMode === 'custom') {
+    return numericYear(boundary.querySelector('[data-date-control]')?.value);
+  }
+
+  const select = boundary.querySelector('[data-reference-input]');
+  return periodBoundaryYearFromValue(referenceSelectValue(select), null);
+}
+
+function ownerRootForElement(element) {
+  return element?.closest('[data-object-type], [data-create-form]');
+}
+
+function ownerContextForElement(element) {
+  const root = ownerRootForElement(element);
+  const ownerType = root?.dataset.objectType || root?.dataset.createForm || '';
+  const ownerId = root?.dataset.objectId || '';
+  const ownerObject = ownerType && ownerId ? structuredCloneSafe(findReferenceObject(ownerType, ownerId) || {}) : {};
+  const birthdateInput = root?.querySelector('[data-object-field="birthdate"]');
+  if (birthdateInput) {
+    ownerObject.birthdate = readDateValue(birthdateInput.value);
+  }
+
+  return { ownerType, ownerObject };
 }
 
 async function handleObjectInput(event) {
@@ -1804,10 +2203,10 @@ async function handleExampleDataClick(event) {
   }
 
   event.preventDefault();
-  await createWpfExampleData();
+  await createExampleData();
 }
 
-async function createWpfExampleData() {
+async function createExampleData() {
   if (state.exampleDataCreating || !hasPermission('write')) {
     return;
   }
@@ -1839,6 +2238,24 @@ async function createWpfExampleData() {
       return response.object;
     };
     const id = (key) => objectId(created[key]);
+    const ensureRoleGroupTypes = async (roleKey, groupTypeKeys) => {
+      const role = created[roleKey];
+      const current = Array.isArray(role?.groupTypes) ? role.groupTypes.filter(Boolean) : [];
+      if (!role || current.length > 0) {
+        return;
+      }
+
+      const response = await postJson('object-update', {
+        type: 'roles',
+        id: objectId(role),
+        base_revision: Number(role._revision || 0),
+        object: {
+          groupTypes: groupTypeKeys.map((groupTypeKey) => id(groupTypeKey)).filter(Boolean),
+        },
+      });
+      created[roleKey] = response.object;
+      updateObjectInState('roles', response.object);
+    };
     const date = (rawValue) => ({ rawValue });
     const period = (startTimepoint = '', customStart = null, endTimepoint = '', customEnd = null) => ({
       startTimepoint,
@@ -1868,6 +2285,18 @@ async function createWpfExampleData() {
     useExisting('roles', 'roleGildenspr', 'Gildensprecher', 'Gildensprecher*in');
     useExisting('roles', 'roleRundenspr', 'Rundensprecher', 'Rundensprecher*in');
     useExisting('roles', 'roleKreisleit', 'Kreisleitung');
+    await ensureRoleGroupTypes('roleStafue', ['typeStamm']);
+    await ensureRoleGroupTypes('roleStellvStafue', ['typeStamm']);
+    await ensureRoleGroupTypes('roleKawa', ['typeStamm']);
+    await ensureRoleGroupTypes('roleStellvKawa', ['typeStamm']);
+    await ensureRoleGroupTypes('roleHandkasse', ['typeStamm', 'typeMeute', 'typeRudel', 'typeSippe', 'typeGilde', 'typeRunde', 'typeKreis']);
+    await ensureRoleGroupTypes('roleMeufue', ['typeMeute']);
+    await ensureRoleGroupTypes('roleMeutenassi', ['typeMeute']);
+    await ensureRoleGroupTypes('roleRudelfue', ['typeRudel']);
+    await ensureRoleGroupTypes('roleSifue', ['typeSippe']);
+    await ensureRoleGroupTypes('roleGildenspr', ['typeGilde']);
+    await ensureRoleGroupTypes('roleRundenspr', ['typeRunde']);
+    await ensureRoleGroupTypes('roleKreisleit', ['typeKreis']);
     await create('roles', 'roleMatihueschlue', { label: 'Matihüschlüwa', groupTypes: [id('typeStamm')], _certainty: 'confident' });
 
     await create('timepoints', 'timepointStamm', { name: 'Stammesgründung', date: date('1952-01-01'), _certainty: 'confident' });
@@ -2234,6 +2663,10 @@ function referenceDisplayValue(object, collection) {
 
 function normalizeReferenceValue(value, collection = '', previousValue = '') {
   const trimmed = String(value || '').trim();
+  if (trimmed === pickerActionShowAllGroups || trimmed === pickerActionShowAllRoles) {
+    return '';
+  }
+
   if (!trimmed) {
     return '';
   }
@@ -2280,6 +2713,7 @@ function updateObjectInState(type, object) {
 
   state.objects[type] = list;
   syncReferenceState();
+  refreshReferencePickers(document);
 }
 
 function updateObjectChrome(item, type, object) {
@@ -2407,6 +2841,126 @@ function groupTypeLabel(group, groupTypes) {
 
   const groupType = groupTypes.find((candidate) => objectId(candidate) === id);
   return groupType ? objectLabel(groupType, 'group-types') : '';
+}
+
+function groupPhases(group) {
+  if (!group || typeof group !== 'object') {
+    return [];
+  }
+
+  return [
+    group.mainPhase && typeof group.mainPhase === 'object' ? group.mainPhase : null,
+    ...(Array.isArray(group.additionalPhases) ? group.additionalPhases : []),
+  ].filter(Boolean);
+}
+
+function groupTypeIds(group) {
+  return [...new Set(groupPhases(group)
+    .map((phase) => phase.groupType || phase.groupTypeId || phase.group_type_id || '')
+    .filter(Boolean))];
+}
+
+function roleGroupTypeIds(role) {
+  return Array.isArray(role?.groupTypes) ? role.groupTypes.filter(Boolean) : [];
+}
+
+function roleHasGroupTypeRestrictions(role) {
+  return roleGroupTypeIds(role).length > 0;
+}
+
+function roleUsableForGroup(role, group) {
+  const allowed = roleGroupTypeIds(role);
+  if (!allowed.length) {
+    return true;
+  }
+
+  const types = groupTypeIds(group);
+  if (!types.length) {
+    return true;
+  }
+
+  return types.some((id) => allowed.includes(id));
+}
+
+function groupMatchesRole(group, role) {
+  return roleUsableForGroup(role, group);
+}
+
+function groupEndedBeforeYear(group, year) {
+  const phases = groupPhases(group);
+  if (!phases.length || !year) {
+    return false;
+  }
+
+  const endYears = phases.map((phase) => periodEndYear(phase.period)).filter(Boolean);
+  if (endYears.length !== phases.length) {
+    return false;
+  }
+
+  return Math.max(...endYears) < year;
+}
+
+function groupCouldOverlapPeriod(group, period) {
+  const targetStart = periodStartYear(period);
+  const targetEnd = periodEndYear(period);
+  if (!targetStart && !targetEnd) {
+    return true;
+  }
+
+  const phases = groupPhases(group);
+  if (!phases.length) {
+    return true;
+  }
+
+  return phases.some((phase) => periodsCouldOverlap(phase.period, { startYear: targetStart, endYear: targetEnd }));
+}
+
+function periodsCouldOverlap(period, target) {
+  const phaseStart = periodStartYear(period);
+  const phaseEnd = periodEndYear(period);
+
+  if (target.endYear && phaseStart && phaseStart > target.endYear) {
+    return false;
+  }
+
+  if (target.startYear && phaseEnd && phaseEnd < target.startYear) {
+    return false;
+  }
+
+  return true;
+}
+
+function periodStartYear(period) {
+  if (!period || typeof period !== 'object') {
+    return 0;
+  }
+
+  return periodBoundaryYearFromValue(period.startTimepoint, period.customStart);
+}
+
+function periodEndYear(period) {
+  if (!period || typeof period !== 'object') {
+    return 0;
+  }
+
+  return periodBoundaryYearFromValue(period.endTimepoint, period.customEnd);
+}
+
+function periodBoundaryYearFromValue(timepointId, customDate) {
+  return numericYear(referenceYear('timepoints', timepointId) || dateYear(customDate));
+}
+
+function timepointYear(timepoint) {
+  return numericYear(dateYear(timepoint?.date));
+}
+
+function birthYearFromDateValue(value) {
+  return numericYear(dateYear(value));
+}
+
+function numericYear(value) {
+  const match = String(value || '').match(/\d{4}/);
+  return match ? Number(match[0]) : 0;
 }
 
 function personHasGroup(person, groupId) {

@@ -251,6 +251,18 @@ Roles:
 - Rundensprecher*in
 - Kreisleitung
 
+## Features
+
+### Picker Logic
+
+Reference pickers are select-only and use the current loaded object lists.\
+Every picker has a clear option so dependent fields can become unrestricted again.\
+Activity group and role pickers filter each other: a selected group limits roles to roles usable for that group's type, and a selected restricted role limits groups to matching group types.\
+If a person birthdate is known, person group pickers hide groups that clearly ended before that birthdate.\
+If a membership or activity period is known, group pickers hide groups that clearly do not overlap that period.\
+Period timepoint pickers filter each other so starts stay before ends and ends stay after starts.\
+Missing dates, missing group types, and unrestricted roles keep pickers broad instead of blocking selection.
+
 ## Current Gaps
 
 - The main tree visualization is not implemented yet.
