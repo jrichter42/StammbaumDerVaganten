@@ -1209,21 +1209,28 @@ function renderCertaintyField(field, value, fieldAttrs, id) {
   `;
 }
 
-function renderDateControl(id, label, value, inputAttrs = '') {
+function renderDateControl(id, label, value, inputAttrs = '', options = {}) {
   const raw = dateRawString(value);
   const detail = dateDetailFromRaw(raw);
   const visibleValue = dateVisibleValueForDetail(raw, detail);
+  const labelHtml = options.hideLabel ? '' : fieldLabelHtml(label, options.labelActionHtml || '');
+  const labelAttr = options.hideLabel && label ? `aria-label="${escapeAttribute(label)}"` : '';
 
   return `
-    <label class="object-field date-field" for="${escapeAttribute(id)}">
-      <span>${escapeHtml(label)}</span>
+    <div class="object-field date-field">
       <div class="date-control" data-date-control-root>
-        <input id="${escapeAttribute(id)}" ${inputAttrs} type="text" inputmode="numeric" data-date-control data-date-detail="${escapeAttribute(detail)}" data-date-raw="${escapeAttribute(raw)}" value="${escapeAttribute(visibleValue)}" placeholder="${escapeAttribute(datePlaceholderForDetail(detail))}" autocomplete="off">
-        <div class="date-detail-actions" data-date-detail-actions>
-          ${dateDetailActionsHtml(detail, '')}
+        <label class="date-input-field" for="${escapeAttribute(id)}">
+          ${labelHtml}
+        <input id="${escapeAttribute(id)}" ${inputAttrs} ${labelAttr} type="text" inputmode="numeric" data-date-control data-date-detail="${escapeAttribute(detail)}" data-date-raw="${escapeAttribute(raw)}" value="${escapeAttribute(visibleValue)}" placeholder="${escapeAttribute(datePlaceholderForDetail(detail))}" autocomplete="off">
+        </label>
+        <div class="date-detail-field">
+          <span>Granularität</span>
+          <div class="date-detail-actions" data-date-detail-actions>
+            ${dateDetailActionsHtml(detail, '')}
+          </div>
         </div>
       </div>
-    </label>
+    </div>
   `;
 }
 
@@ -1238,11 +1245,13 @@ function renderReferenceField(field, value, fieldAttrs, id, context = {}) {
   });
 }
 
-function renderReferenceControl({ id, label, value, collection, objectFieldAttrs = '', nestedField = '', showIds = false, pickerContext = {} }) {
+function renderReferenceControl({ id, label, value, collection, objectFieldAttrs = '', nestedField = '', showIds = false, pickerContext = {}, hideLabel = false }) {
   const storedValue = value || '';
   const picker = pickerContext.picker || '';
   const birthYear = birthYearFromDateValue(pickerContext.ownerObject?.birthdate);
   const optionConfig = referenceOptionConfigFromContext(pickerContext, storedValue);
+  const labelHtml = hideLabel ? '' : fieldLabelHtml(label, pickerContext.labelActionHtml || '');
+  const labelAttr = hideLabel && label ? `aria-label="${escapeAttribute(label)}"` : '';
   const attrs = [
     objectFieldAttrs,
     nestedField ? `data-nested-field="${escapeAttribute(nestedField)}"` : '',
@@ -1256,11 +1265,21 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
 
   return `
     <label class="object-field" for="${escapeAttribute(id)}">
-      <span>${escapeHtml(label)}</span>
-      <select id="${escapeAttribute(id)}" ${attrs}>
+      ${labelHtml}
+      <select id="${escapeAttribute(id)}" ${attrs} ${labelAttr}>
         ${referenceOptions(collection, showIds, { ...optionConfig, currentValue: storedValue })}
       </select>
     </label>
+  `;
+}
+
+function fieldLabelHtml(label, actionHtml = '') {
+  const action = actionHtml ? `<span class="field-label-action">${actionHtml}</span>` : '';
+  return `
+    <span class="field-label-row">
+      <span class="field-label-main">${escapeHtml(label)}</span>
+      ${action}
+    </span>
   `;
 }
 
@@ -1511,26 +1530,23 @@ function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepo
   const timepointHidden = mode === 'custom' ? ' hidden' : '';
   const customHidden = mode === 'timepoint' ? ' hidden' : '';
   const action = mode === 'custom' ? 'use-timepoint' : 'custom-date';
-  const actionLabel = mode === 'custom' ? 'Zeitpunkt verwenden' : 'Eigenes Datum verwenden';
+  const actionLabel = mode === 'custom' ? 'zu Zeitpunkt wechseln' : 'zu Datum wechseln';
+  const actionHtml = `<button class="period-toggle" type="button" data-period-action="${escapeAttribute(action)}">(${escapeHtml(actionLabel)})</button>`;
 
   return `
     <div class="period-boundary" data-period-boundary="${escapeAttribute(timepointField)}" data-period-mode="${escapeAttribute(mode)}">
-      <div class="period-boundary-head">
-        <span>${escapeHtml(label)}</span>
-        <button class="period-toggle" type="button" data-period-action="${escapeAttribute(action)}">${escapeHtml(actionLabel)}</button>
-      </div>
       <div data-period-timepoint${timepointHidden}>
-        ${renderReferenceControl({ id: `${idBase}-timepoint`, label: `${label}-Zeitpunkt`, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds, pickerContext: { picker, period } })}
+        ${renderReferenceControl({ id: `${idBase}-timepoint`, label, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds, pickerContext: { picker, period, labelActionHtml: actionHtml } })}
       </div>
       <div data-period-custom${customHidden}>
-        ${renderNestedDateControl(`${idBase}-custom`, `${label} eigenes Datum`, dateValue, dateField)}
+        ${renderNestedDateControl(`${idBase}-custom`, label, dateValue, dateField, false, actionHtml)}
       </div>
     </div>
   `;
 }
 
-function renderNestedDateControl(id, label, value, nestedField) {
-  return renderDateControl(id, label, value, `data-nested-field="${escapeAttribute(nestedField)}"`);
+function renderNestedDateControl(id, label, value, nestedField, hideLabel = false, labelActionHtml = '') {
+  return renderDateControl(id, label, value, `data-nested-field="${escapeAttribute(nestedField)}"`, { hideLabel, labelActionHtml });
 }
 
 function handleDateDetailAction(button) {
@@ -1894,8 +1910,7 @@ function handlePeriodModeAction(button) {
       clearDateControl(dateInput);
     }
     setPeriodBoundaryMode(boundary, 'custom');
-    button.dataset.periodAction = 'undo-custom-date';
-    button.textContent = 'Rückgängig';
+    setPeriodBoundaryAction(boundary, 'undo-custom-date', 'zu Zeitpunkt wechseln');
     focusDateControl(dateInput);
     markPeriodBoundaryChanged(boundary);
     refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), dateInput);
@@ -1914,8 +1929,7 @@ function handlePeriodModeAction(button) {
     delete boundary.dataset.previousTimepoint;
     delete boundary.dataset.previousTimepointLabel;
     setPeriodBoundaryMode(boundary, 'timepoint');
-    button.dataset.periodAction = 'custom-date';
-    button.textContent = 'Eigenes Datum verwenden';
+    setPeriodBoundaryAction(boundary, 'custom-date', 'zu Datum wechseln');
     markPeriodBoundaryChanged(boundary);
     refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), timepointInput);
     return;
@@ -1926,11 +1940,17 @@ function handlePeriodModeAction(button) {
       clearDateControl(dateInput);
     }
     setPeriodBoundaryMode(boundary, 'timepoint');
-    button.dataset.periodAction = 'custom-date';
-    button.textContent = 'Eigenes Datum verwenden';
+    setPeriodBoundaryAction(boundary, 'custom-date', 'zu Datum wechseln');
     markPeriodBoundaryChanged(boundary);
     refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), timepointInput);
   }
+}
+
+function setPeriodBoundaryAction(boundary, action, label) {
+  boundary.querySelectorAll('[data-period-action]').forEach((button) => {
+    button.dataset.periodAction = action;
+    button.textContent = `(${label})`;
+  });
 }
 
 function setPeriodBoundaryMode(boundary, mode) {
