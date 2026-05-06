@@ -2241,7 +2241,9 @@ async function createExampleData() {
     const ensureRoleGroupTypes = async (roleKey, groupTypeKeys) => {
       const role = created[roleKey];
       const current = Array.isArray(role?.groupTypes) ? role.groupTypes.filter(Boolean) : [];
-      if (!role || current.length > 0) {
+      const desired = groupTypeKeys.map((groupTypeKey) => id(groupTypeKey)).filter(Boolean);
+      const missing = desired.filter((groupTypeId) => !current.includes(groupTypeId));
+      if (!role || !missing.length) {
         return;
       }
 
@@ -2250,7 +2252,7 @@ async function createExampleData() {
         id: objectId(role),
         base_revision: Number(role._revision || 0),
         object: {
-          groupTypes: groupTypeKeys.map((groupTypeKey) => id(groupTypeKey)).filter(Boolean),
+          groupTypes: [...current, ...missing],
         },
       });
       created[roleKey] = response.object;
