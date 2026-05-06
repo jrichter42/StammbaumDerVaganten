@@ -9,33 +9,60 @@ is no separate desktop/WPF app in this repository.
 ## Web App
 
 - Plain HTML, CSS, and JavaScript.
-- PHP 8 JSON API.
+- PHP 8.0 or newer.
 - Passkey-based authentication.
 - Permission-aware public, private, and sensitive fields.
-- Human-readable domain object JSON storage under `web/data/`.
-- Runtime auth, cache, change, and lock files under `web/var/`.
+- Human-readable JSON object storage (domain objects) under `web/data/`.
+- Private runtime state (auth, cache, change, lock files) under `web/var/`.
+
+No Composer install, database, build step, or host-level config is required.
 
 ## Deploy
 
-Upload `web/` to a PHP 8 shared host and keep the included `.htaccess` files.
-The app does not require Composer, a database, or a build step.
+Upload the contents of `web/` to a PHP 8 shared host and keep the included
+`.htaccess` files.
+Apache-compatible `.htaccess` support is needed for direct access protection.
+Once editing is enabled, the app needs write permissions for `data/` and `var/`.
 
-Configuration lives in `web/config/app.json`. See [web/README.md](web/README.md)
-for passkey setup and hosting details.
+Configuration lives in `config/app.json`.
+Data timestamps should stay in UTC; the configured timezone is only for frontend display.
+
+## Auth
+
+Login uses passkeys only.
+Users and passkey public keys are stored in `var/auth/users.json`; setup tokens, login challenges, and audit logs stay below `var/auth/`.
+These files must not be web-readable.
+
+On first run with no users, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
+Open that URL on the deployed site to register the initial passkey.
+
+For production, set a stable passkey relying-party configuration in `config/app.json` if automatic host detection is not exact:
+```json
+{
+  "auth": {
+    "base_url": "https://stammbaumdervaganten.de",
+    "rp_id": "stammbaumdervaganten.de",
+    "origin": "https://stammbaumdervaganten.de",
+    "initial_admin_username": "admin"
+  }
+}
+```
+
+Passkeys require HTTPS except on local development origins such as `localhost`.
+`base_url` is used for generated setup links and should be the public URL without a trailing slash.
+The initial admin user is only generated when `var/auth/users.json` has no users.
 
 ## Data Model
 
-The app stores scout-group history as JSON objects. People, groups, roles, group
-types, and timepoints are independent objects linked by UUIDs; memberships,
-activities, group phases, periods, and dates are embedded value objects.
+The app stores scout-group history as JSON objects.
+People, groups, roles, group types, and timepoints are independent objects linked by UUIDs.
+Memberships, activities, group phases, periods, and dates are embedded value objects.
 
 Goals:
-
 - Keep domain data readable, diffable, and easy to repair.
 - Preserve object history through revisions.
 - Use stable UUID references instead of copied names.
-- Model incomplete historical data with notes, sources, partial dates, and
-  certainty values.
+- Model incomplete historical data with notes, sources, partial dates, and certainty values.
 
 ```mermaid
 classDiagram
@@ -168,15 +195,19 @@ Period "1" *-- "0..2" Date
 - Period boundaries can use named timepoints or custom dates.
 - Reverse views, such as all members of a group, are derived from memberships
   and activities.
+
 ## Visibility
-`+` -> Property is public (visible without login)
-`-` -> Property is private (visible only to logged-in users with read access)
-`#` -> Property is protected (visible only to logged-in users with the 'sensitive data' permission)
+- `+`: public - visible without login.
+- `-`: private - visible to logged-in users with read access.
+- `#`: protected - visible to logged-in users with the sensitive data permission.
 
 ## Storage
 
-Each instance of an object type is stored in a folder (according to the plural of its type name in kebab-case) under `web/data/`.
+Each object class has one direct collection folder below `data/`.
+The folder name is the plural of its class name in kebab-case.
 Folder names are usable as REST resource collections.
+
+Every JSON file in those collection folders represents one data object and uses the object UUID as its filename:
 
 ```text
 web/data/
@@ -187,17 +218,22 @@ web/data/
   timepoints/{uuid}.json
 ```
 
-JSON files contain the type's fields directly, including inherited base fields.
-Runtime state (such as auth files, generated cache data, change queues, and locks) lives under `web/var/` and is not canonical domain data.
+Each objects JSON contains the type's fields directly, including inherited base fields.
+Runtime state files (such as auth files, generated cache data, change queues, and locks) live under `web/var/`.
 
-## Versioning and Concurrency
-Updates change the revision; if the stored object changed meanwhile, the API returns `409 Conflict`.
+## Versioning
+
+Updates change `_revision`; if the stored object changed in the meantime, the API returns `409 Conflict`.
 Previous versions are saved as `<id>_<revision>.json` before `<id>.json` is replaced.
 Deletes are soft deletes using `_deleted: true`.
-Objects use optimistic concurrency.
+
+## Concurrency
+
+Objects use optimistic concurrency for multi-user editing.
 
 ## Default Data
-Default group types and roles are normal full UUID-backed objects
+
+Default group types and roles are normal full UUID-backed objects.
 They are starting data and can be removed on a fresh install.
 
 Group types:
