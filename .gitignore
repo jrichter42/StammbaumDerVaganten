@@ -1,5 +1,5 @@
 # Editor and OS noise
-.vscode/
+.agents/
 .idea/
 .vs/
 *.swp
