@@ -1,31 +1,23 @@
 # Stammbaum der Vaganten
 
-Web app for preserving and exploring the history of
-[Stamm der Vaganten](http://stammdervaganten.de).
-
-The project is fully focused on the PHP/JSON web application in `web/`. There
-is no separate desktop/WPF app in this repository.
+Web app for preserving and exploring the history of [Stamm der Vaganten](http://stammdervaganten.de).
 
 ## Web App
 
-- Plain HTML, CSS, and JavaScript.
-- PHP 8.0 or newer.
-- Passkey-based authentication.
-- Permission-aware public, private, and sensitive fields.
-- Human-readable JSON object storage (domain objects) under `web/data/`.
-- Private runtime state (auth, cache, change, lock files) under `web/var/`.
-
-No Composer install, database, build step, or host-level config is required.
+- Plain HTML, CSS, JavaScript, and PHP 8.0+.
+- Passkey-only authentication.
+- Permission-aware public, private, and protected fields.
+- Human-readable JSON domain objects under `web/data/`.
+- Private runtime state under `web/var/`.
+- No Composer install, database, build step, or host-level config.
 
 ## Deploy
 
-Upload the contents of `web/` to a PHP 8 shared host and keep the included
-`.htaccess` files.
+Upload the contents of `web/` to a PHP 8.0+ shared host and keep the included `.htaccess` files.
 Apache-compatible `.htaccess` support is needed for direct access protection.
-Once editing is enabled, the app needs write permissions for `data/` and `var/`.
-
 Configuration lives in `config/app.json`.
-Data timestamps should stay in UTC; the configured timezone is only for frontend display.
+Once editing is enabled, the app needs write access to `data/` and `var/`.
+Data timestamps stay in UTC; the configured timezone is only for frontend display.
 
 ## Auth
 
@@ -33,7 +25,7 @@ Login uses passkeys only.
 Users and passkey public keys are stored in `var/auth/users.json`; setup tokens, login challenges, and audit logs stay below `var/auth/`.
 These files must not be web-readable.
 
-On first run with no users, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
+On first run with an empty `var/auth/users.json`, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
 Open that URL on the deployed site to register the initial passkey.
 
 For production, set a stable passkey relying-party configuration in `config/app.json` if automatic host detection is not exact:
@@ -48,9 +40,8 @@ For production, set a stable passkey relying-party configuration in `config/app.
 }
 ```
 
-Passkeys require HTTPS except on local development origins such as `localhost`.
-`base_url` is used for generated setup links and should be the public URL without a trailing slash.
-The initial admin user is only generated when `var/auth/users.json` has no users.
+Passkeys require HTTPS (except on local development origins such as `localhost`).
+`base_url` is used for generated setup links.
 
 ## Data Model
 
@@ -58,7 +49,7 @@ The app stores scout-group history as JSON objects.
 People, groups, roles, group types, and timepoints are independent objects linked by UUIDs.
 Memberships, activities, group phases, periods, and dates are embedded value objects.
 
-Goals:
+Model goals:
 - Keep domain data readable, diffable, and easy to repair.
 - Preserve object history through revisions.
 - Use stable UUID references instead of copied names.
@@ -197,17 +188,16 @@ Period "1" *-- "0..2" Date
   and activities.
 
 ## Visibility
+
 - `+`: public - visible without login.
 - `-`: private - visible to logged-in users with read access.
 - `#`: protected - visible to logged-in users with the sensitive data permission.
 
 ## Storage
 
-Each object class has one direct collection folder below `data/`.
-The folder name is the plural of its class name in kebab-case.
-Folder names are usable as REST resource collections.
+Each object class has one direct collection folder below `data/`, named as the class name plural in kebab-case and used as the REST resource collection.
 
-Every JSON file in those collection folders represents one data object and uses the object UUID as its filename:
+Each JSON file in those folders represents one object and uses the object UUID as its filename:
 
 ```text
 web/data/
@@ -218,16 +208,14 @@ web/data/
   timepoints/{uuid}.json
 ```
 
-Each objects JSON contains the type's fields directly, including inherited base fields.
+Each object JSON contains the type's fields directly, including inherited base fields.
 Runtime state files (such as auth files, generated cache data, change queues, and locks) live under `web/var/`.
 
-## Versioning
+## Versioning And Concurrency
 
 Updates change `_revision`; if the stored object changed in the meantime, the API returns `409 Conflict`.
 Previous versions are saved as `<id>_<revision>.json` before `<id>.json` is replaced.
 Deletes are soft deletes using `_deleted: true`.
-
-## Concurrency
 
 Objects use optimistic concurrency for multi-user editing.
 
@@ -265,6 +253,5 @@ Roles:
 
 - The main tree visualization is not implemented yet.
 - Automated tests are still missing.
-- Search, validation, import/export, duplicate handling, and source tracking
-  need more work.
+- Search, validation, import/export, duplicate handling, and source tracking need more work.
 - Partial dates and certainty need deeper UI support.
