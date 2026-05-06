@@ -1,28 +1,48 @@
 const labels = {
-  people: 'People',
-  groups: 'Groups',
-  'group-types': 'Group types',
-  roles: 'Roles',
-  timepoints: 'Timepoints',
+  people: 'Personen',
+  groups: 'Gruppen',
+  'group-types': 'Gruppenarten',
+  roles: 'Rollen',
+  timepoints: 'Zeitpunkte',
 };
 
 const objectTypeLabels = {
   people: 'Person',
-  groups: 'Group',
-  'group-types': 'Group type',
-  roles: 'Role',
-  timepoints: 'Timepoint',
+  groups: 'Gruppe',
+  'group-types': 'Gruppenart',
+  roles: 'Rolle',
+  timepoints: 'Zeitpunkt',
+};
+
+const countNouns = {
+  record: ['Datensatz', 'Datensätze'],
+  group: ['Gruppe', 'Gruppen'],
+  'person record': ['Personendatensatz', 'Personendatensätze'],
+  role: ['Rolle', 'Rollen'],
+  timepoint: ['Zeitpunkt', 'Zeitpunkte'],
+  'public group': ['öffentliche Gruppe', 'öffentliche Gruppen'],
+  'public person record': ['öffentlicher Personendatensatz', 'öffentliche Personendatensätze'],
+  user: ['Benutzer', 'Benutzer'],
+  passkey: ['Passkey', 'Passkeys'],
+};
+
+const emptyCollectionLabels = {
+  people: 'Personen',
+  groups: 'Gruppen',
+  'group-types': 'Gruppenarten',
+  roles: 'Rollen',
+  timepoints: 'Zeitpunkte',
 };
 
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
 const certaintyOptions = [
-  ['none', 'None'],
-  ['no_idea', 'No idea'],
-  ['estimation_bad', 'Bad estimate'],
-  ['estimation_medium', 'Medium estimate'],
-  ['estimation_good', 'Good estimate'],
-  ['confident', 'Confident'],
-  ['set_in_stone', 'Set in stone'],
+  ['none', 'Keine'],
+  ['no_idea', 'Unbekannt'],
+  ['estimation_bad', 'Grobe Schätzung'],
+  ['estimation_medium', 'Mittlere Schätzung'],
+  ['estimation_good', 'Gute Schätzung'],
+  ['confident', 'Sicher'],
+  ['set_in_stone', 'Gesichert'],
 ];
 
 const objectConfigs = {
@@ -30,63 +50,63 @@ const objectConfigs = {
     list: '#peopleList',
     count: '#peopleCount',
     fields: [
-      { name: 'description', label: 'Description', kind: 'textarea' },
-      { name: 'forename', label: 'Forename', visibility: 'private' },
-      { name: 'lastname', label: 'Lastname', visibility: 'private' },
-      { name: 'scoutname', label: 'Scout name', visibility: 'private' },
-      { name: 'birthdate', label: 'Birthdate', kind: 'date', visibility: 'protected' },
-      { name: 'contactInfo', label: 'Contact', kind: 'textarea', visibility: 'protected' },
-      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
-      { name: '_certainty', label: 'Certainty', kind: 'certainty' },
-      { name: '_sources', label: 'Sources', kind: 'textarea' },
-      { name: 'memberships', label: 'Memberships', kind: 'membership-list', defaultValue: [] },
-      { name: 'activities', label: 'Activities', kind: 'activity-list', defaultValue: [] },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
+      { name: 'forename', label: 'Vorname', visibility: 'private' },
+      { name: 'lastname', label: 'Nachname', visibility: 'private' },
+      { name: 'scoutname', label: 'Pfadiname', visibility: 'private' },
+      { name: 'birthdate', label: 'Geburtsdatum', kind: 'date', visibility: 'protected' },
+      { name: 'contactInfo', label: 'Kontakt', kind: 'textarea', visibility: 'protected' },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
+      { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
+      { name: '_sources', label: 'Quellen', kind: 'textarea' },
+      { name: 'memberships', label: 'Mitgliedschaften', kind: 'membership-list', defaultValue: [] },
+      { name: 'activities', label: 'Aktivitäten', kind: 'activity-list', defaultValue: [] },
     ],
   },
   groups: {
     list: '#groupsList',
     count: '#groupsCount',
     fields: [
-      { name: 'description', label: 'Description', kind: 'textarea' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'name', label: 'Name' },
-      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
-      { name: '_certainty', label: 'Certainty', kind: 'certainty' },
-      { name: '_sources', label: 'Sources', kind: 'textarea' },
-      { name: 'mainPhase', label: 'Main phase', kind: 'group-phase', defaultValue: null },
-      { name: 'additionalPhases', label: 'Additional phases', kind: 'group-phase-list', defaultValue: [] },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
+      { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
+      { name: '_sources', label: 'Quellen', kind: 'textarea' },
+      { name: 'mainPhase', label: 'Hauptphase', kind: 'group-phase', defaultValue: null },
+      { name: 'additionalPhases', label: 'Weitere Phasen', kind: 'group-phase-list', defaultValue: [] },
     ],
   },
   'group-types': {
     list: '#groupTypesList',
     count: '#groupTypesCount',
     fields: [
-      { name: 'description', label: 'Description', kind: 'textarea' },
-      { name: 'label', label: 'Label' },
-      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
+      { name: 'label', label: 'Bezeichnung' },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
     ],
   },
   roles: {
     list: '#rolesList',
     count: '#rolesCount',
     fields: [
-      { name: 'description', label: 'Description', kind: 'textarea' },
-      { name: 'label', label: 'Label' },
-      { name: 'groupTypes', label: 'Group types', kind: 'reference-list', collection: 'group-types', defaultValue: [] },
-      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
-      { name: '_certainty', label: 'Certainty', kind: 'certainty' },
-      { name: '_sources', label: 'Sources', kind: 'textarea' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
+      { name: 'label', label: 'Bezeichnung' },
+      { name: 'groupTypes', label: 'Gruppenarten', kind: 'reference-list', collection: 'group-types', defaultValue: [] },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
+      { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
+      { name: '_sources', label: 'Quellen', kind: 'textarea' },
     ],
   },
   timepoints: {
     list: '#timepointsList',
     count: '#timepointsCount',
     fields: [
-      { name: 'description', label: 'Description', kind: 'textarea' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'name', label: 'Name' },
-      { name: 'date', label: 'Date', kind: 'date' },
-      { name: 'notes', label: 'Notes', kind: 'textarea', visibility: 'private' },
-      { name: '_certainty', label: 'Certainty', kind: 'certainty' },
-      { name: '_sources', label: 'Sources', kind: 'textarea' },
+      { name: 'date', label: 'Datum', kind: 'date' },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
+      { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
+      { name: '_sources', label: 'Quellen', kind: 'textarea' },
     ],
   },
 };
@@ -115,6 +135,7 @@ const setupForm = document.querySelector('#setupForm');
 const setupPanel = document.querySelector('#setupPanel');
 const setupInput = document.querySelector('#setupInput');
 const adminNav = document.querySelector('#adminNav');
+const adminNavGroup = document.querySelector('#adminNavGroup');
 const createUserForm = document.querySelector('#createUserForm');
 const setupResult = document.querySelector('#setupResult');
 const userList = document.querySelector('#userList');
@@ -142,6 +163,7 @@ setupForm.addEventListener('submit', beginSetup);
 createUserForm.addEventListener('submit', createUser);
 setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
+document.addEventListener('click', handleNavigationJump);
 document.addEventListener('click', handleObjectClick);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleObjectChange);
@@ -161,8 +183,18 @@ function activateView(viewName) {
   });
 }
 
+function handleNavigationJump(event) {
+  const button = event.target.closest('[data-jump-view]');
+  if (!button) {
+    return;
+  }
+
+  event.preventDefault();
+  activateView(button.dataset.jumpView);
+}
+
 async function refresh() {
-  setConnection('Loading', '');
+  setConnection('Lädt', '');
   clearAuthMessage();
 
   try {
@@ -178,14 +210,14 @@ async function refresh() {
 
     render();
     const writable = Boolean(state.status.storage && state.status.storage.writable);
-    setConnection(user ? (writable ? 'Online' : 'Signed in') : 'Public', user && writable ? 'is-online' : '');
+    setConnection(user ? (writable ? 'Online' : 'Eingeloggt') : 'Öffentlich', user && writable ? 'is-online' : '');
     if (!user) {
       showBootstrapHint();
     }
   } catch (error) {
     console.error(error);
     setConnection('Offline', 'is-offline');
-    showAuthMessage(error.message || 'Request failed', true);
+    showAuthMessage(localizeErrorMessage(error.message || 'Anfrage fehlgeschlagen'), true);
   }
 }
 
@@ -201,13 +233,14 @@ function renderShell() {
   setupPanel.hidden = Boolean(user) || !isSetupPage;
 
   if (user) {
-    currentUserLabel.textContent = user.display_name || user.username || 'Signed in';
+    currentUserLabel.textContent = user.display_name || user.username || 'Eingeloggt';
   }
 
   const canManageUsers = hasPermission('manage_users');
+  adminNavGroup.hidden = !canManageUsers;
   adminNav.hidden = !canManageUsers;
   if (!canManageUsers && document.querySelector('#view-admin')?.classList.contains('is-active')) {
-    activateView('overview');
+    activateView('basic');
   }
 
   document.querySelectorAll('[data-create-type]').forEach((button) => {
@@ -219,27 +252,27 @@ function showBootstrapHint() {
   const auth = state.status?.auth || {};
   const webauthn = state.status?.webauthn || {};
   if (webauthn.secure_context_required) {
-    showAuthMessage(`Passkeys require HTTPS for ${webauthn.rp_id}.`, true);
+    showAuthMessage(`Passkeys benötigen HTTPS für ${webauthn.rp_id}.`, true);
     return;
   }
   if (webauthn.openssl_available === false) {
-    showAuthMessage('The PHP OpenSSL extension is required for passkey login.', true);
+    showAuthMessage('Die PHP-Erweiterung OpenSSL ist für den Passkey-Login erforderlich.', true);
     return;
   }
 
   if (auth.bootstrap_pending) {
-    showAuthMessage(auth.setup_url_hint || 'Initial setup is pending.', false);
+    showAuthMessage(auth.setup_url_hint || 'Das initiale Setup steht noch aus.', false);
   }
 }
 
 async function beginLogin() {
   clearAuthMessage();
   if (!window.PublicKeyCredential) {
-    showAuthMessage('This browser does not support passkeys.', true);
+    showAuthMessage('Dieser Browser unterstützt keine Passkeys.', true);
     return;
   }
   if (!window.isSecureContext) {
-    showAuthMessage('Passkeys require HTTPS except on local development hosts.', true);
+    showAuthMessage('Passkeys benötigen HTTPS, außer auf lokalen Entwicklungs-Hosts.', true);
     return;
   }
 
@@ -250,7 +283,7 @@ async function beginLogin() {
     });
 
     if (!credential) {
-      throw new Error('Passkey login was cancelled.');
+      throw new Error('Der Passkey-Login wurde abgebrochen.');
     }
 
     await postJson('auth-login-verify', {
@@ -269,11 +302,11 @@ async function beginSetup(event) {
   event.preventDefault();
   clearAuthMessage();
   if (!window.PublicKeyCredential) {
-    showAuthMessage('This browser does not support passkeys.', true);
+    showAuthMessage('Dieser Browser unterstützt keine Passkeys.', true);
     return;
   }
   if (!window.isSecureContext) {
-    showAuthMessage('Passkeys require HTTPS except on local development hosts.', true);
+    showAuthMessage('Passkeys benötigen HTTPS, außer auf lokalen Entwicklungs-Hosts.', true);
     return;
   }
 
@@ -287,7 +320,7 @@ async function beginSetup(event) {
     });
 
     if (!credential) {
-      throw new Error('Passkey setup was cancelled.');
+      throw new Error('Das Passkey-Setup wurde abgebrochen.');
     }
 
     await postJson('auth-register-verify', {
@@ -379,7 +412,7 @@ async function createUser(event) {
   const username = String(formData.get('username') || '').trim();
   const permissions = formData.getAll('permissions');
   if (!username) {
-    showAuthMessage('Username is required.', true);
+    showAuthMessage('Benutzername ist erforderlich.', true);
     createUserForm.querySelector('input[name="username"]')?.focus();
     return;
   }
@@ -397,7 +430,7 @@ async function createUser(event) {
     renderSetupResult();
     await loadAdminUsers();
   } catch (error) {
-    showAuthMessage(error.message || 'Could not create user.', true);
+    showAuthMessage(localizeErrorMessage(error.message || 'Benutzer konnte nicht erstellt werden.'), true);
   }
 }
 
@@ -447,7 +480,7 @@ async function handleUserAction(event) {
       await reloadAfterUserChange(userId);
     }
   } catch (error) {
-    showAuthMessage(error.message || 'User update failed.', true);
+    showAuthMessage(localizeErrorMessage(error.message || 'Benutzer konnte nicht aktualisiert werden.'), true);
   }
 }
 
@@ -504,7 +537,7 @@ async function postJson(action, body = {}) {
 async function readJsonResponse(response) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.ok === false) {
-    const error = new Error(payload.error || `Request failed: ${response.status}`);
+    const error = new Error(localizeErrorMessage(payload.error || `Anfrage fehlgeschlagen: ${response.status}`));
     error.status = response.status;
     error.payload = payload;
     throw error;
@@ -515,6 +548,8 @@ async function readJsonResponse(response) {
 
 function render() {
   renderPublicOverview();
+  renderBasicFlow();
+  renderAdvancedFlow();
   renderMetrics();
   renderReferenceData();
   renderSystem();
@@ -541,6 +576,29 @@ function renderPublicOverview() {
   renderPublicTimeline(timepoints);
 }
 
+function renderBasicFlow() {
+  const groups = state.objects.groups || [];
+
+  setText('#basicGroupCount', formatCount(groups.length, 'record'));
+
+  renderBasicGroupCreatePanel();
+  renderBasicGroups(groups);
+}
+
+function renderAdvancedFlow() {
+  const timepoints = state.objects.timepoints || [];
+
+  setText('#advancedRoleCount', formatCount((state.objects.roles || []).length, 'record'));
+  setText('#advancedTimepointCount', formatCount(timepoints.length, 'record'));
+  setText('#advancedGroupCount', formatCount((state.objects.groups || []).length, 'record'));
+  setText('#advancedPeopleCount', formatCount((state.objects.people || []).length, 'record'));
+
+  renderWorkbenchCollection('roles', '#advancedRolesList', '[data-advanced-create-panel="roles"]');
+  renderWorkbenchCollection('timepoints', '#advancedTimepointsList', '[data-advanced-create-panel="timepoints"]');
+  renderWorkbenchCollection('groups', '#advancedGroupsList', '[data-advanced-create-panel="groups"]');
+  renderWorkbenchCollection('people', '#advancedPeopleList', '[data-advanced-create-panel="people"]');
+}
+
 function publicOverviewText(groups, people, roles, timepoints) {
   const parts = [
     formatCount(groups.length, 'group'),
@@ -559,10 +617,10 @@ function renderPublicStats(groups, people, roles, timepoints) {
   }
 
   stats.innerHTML = [
-    ['Groups', groups.length],
-    ['People', people.length],
-    ['Roles', roles.length],
-    ['Timepoints', timepoints.length],
+    ['Gruppen', groups.length],
+    ['Personen', people.length],
+    ['Rollen', roles.length],
+    ['Zeitpunkte', timepoints.length],
   ].map(([label, value]) => `
     <div class="public-stat">
       <strong>${Number(value || 0)}</strong>
@@ -572,21 +630,34 @@ function renderPublicStats(groups, people, roles, timepoints) {
 }
 
 function renderPublicTree(groups, people, groupTypes) {
-  const tree = document.querySelector('#publicTree');
+  renderTreeBoard({
+    treeSelector: '#publicTree',
+    subtitleSelector: '#publicTreeSubtitle',
+    groups,
+    people,
+    groupTypes,
+    groupNoun: 'public group',
+    personNoun: 'public person record',
+    emptyText: 'Noch keine öffentlichen Gruppen',
+  });
+}
+
+function renderTreeBoard({ treeSelector, subtitleSelector, groups, people, groupTypes, groupNoun, personNoun, emptyText }) {
+  const tree = document.querySelector(treeSelector);
   if (!tree) {
     return;
   }
 
-  setText('#publicTreeSubtitle', groups.length
-    ? `${formatCount(groups.length, 'public group')} in the current data`
-    : 'Reference structure');
+  setText(subtitleSelector, groups.length
+    ? `${formatCount(groups.length, groupNoun)} in den aktuellen Daten`
+    : 'Referenzstruktur');
 
   if (!groups.length) {
     tree.innerHTML = `
       <div class="tree-empty">
         ${groupTypes.map((type) => `
           <span class="tree-type-chip">${escapeHtml(objectLabel(type, 'group-types'))}</span>
-        `).join('') || '<span class="tree-type-chip">No public groups yet</span>'}
+        `).join('') || `<span class="tree-type-chip">${escapeHtml(emptyText)}</span>`}
       </div>
     `;
     return;
@@ -600,16 +671,251 @@ function renderPublicTree(groups, people, groupTypes) {
     return `
       <article class="tree-node">
         <div class="tree-node-top">
-          <span>${escapeHtml(groupType || 'Group')}</span>
+          <span>${escapeHtml(groupType || 'Gruppe')}</span>
           <strong>${escapeHtml(objectLabel(group, 'groups'))}</strong>
         </div>
         ${description ? `<p>${escapeHtml(description)}</p>` : ''}
         <div class="tree-node-foot">
-          <span>${formatCount(memberCount, 'public person record')}</span>
+          <span>${formatCount(memberCount, personNoun)}</span>
         </div>
       </article>
     `;
   }).join('');
+}
+
+function renderBasicGroups(groups) {
+  const list = document.querySelector('#basicGroupsList');
+  if (!list) {
+    return;
+  }
+
+  list.innerHTML = groups.map(renderBasicGroupItem).join('')
+    || '<div class="empty-state empty-state-compact">Noch keine Gruppen.</div>';
+}
+
+function renderBasicGroupCreatePanel() {
+  const panel = document.querySelector('[data-basic-create-panel="groups"]');
+  if (!panel) {
+    return;
+  }
+
+  if (!state.createOpen.groups || !hasPermission('write')) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    return;
+  }
+
+  panel.hidden = false;
+  panel.innerHTML = `
+    <form class="rough-group-card rough-group-create" data-create-form="groups">
+      ${renderBasicGroupEditor({}, '')}
+      <div class="form-actions rough-create-actions">
+        <button class="button button-secondary" type="button" data-create-cancel="groups">Abbrechen</button>
+        <button class="button" type="submit">Erstellen</button>
+      </div>
+      <p class="object-save-state" data-create-state hidden></p>
+    </form>
+  `;
+}
+
+function renderBasicGroupItem(group) {
+  const phase = group.mainPhase && typeof group.mainPhase === 'object' ? group.mainPhase : {};
+  const period = phase.period && typeof phase.period === 'object' ? phase.period : {};
+  const canWrite = hasPermission('write');
+
+  return `
+    <article class="rough-group-card" data-object-type="groups" data-object-id="${escapeAttribute(objectId(group))}" data-revision="${Number(group._revision || 0)}">
+      <div class="rough-group-header">
+        <div class="rough-group-title">
+          <span data-basic-group-type>${escapeHtml(groupTypeLabel(group, state.groupTypes || []) || 'Gruppe')}</span>
+          <strong data-object-title>${escapeHtml(objectLabel(group, 'groups'))}</strong>
+        </div>
+        <small data-basic-period-span>${escapeHtml(periodYearSpan(period) || 'offener Zeitraum')}</small>
+      </div>
+      ${canWrite ? `
+        ${renderBasicGroupEditor(phase, group.name || '')}
+        <p class="object-save-state" data-save-state hidden></p>
+        <div class="user-actions object-actions">
+          <button class="button button-danger" type="button" data-object-action="delete">Löschen</button>
+        </div>
+      ` : `
+        <div class="rough-group-static">
+          <span>${escapeHtml(groupTypeLabel(group, state.groupTypes || []) || 'Kein Typ')}</span>
+          <span>${escapeHtml(group.name || 'Unbenannte Gruppe')}</span>
+          <span>${escapeHtml(periodYearSpan(period) || 'Kein Zeitraum')}</span>
+        </div>
+      `}
+    </article>
+  `;
+}
+
+function renderBasicGroupEditor(phase = {}, name = '') {
+  return `
+    <div class="rough-group-editor" data-object-editor>
+      ${renderBasicGroupPhaseField(phase)}
+      ${renderBasicGroupNameField(name)}
+    </div>
+  `;
+}
+
+function renderBasicGroupNameField(value) {
+  const id = `basic-group-name-${Math.random().toString(36).slice(2)}`;
+  return `
+    <label class="object-field rough-name-field" for="${escapeAttribute(id)}">
+      <span>Name</span>
+      <input id="${escapeAttribute(id)}" data-object-field="name" data-field-kind="text" value="${escapeAttribute(value)}" autocomplete="off">
+    </label>
+  `;
+}
+
+function renderBasicGroupPhaseField(value = {}) {
+  return `
+    <section class="object-field rough-phase-field" data-object-field="mainPhase" data-field-kind="group-phase">
+      ${renderBasicGroupPhaseEditor(value)}
+    </section>
+  `;
+}
+
+function renderBasicGroupPhaseEditor(value = {}) {
+  const idBase = `basic-group-phase-${Math.random().toString(36).slice(2)}`;
+  return `
+    <div class="rough-phase-editor">
+      <div class="rough-type-field">
+        ${renderReferenceControl({ id: `${idBase}-type`, label: 'Typ', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType', showIds: false })}
+      </div>
+      ${renderPeriodEditor(value.period || {}, `${idBase}-period`, true)}
+    </div>
+  `;
+}
+
+function renderWorkbenchCollection(type, listSelector, createSelector) {
+  renderScopedCreatePanel(createSelector, type, visibleFields(type));
+
+  const list = document.querySelector(listSelector);
+  if (!list) {
+    return;
+  }
+
+  const objects = state.objects[type] || [];
+  list.innerHTML = objects.map((object) => renderObjectItem(type, object)).join('')
+    || `<div class="empty-state empty-state-compact">Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.</div>`;
+}
+
+function renderScopedCreatePanel(selector, type, fields) {
+  const panel = document.querySelector(selector);
+  if (!panel) {
+    return;
+  }
+
+  if (!state.createOpen[type] || !hasPermission('write')) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    return;
+  }
+
+  panel.hidden = false;
+  panel.innerHTML = renderCreateForm(type, fields);
+}
+
+function renderCreateForm(type, fields) {
+  return `
+    <form class="object-editor object-create-form" data-create-form="${escapeAttribute(type)}">
+      ${fields.map((field) => renderFieldInput(field, defaultFieldValue(field), true)).join('')}
+      <div class="form-actions">
+        <button class="button button-secondary" type="button" data-create-cancel="${escapeAttribute(type)}">Abbrechen</button>
+        <button class="button" type="submit">Erstellen</button>
+      </div>
+      <p class="object-save-state" data-create-state hidden></p>
+    </form>
+  `;
+}
+
+function fieldsByName(type, names) {
+  const fields = visibleFields(type);
+  return names.map((name) => fields.find((field) => field.name === name)).filter(Boolean);
+}
+
+function compactObjectSummary(type, object) {
+  if (type === 'timepoints') {
+    return timepointValue(object) || '';
+  }
+
+  if (type === 'groups') {
+    const phase = object.mainPhase && typeof object.mainPhase === 'object' ? object.mainPhase : null;
+    return [groupTypeLabel(object, state.groupTypes || []), periodLabel(phase?.period)].filter(Boolean).join(' / ');
+  }
+
+  return objectSummary(type, object);
+}
+
+function periodLabel(period) {
+  if (!period || typeof period !== 'object') {
+    return '';
+  }
+
+  const start = referenceObjectLabel('timepoints', period.startTimepoint) || dateDisplayValue(period.customStart);
+  const end = referenceObjectLabel('timepoints', period.endTimepoint) || dateDisplayValue(period.customEnd);
+
+  if (start && end) {
+    return `${start} - ${end}`;
+  }
+
+  return start || end || '';
+}
+
+function periodYearSpan(period) {
+  if (!period || typeof period !== 'object') {
+    return '';
+  }
+
+  const start = referenceYear('timepoints', period.startTimepoint) || dateYear(period.customStart);
+  const end = referenceYear('timepoints', period.endTimepoint) || dateYear(period.customEnd);
+
+  if (start && end) {
+    return `${start} - ${end}`;
+  }
+
+  return start || end || '';
+}
+
+function referenceYear(collection, id) {
+  if (!id) {
+    return '';
+  }
+
+  const object = (state.objects[collection] || []).find((candidate) => objectId(candidate) === id);
+  return object ? dateYear(object.date) : '';
+}
+
+function dateYear(value) {
+  const display = dateDisplayValue(value);
+  const match = String(display || '').match(/\d{4}/);
+  return match ? match[0] : '';
+}
+
+function referenceObjectLabel(collection, id) {
+  if (!id) {
+    return '';
+  }
+
+  const object = (state.objects[collection] || []).find((candidate) => objectId(candidate) === id);
+  return object ? objectLabel(object, collection) : id;
+}
+
+function dateDisplayValue(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'object') {
+    return value.display || value.rawValue || value.value || '';
+  }
+
+  return '';
 }
 
 function renderPublicRoles(roles) {
@@ -620,7 +926,7 @@ function renderPublicRoles(roles) {
 
   list.innerHTML = roles.map((role) => `
     <span class="public-chip">${escapeHtml(objectLabel(role, 'roles'))}</span>
-  `).join('') || '<p class="public-muted">No public roles yet.</p>';
+  `).join('') || '<p class="public-muted">Noch keine öffentlichen Rollen.</p>';
 }
 
 function renderPublicTimeline(timepoints) {
@@ -636,9 +942,9 @@ function renderPublicTimeline(timepoints) {
   list.innerHTML = ordered.map((timepoint) => `
     <article class="timeline-item">
       <strong>${escapeHtml(objectLabel(timepoint, 'timepoints'))}</strong>
-      <span>${escapeHtml(timepointValue(timepoint) || 'undated')}</span>
+      <span>${escapeHtml(timepointValue(timepoint) || 'ohne Datum')}</span>
     </article>
-  `).join('') || '<p class="public-muted">No public timepoints yet.</p>';
+  `).join('') || '<p class="public-muted">Noch keine öffentlichen Zeitpunkte.</p>';
 }
 
 function renderMetrics() {
@@ -656,9 +962,13 @@ function renderMetrics() {
 
 function renderReferenceData() {
   const list = document.querySelector('#referenceList');
+  if (!list) {
+    return;
+  }
+
   const items = [
-    ...state.groupTypes.map((object) => ({ ...object, objectType: 'group-types', tag: 'Group type' })),
-    ...(state.objects.roles || []).slice(0, 6).map((object) => ({ ...object, objectType: 'roles', tag: 'Role' })),
+    ...state.groupTypes.map((object) => ({ ...object, objectType: 'group-types', tag: 'Gruppenart' })),
+    ...(state.objects.roles || []).slice(0, 6).map((object) => ({ ...object, objectType: 'roles', tag: 'Rolle' })),
   ];
 
   list.innerHTML = items.map((object) => `
@@ -669,7 +979,7 @@ function renderReferenceData() {
       </div>
       <span class="tag">${escapeHtml(object.tag)}</span>
     </article>
-  `).join('') || '<div class="empty-state">No reference data available.</div>';
+  `).join('') || '<div class="empty-state">Keine Referenzdaten verfügbar.</div>';
 }
 
 function renderSystem() {
@@ -678,29 +988,34 @@ function renderSystem() {
   const auth = state.status?.auth || {};
   const webauthn = state.status?.webauthn || {};
 
-  document.querySelector('#storageState').textContent = storage.writable
-    ? 'Data path is writable'
-    : 'Data path is not writable';
-  document.querySelector('#systemVersion').textContent = 'Storage';
+  setText('#storageState', storage.writable
+    ? 'Datenpfad ist beschreibbar'
+    : 'Datenpfad ist nicht beschreibbar');
+  setText('#systemVersion', 'Storage');
 
-  document.querySelector('#systemList').innerHTML = `
+  const systemList = document.querySelector('#systemList');
+  if (!systemList) {
+    return;
+  }
+
+  systemList.innerHTML = `
     ${renderWarnings(app.show_warnings ? app.warnings : null)}
-    <dt>Signed in as</dt>
+    <dt>Eingeloggt als</dt>
     <dd>${escapeHtml(auth.user?.display_name || auth.user?.username || '-')}</dd>
-    <dt>Passkey RP ID</dt>
+    <dt>Passkey-RP-ID</dt>
     <dd>${escapeHtml(webauthn.rp_id || '-')}</dd>
-    <dt>Display timezone</dt>
+    <dt>Anzeige-Zeitzone</dt>
     <dd>${escapeHtml(app.timezone || 'UTC')}</dd>
-    <dt>Data path</dt>
+    <dt>Datenpfad</dt>
     <dd>${escapeHtml(storage.data_path || '-')}</dd>
-    <dt>Runtime path</dt>
+    <dt>Laufzeitpfad</dt>
     <dd>${escapeHtml(storage.var_path || '-')}</dd>
     <dt>Storage</dt>
-    <dd>${storage.exists ? 'Found' : 'Missing'}</dd>
-    <dt>Writes</dt>
-    <dd>${storage.writable ? 'Enabled' : 'Disabled'}</dd>
-    <dt>Runtime writes</dt>
-    <dd>${storage.runtime_writable ? 'Enabled' : 'Disabled'}</dd>
+    <dd>${storage.exists ? 'Gefunden' : 'Fehlt'}</dd>
+    <dt>Schreibzugriff</dt>
+    <dd>${storage.writable ? 'Aktiv' : 'Inaktiv'}</dd>
+    <dt>Laufzeit-Schreibzugriff</dt>
+    <dd>${storage.runtime_writable ? 'Aktiv' : 'Inaktiv'}</dd>
   `;
 }
 
@@ -710,7 +1025,7 @@ function renderWarnings(warnings) {
   }
 
   return `
-    <dt>Config warning</dt>
+    <dt>Config-Warnung</dt>
     <dd class="warning-text">${warnings.map((warning) => escapeHtml(warning)).join('<br>')}</dd>
   `;
 }
@@ -737,13 +1052,13 @@ function renderObjectCollection(type) {
 
   renderCreatePanel(type);
   if (!canAccessObjects()) {
-    list.innerHTML = '<div class="empty-state">No object access.</div>';
+    list.innerHTML = '<div class="empty-state">Kein Zugriff auf Objekte.</div>';
     return;
   }
 
   const objects = state.objects[type] || [];
   list.innerHTML = objects.map((object) => renderObjectItem(type, object)).join('')
-    || `<div class="empty-state">No ${escapeHtml((labels[type] || type).toLowerCase())} yet.</div>`;
+    || `<div class="empty-state">Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.</div>`;
 }
 
 function renderObjectItem(type, object) {
@@ -768,8 +1083,8 @@ function renderObjectItem(type, object) {
       </div>
       <div class="user-actions object-actions">
         ${canWrite ? `
-          <button class="button button-secondary" type="button" data-object-action="${isEditing ? 'close' : 'edit'}">${isEditing ? 'Close' : 'Edit'}</button>
-          <button class="button button-danger" type="button" data-object-action="delete">Delete</button>
+          <button class="button button-secondary" type="button" data-object-action="${isEditing ? 'close' : 'edit'}">${isEditing ? 'Schließen' : 'Bearbeiten'}</button>
+          <button class="button button-danger" type="button" data-object-action="delete">Löschen</button>
         ` : ''}
       </div>
     </article>
@@ -797,16 +1112,7 @@ function renderCreatePanel(type) {
   }
 
   panel.hidden = false;
-  panel.innerHTML = `
-    <form class="object-editor object-create-form" data-create-form="${escapeAttribute(type)}">
-      ${visibleFields(type).map((field) => renderFieldInput(field, defaultFieldValue(field), true)).join('')}
-      <div class="form-actions">
-        <button class="button button-secondary" type="button" data-create-cancel="${escapeAttribute(type)}">Cancel</button>
-        <button class="button" type="submit">Create</button>
-      </div>
-      <p class="object-save-state" data-create-state hidden></p>
-    </form>
-  `;
+  panel.innerHTML = renderCreateForm(type, visibleFields(type));
 }
 
 function renderFieldInput(field, value, isCreate) {
@@ -901,30 +1207,32 @@ function renderReferenceField(field, value, fieldAttrs, id) {
   });
 }
 
-function renderReferenceControl({ id, label, value, collection, objectFieldAttrs = '', nestedField = '' }) {
+function renderReferenceControl({ id, label, value, collection, objectFieldAttrs = '', nestedField = '', showIds = true }) {
   const listId = `${id}-options`;
+  const storedValue = value || '';
   const attrs = [
     objectFieldAttrs,
     nestedField ? `data-nested-field="${escapeAttribute(nestedField)}"` : '',
     'data-reference-input',
     `data-reference-collection="${escapeAttribute(collection)}"`,
+    `data-reference-value="${escapeAttribute(storedValue)}"`,
     `list="${escapeAttribute(listId)}"`,
   ].filter(Boolean).join(' ');
 
   return `
     <label class="object-field" for="${escapeAttribute(id)}">
       <span>${escapeHtml(label)}</span>
-      <input id="${escapeAttribute(id)}" ${attrs} value="${escapeAttribute(value || '')}" autocomplete="off">
+      <input id="${escapeAttribute(id)}" ${attrs} value="${escapeAttribute(referenceInputValue(storedValue, collection, showIds))}" autocomplete="off">
       <datalist id="${escapeAttribute(listId)}">
-        ${referenceOptions(collection)}
+        ${referenceOptions(collection, showIds)}
       </datalist>
     </label>
   `;
 }
 
-function referenceOptions(collection) {
+function referenceOptions(collection, showIds = true) {
   return (state.objects[collection] || []).map((object) => `
-    <option value="${escapeAttribute(referenceDisplayValue(object, collection))}"></option>
+    <option value="${escapeAttribute(showIds ? referenceDisplayValue(object, collection) : objectLabel(object, collection))}"></option>
   `).join('');
 }
 
@@ -938,7 +1246,7 @@ function renderReferenceListField(field, value) {
       <div class="composite-list" data-list-items>
         ${values.map((itemValue) => renderReferenceListItem(field.collection, itemValue)).join('')}
       </div>
-      <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="Add ${escapeAttribute(field.label)}">+</button>
+      <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="${escapeAttribute(field.label)} hinzufügen">+</button>
     </section>
   `;
 }
@@ -947,8 +1255,8 @@ function renderReferenceListItem(collection, value = '') {
   const id = `ref-${collection}-${Math.random().toString(36).slice(2)}`;
   return `
     <div class="composite-item reference-list-item" data-list-item>
-      ${renderReferenceControl({ id, label: 'Reference', value, collection, nestedField: 'value' })}
-      <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Remove">-</button>
+      ${renderReferenceControl({ id, label: 'Referenz', value, collection, nestedField: 'value' })}
+      <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
     </div>
   `;
 }
@@ -974,7 +1282,7 @@ function renderObjectListField(field, value) {
       <div class="composite-list" data-list-items>
         ${values.map((itemValue) => renderComplexListItem(field.kind, itemValue)).join('')}
       </div>
-      <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="Add ${escapeAttribute(field.label)}">+</button>
+      <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="${escapeAttribute(field.label)} hinzufügen">+</button>
     </section>
   `;
 }
@@ -983,7 +1291,7 @@ function renderComplexListItem(kind, value = {}) {
   return `
     <div class="composite-item" data-list-item>
       ${renderComplexEditor(kind, value, true)}
-      <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Remove">-</button>
+      <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
     </div>
   `;
 }
@@ -1008,7 +1316,7 @@ function renderGroupPhaseEditor(value = {}, compact = false) {
   const idBase = `group-phase-${Math.random().toString(36).slice(2)}`;
   return `
     <div class="nested-editor ${compact ? 'is-compact' : ''}">
-      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Group type', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType' })}
+      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Gruppenart', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType' })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
     </div>
   `;
@@ -1018,7 +1326,7 @@ function renderMembershipEditor(value = {}) {
   const idBase = `membership-${Math.random().toString(36).slice(2)}`;
   return `
     <div class="nested-editor">
-      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Group', value: value.group || '', collection: 'groups', nestedField: 'group' })}
+      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group' })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
     </div>
   `;
@@ -1028,22 +1336,45 @@ function renderActivityEditor(value = {}) {
   const idBase = `activity-${Math.random().toString(36).slice(2)}`;
   return `
     <div class="nested-editor">
-      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Group', value: value.group || '', collection: 'groups', nestedField: 'group' })}
-      ${renderReferenceControl({ id: `${idBase}-role`, label: 'Role', value: value.role || '', collection: 'roles', nestedField: 'role' })}
+      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group' })}
+      ${renderReferenceControl({ id: `${idBase}-role`, label: 'Rolle', value: value.role || '', collection: 'roles', nestedField: 'role' })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
     </div>
   `;
 }
 
-function renderPeriodEditor(value = {}, idBase = `period-${Math.random().toString(36).slice(2)}`) {
+function renderPeriodEditor(value = {}, idBase = `period-${Math.random().toString(36).slice(2)}`, compact = false) {
+  const showReferenceIds = !compact;
   return `
-    <fieldset class="period-editor" data-period-editor>
-      <legend>Period</legend>
-      ${renderReferenceControl({ id: `${idBase}-start`, label: 'Start timepoint', value: value.startTimepoint || '', collection: 'timepoints', nestedField: 'startTimepoint' })}
-      ${renderNestedDateControl(`${idBase}-custom-start`, 'Custom start', value.customStart, 'customStart')}
-      ${renderReferenceControl({ id: `${idBase}-end`, label: 'End timepoint', value: value.endTimepoint || '', collection: 'timepoints', nestedField: 'endTimepoint' })}
-      ${renderNestedDateControl(`${idBase}-custom-end`, 'Custom end', value.customEnd, 'customEnd')}
+    <fieldset class="period-editor ${compact ? 'is-rough' : ''}" data-period-editor>
+      <legend>Zeitraum</legend>
+      ${renderPeriodBoundary({ idBase: `${idBase}-start`, label: 'Start', timepointField: 'startTimepoint', dateField: 'customStart', timepointValue: value.startTimepoint || '', dateValue: value.customStart, showReferenceIds })}
+      ${renderPeriodBoundary({ idBase: `${idBase}-end`, label: 'Ende', timepointField: 'endTimepoint', dateField: 'customEnd', timepointValue: value.endTimepoint || '', dateValue: value.customEnd, showReferenceIds })}
     </fieldset>
+  `;
+}
+
+function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepointValue, dateValue, showReferenceIds = true }) {
+  const hasCustomDate = Boolean(dateInputValue(dateValue));
+  const mode = !timepointValue && hasCustomDate ? 'custom' : 'timepoint';
+  const timepointHidden = mode === 'custom' ? ' hidden' : '';
+  const customHidden = mode === 'timepoint' ? ' hidden' : '';
+  const action = mode === 'custom' ? 'use-timepoint' : 'custom-date';
+  const actionLabel = mode === 'custom' ? 'Zeitpunkt verwenden' : 'Eigenes Datum verwenden';
+
+  return `
+    <div class="period-boundary" data-period-boundary="${escapeAttribute(timepointField)}" data-period-mode="${escapeAttribute(mode)}">
+      <div class="period-boundary-head">
+        <span>${escapeHtml(label)}</span>
+        <button class="period-toggle" type="button" data-period-action="${escapeAttribute(action)}">${escapeHtml(actionLabel)}</button>
+      </div>
+      <div data-period-timepoint${timepointHidden}>
+        ${renderReferenceControl({ id: `${idBase}-timepoint`, label: `${label}-Zeitpunkt`, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds })}
+      </div>
+      <div data-period-custom${customHidden}>
+        ${renderNestedDateControl(`${idBase}-custom`, `${label} eigenes Datum`, dateValue, dateField)}
+      </div>
+    </div>
   `;
 }
 
@@ -1057,6 +1388,12 @@ function renderNestedDateControl(id, label, value, nestedField) {
 }
 
 async function handleObjectClick(event) {
+  const periodButton = event.target.closest('[data-period-action]');
+  if (periodButton) {
+    handlePeriodModeAction(periodButton);
+    return;
+  }
+
   const listButton = event.target.closest('[data-list-action]');
   if (listButton) {
     handleListAction(listButton);
@@ -1067,6 +1404,8 @@ async function handleObjectClick(event) {
   if (createButton) {
     state.createOpen[createButton.dataset.createType] = true;
     renderObjectCollection(createButton.dataset.createType);
+    renderBasicFlow();
+    renderAdvancedFlow();
     return;
   }
 
@@ -1074,6 +1413,8 @@ async function handleObjectClick(event) {
   if (createCancel) {
     state.createOpen[createCancel.dataset.createCancel] = false;
     renderObjectCollection(createCancel.dataset.createCancel);
+    renderBasicFlow();
+    renderAdvancedFlow();
     return;
   }
 
@@ -1100,6 +1441,8 @@ async function handleObjectClick(event) {
   if (action === 'edit') {
     state.editing[key] = true;
     renderObjectCollection(type);
+    renderBasicFlow();
+    renderAdvancedFlow();
     return;
   }
 
@@ -1107,6 +1450,8 @@ async function handleObjectClick(event) {
     await flushObjectEdit(item, true);
     state.editing[key] = false;
     renderObjectCollection(type);
+    renderBasicFlow();
+    renderAdvancedFlow();
     return;
   }
 
@@ -1123,6 +1468,111 @@ async function handleObjectClick(event) {
   if (action === 'confirm-delete') {
     await deleteObject(item);
   }
+}
+
+function handlePeriodModeAction(button) {
+  const boundary = button.closest('[data-period-boundary]');
+  if (!boundary) {
+    return;
+  }
+
+  const timepointWrap = boundary.querySelector('[data-period-timepoint]');
+  const customWrap = boundary.querySelector('[data-period-custom]');
+  const timepointInput = timepointWrap?.querySelector('[data-reference-input]');
+  const dateInput = customWrap?.querySelector('[data-date-control]');
+  const action = button.dataset.periodAction;
+
+  if (action === 'custom-date') {
+    boundary.dataset.previousTimepoint = timepointInput
+      ? normalizeReferenceValue(timepointInput.value, timepointInput.dataset.referenceCollection || '', timepointInput.dataset.referenceValue || '')
+      : '';
+    boundary.dataset.previousTimepointLabel = timepointInput?.value || '';
+    if (timepointInput) {
+      timepointInput.value = '';
+      timepointInput.dataset.referenceValue = '';
+    }
+    if (dateInput) {
+      dateInput.value = '';
+    }
+    setPeriodBoundaryMode(boundary, 'custom');
+    button.dataset.periodAction = 'undo-custom-date';
+    button.textContent = 'Rückgängig';
+    focusDateControl(dateInput);
+    markPeriodBoundaryChanged(boundary);
+    return;
+  }
+
+  if (action === 'undo-custom-date') {
+    if (timepointInput) {
+      timepointInput.dataset.referenceValue = boundary.dataset.previousTimepoint || '';
+      timepointInput.value = boundary.dataset.previousTimepointLabel
+        || referenceInputValue(boundary.dataset.previousTimepoint || '', timepointInput.dataset.referenceCollection || '', false);
+    }
+    if (dateInput) {
+      dateInput.value = '';
+    }
+    delete boundary.dataset.previousTimepoint;
+    delete boundary.dataset.previousTimepointLabel;
+    setPeriodBoundaryMode(boundary, 'timepoint');
+    button.dataset.periodAction = 'custom-date';
+    button.textContent = 'Eigenes Datum verwenden';
+    markPeriodBoundaryChanged(boundary);
+    return;
+  }
+
+  if (action === 'use-timepoint') {
+    if (dateInput) {
+      dateInput.value = '';
+    }
+    setPeriodBoundaryMode(boundary, 'timepoint');
+    button.dataset.periodAction = 'custom-date';
+    button.textContent = 'Eigenes Datum verwenden';
+    markPeriodBoundaryChanged(boundary);
+  }
+}
+
+function setPeriodBoundaryMode(boundary, mode) {
+  boundary.dataset.periodMode = mode;
+  const isCustom = mode === 'custom';
+  const timepointWrap = boundary.querySelector('[data-period-timepoint]');
+  const customWrap = boundary.querySelector('[data-period-custom]');
+  if (timepointWrap) {
+    timepointWrap.hidden = isCustom;
+  }
+  if (customWrap) {
+    customWrap.hidden = !isCustom;
+  }
+}
+
+function markPeriodBoundaryChanged(boundary) {
+  const item = boundary.closest('[data-object-type][data-object-id]');
+  if (item) {
+    markObjectDirty(item);
+    scheduleObjectSave(item, 1800);
+    return;
+  }
+
+  const createForm = boundary.closest('[data-create-form]');
+  if (createForm) {
+    clearCreateState(createForm);
+  }
+}
+
+function focusDateControl(input) {
+  if (!input) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    input.focus();
+    if (typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+      } catch (_error) {
+        // Browser picker APIs can reject when not treated as a direct gesture.
+      }
+    }
+  }, 0);
 }
 
 function handleListAction(button) {
@@ -1253,7 +1703,7 @@ document.addEventListener('submit', async (event) => {
 
 function markObjectDirty(item) {
   item.dataset.dirty = '1';
-  setObjectSaveState(item, 'Unsaved', false);
+  setObjectSaveState(item, 'Ungespeichert', false);
 }
 
 function scheduleObjectSave(item, delay) {
@@ -1280,7 +1730,7 @@ async function flushObjectEdit(item, force) {
   try {
     payload = collectObjectFields(item);
   } catch (error) {
-    setObjectSaveState(item, error.message, true);
+    setObjectSaveState(item, localizeErrorMessage(error.message), true);
     return;
   }
 
@@ -1290,7 +1740,7 @@ async function flushObjectEdit(item, force) {
   }
 
   item.dataset.saving = '1';
-  setObjectSaveState(item, 'Saving', false);
+  setObjectSaveState(item, 'Wird gespeichert', false);
 
   try {
     const response = await postJson('object-update', {
@@ -1308,7 +1758,7 @@ async function flushObjectEdit(item, force) {
     if (currentPayloadKey === payloadKey) {
       item.dataset.dirty = '';
       item.dataset.lastSavedPayload = payloadKey;
-      setObjectSaveState(item, 'Saved', false, true);
+      setObjectSaveState(item, 'Gespeichert', false, true);
     } else {
       item.dataset.dirty = '1';
       scheduleObjectSave(item, 900);
@@ -1326,17 +1776,17 @@ async function createObjectFromForm(form) {
   try {
     payload = collectObjectFields(form);
   } catch (error) {
-    setCreateState(form, error.message, true);
+    setCreateState(form, localizeErrorMessage(error.message), true);
     return;
   }
 
-  setCreateState(form, 'Creating', false);
+  setCreateState(form, 'Wird erstellt', false);
   try {
     await postJson('object-create', { type, object: payload });
     state.createOpen[type] = false;
     await reloadObjectData();
   } catch (error) {
-    setCreateState(form, error.message || 'Object could not be created.', true);
+    setCreateState(form, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'), true);
   }
 }
 
@@ -1366,9 +1816,9 @@ function showDeleteConfirm(item) {
 
   actions.insertAdjacentHTML('beforeend', `
     <div class="delete-confirm">
-      <span>Delete this object?</span>
-      <button class="button button-danger" type="button" data-object-action="confirm-delete">Confirm</button>
-      <button class="button button-secondary" type="button" data-object-action="cancel-delete">Cancel</button>
+      <span>Dieses Objekt löschen?</span>
+      <button class="button button-danger" type="button" data-object-action="confirm-delete">Bestätigen</button>
+      <button class="button button-secondary" type="button" data-object-action="cancel-delete">Abbrechen</button>
     </div>
   `);
 }
@@ -1395,7 +1845,7 @@ function collectObjectFields(root) {
 function readFieldValue(input, field) {
   if (field.kind === 'reference-list') {
     return Array.from(input.querySelectorAll('[data-reference-input]'))
-      .map((control) => normalizeReferenceValue(control.value))
+      .map((control) => normalizeReferenceValue(control.value, control.dataset.referenceCollection || '', control.dataset.referenceValue || ''))
       .filter(Boolean);
   }
 
@@ -1426,12 +1876,16 @@ function readFieldValue(input, field) {
     try {
       return JSON.parse(trimmed);
     } catch (_error) {
-      throw new Error(`${field.label} must be valid JSON.`);
+      throw new Error(`${field.label} muss gültiges JSON sein.`);
     }
   }
 
   if (field.kind === 'date') {
     return readDateValue(raw);
+  }
+
+  if (field.kind === 'reference') {
+    return normalizeReferenceValue(raw, input.dataset.referenceCollection || '', input.dataset.referenceValue || '');
   }
 
   if (field.kind === 'boolean') {
@@ -1474,12 +1928,31 @@ function readPeriod(root) {
     return emptyPeriod();
   }
 
+  const startBoundary = root.querySelector('[data-period-boundary="startTimepoint"]');
+  const endBoundary = root.querySelector('[data-period-boundary="endTimepoint"]');
+
   return {
-    startTimepoint: nestedValue(root, 'startTimepoint'),
-    customStart: readDateValue(nestedValue(root, 'customStart')),
-    endTimepoint: nestedValue(root, 'endTimepoint'),
-    customEnd: readDateValue(nestedValue(root, 'customEnd')),
+    startTimepoint: boundaryTimepointValue(startBoundary, 'startTimepoint'),
+    customStart: boundaryDateValue(startBoundary, 'customStart'),
+    endTimepoint: boundaryTimepointValue(endBoundary, 'endTimepoint'),
+    customEnd: boundaryDateValue(endBoundary, 'customEnd'),
   };
+}
+
+function boundaryTimepointValue(boundary, field) {
+  if (boundary?.dataset.periodMode === 'custom') {
+    return '';
+  }
+
+  return nestedValue(boundary, field);
+}
+
+function boundaryDateValue(boundary, field) {
+  if (boundary?.dataset.periodMode !== 'custom') {
+    return null;
+  }
+
+  return readDateValue(nestedValue(boundary, field));
 }
 
 function nestedValue(root, field) {
@@ -1489,7 +1962,7 @@ function nestedValue(root, field) {
   }
 
   if (input.matches('[data-reference-input]')) {
-    return normalizeReferenceValue(input.value);
+    return normalizeReferenceValue(input.value, input.dataset.referenceCollection || '', input.dataset.referenceValue || '');
   }
 
   return input.value.trim();
@@ -1595,16 +2068,59 @@ function dateInputValue(value) {
   return '';
 }
 
+function referenceInputValue(value, collection, showIds = true) {
+  if (!value) {
+    return '';
+  }
+
+  const object = findReferenceObject(collection, value);
+  if (!object) {
+    return value;
+  }
+
+  return showIds ? referenceDisplayValue(object, collection) : objectLabel(object, collection);
+}
+
 function referenceDisplayValue(object, collection) {
   const label = objectLabel(object, collection);
   const id = objectId(object);
   return label && label !== id ? `${label} (${id})` : id;
 }
 
-function normalizeReferenceValue(value) {
+function normalizeReferenceValue(value, collection = '', previousValue = '') {
   const trimmed = String(value || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
   const match = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-  return match ? match[0] : trimmed;
+  if (match) {
+    return match[0];
+  }
+
+  const objects = state.objects[collection] || [];
+  if (previousValue) {
+    const previous = findReferenceObject(collection, previousValue);
+    if (previous && (trimmed === objectLabel(previous, collection) || trimmed === referenceDisplayValue(previous, collection))) {
+      return objectId(previous);
+    }
+  }
+
+  const labelMatches = objects.filter((object) => objectLabel(object, collection) === trimmed);
+  if (labelMatches.length === 1) {
+    return objectId(labelMatches[0]);
+  }
+
+  const displayMatch = objects.find((object) => referenceDisplayValue(object, collection) === trimmed);
+  return displayMatch ? objectId(displayMatch) : trimmed;
+}
+
+function findReferenceObject(collection, id) {
+  if (!collection || !id) {
+    return null;
+  }
+
+  return (state.objects[collection] || []).find((object) => objectId(object) === id) || null;
 }
 
 function updateObjectInState(type, object) {
@@ -1624,22 +2140,31 @@ function updateObjectInState(type, object) {
 function updateObjectChrome(item, type, object) {
   const title = item.querySelector('[data-object-title]');
   const meta = item.querySelector('[data-object-meta]');
+  const basicGroupType = item.querySelector('[data-basic-group-type]');
+  const basicPeriod = item.querySelector('[data-basic-period-span]');
   if (title) {
     title.textContent = objectLabel(object, type);
   }
   if (meta) {
     meta.textContent = objectMeta(object);
   }
+  if (type === 'groups' && basicGroupType) {
+    basicGroupType.textContent = groupTypeLabel(object, state.groupTypes || []) || 'Gruppe';
+  }
+  if (type === 'groups' && basicPeriod) {
+    const period = object.mainPhase && typeof object.mainPhase === 'object' ? object.mainPhase.period : null;
+    basicPeriod.textContent = periodYearSpan(period) || 'offener Zeitraum';
+  }
 }
 
 function handleObjectSaveError(item, error) {
   if (error.status === 409 && error.payload?.current) {
     updateObjectInState(item.dataset.objectType, error.payload.current);
-    setObjectSaveState(item, 'Conflict: reload before editing this object again.', true);
+    setObjectSaveState(item, 'Konflikt: Bitte vor der nächsten Bearbeitung neu laden.', true);
     return;
   }
 
-  setObjectSaveState(item, error.message || 'Object update failed.', true);
+  setObjectSaveState(item, localizeErrorMessage(error.message || 'Objekt konnte nicht aktualisiert werden.'), true);
 }
 
 function setObjectSaveState(item, text, isError, autoHide = false) {
@@ -1685,7 +2210,7 @@ function objectMeta(object) {
     parts.push(`rev ${Number(object._revision)}`);
   }
   if (object._modified) {
-    parts.push(`modified ${object._modified}`);
+    parts.push(`geändert ${object._modified}`);
   }
 
   return parts.join(' / ');
@@ -1697,7 +2222,7 @@ function objectSummary(type, object) {
       .map((id) => state.groupTypes.find((candidate) => objectId(candidate) === id))
       .filter(Boolean)
       .map((groupType) => objectLabel(groupType, 'group-types'));
-    return labels.length ? labels.join(', ') : 'Unrestricted';
+    return labels.length ? labels.join(', ') : 'Nicht eingeschränkt';
   }
 
   if (type === 'timepoints' && object.date) {
@@ -1744,7 +2269,7 @@ function timepointValue(timepoint) {
 }
 
 function hasPendingObjectEdits() {
-  return Boolean(document.querySelector('[data-object-editor], [data-create-form], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
+  return Boolean(document.querySelector('[data-create-form], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
 }
 
 function objectKey(type, id) {
@@ -1770,10 +2295,10 @@ function renderAdmin() {
   userList.innerHTML = state.users.map((user) => `
     <article class="list-item" data-user-id="${escapeHtml(user.id)}">
       <div>
-        <h3>${escapeHtml(user.display_name || user.username || '(no username)')}</h3>
-        <small>${escapeHtml(user.username || 'username pending')} / ${user.credential_count} passkey${user.credential_count === 1 ? '' : 's'} / ${user.enabled ? 'enabled' : 'disabled'}</small>
+        <h3>${escapeHtml(user.display_name || user.username || '(kein Benutzername)')}</h3>
+        <small>${escapeHtml(user.username || 'Benutzername offen')} / ${formatCount(user.credential_count, 'passkey')} / ${user.enabled ? 'aktiv' : 'inaktiv'}</small>
         <label class="inline-field">
-          <span>Display name</span>
+          <span>Anzeigename</span>
           <input data-display-name value="${escapeAttribute(user.display_name || '')}" placeholder="${escapeAttribute(user.username || '')}">
         </label>
         <div class="permission-row">
@@ -1781,20 +2306,20 @@ function renderAdmin() {
         </div>
       </div>
       <div class="user-actions">
-        <button class="button button-secondary" type="button" data-action="save">Save</button>
-        <button class="button button-secondary" type="button" data-action="setup">Setup link</button>
-        <button class="button button-secondary" type="button" data-action="toggle">${user.enabled ? 'Disable' : 'Enable'}</button>
+        <button class="button button-secondary" type="button" data-action="save">Speichern</button>
+        <button class="button button-secondary" type="button" data-action="setup">Setup-Link</button>
+        <button class="button button-secondary" type="button" data-action="toggle">${user.enabled ? 'Deaktivieren' : 'Aktivieren'}</button>
       </div>
     </article>
-  `).join('') || '<div class="empty-state">No users.</div>';
+  `).join('') || '<div class="empty-state">Keine Benutzer.</div>';
 }
 
 function renderPermissionCheckboxes(permissions) {
   const options = [
-    ['read', 'Read'],
-    ['write', 'Write'],
-    ['sensitive', 'Sensitive'],
-    ['manage_users', 'Manage users'],
+    ['read', 'Lesen'],
+    ['write', 'Schreiben'],
+    ['sensitive', 'Sensible Daten'],
+    ['manage_users', 'Benutzer verwalten'],
   ];
 
   return options.map(([value, label]) => `
@@ -1815,16 +2340,16 @@ function renderSetupResult() {
   setupResult.hidden = false;
   const setupUrl = state.setupResult.setup_url || '';
   setupResult.innerHTML = `
-    <h3>Setup Link</h3>
-    <div class="qr-code" aria-label="Setup QR code">${qrSvg(setupUrl)}</div>
+    <h3>Setup-Link</h3>
+    <div class="qr-code" aria-label="Setup-QR-Code">${qrSvg(setupUrl)}</div>
     <label>
       <span>URL</span>
       <input id="setupUrlResult" readonly value="${escapeAttribute(setupUrl)}">
     </label>
     <div class="form-actions">
-      <button class="button button-secondary" type="button" data-copy="#setupUrlResult">Copy URL</button>
+      <button class="button button-secondary" type="button" data-copy="#setupUrlResult">URL kopieren</button>
     </div>
-    <small>Expires ${escapeHtml(state.setupResult.expires_at || '')}</small>
+    <small>Läuft ab ${escapeHtml(state.setupResult.expires_at || '')}</small>
   `;
 }
 
@@ -1842,10 +2367,10 @@ function qrSvg(value) {
       });
     });
 
-    return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Setup URL QR code" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#fff"/><g fill="#000">${cells.join('')}</g></svg>`;
+    return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Setup-URL als QR-Code" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#fff"/><g fill="#000">${cells.join('')}</g></svg>`;
   } catch (error) {
     console.error(error);
-    return '<span>QR unavailable</span>';
+    return '<span>QR-Code nicht verfügbar</span>';
   }
 }
 
@@ -1947,7 +2472,7 @@ function chooseQrVersion(byteLength) {
     }
   }
 
-  throw new Error('Setup URL is too long for the built-in QR generator.');
+  throw new Error('Die Setup-URL ist zu lang für den eingebauten QR-Generator.');
 }
 
 function makeQrData(bytes, version, dataCodewords) {
@@ -2433,10 +2958,10 @@ function normalizeSetupInput(value) {
 
 function passkeyErrorMessage(error) {
   if (error?.name === 'NotAllowedError') {
-    return 'Passkey operation was cancelled.';
+    return 'Die Passkey-Aktion wurde abgebrochen.';
   }
 
-  return error?.message || 'Passkey operation failed.';
+  return localizeErrorMessage(error?.message || 'Passkey-Aktion fehlgeschlagen.');
 }
 
 function hasPermission(permission) {
@@ -2479,7 +3004,7 @@ function setText(selector, text) {
 
 function showAuthMessage(text, isError) {
   authMessage.hidden = false;
-  authMessage.textContent = text;
+  authMessage.textContent = localizeErrorMessage(text);
   authMessage.className = `message global-message ${isError ? 'is-error' : 'is-good'}`;
 }
 
@@ -2491,7 +3016,69 @@ function clearAuthMessage() {
 
 function formatCount(value = 0, noun) {
   const count = Number(value || 0);
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+  const forms = countNouns[noun] || [noun, noun];
+  return `${count} ${count === 1 ? forms[0] : forms[1]}`;
+}
+
+function localizeErrorMessage(text) {
+  const message = String(text || '');
+  const exact = {
+    'Request failed': 'Anfrage fehlgeschlagen',
+    'Login failed.': 'Login fehlgeschlagen.',
+    'Authentication required.': 'Login erforderlich.',
+    'Invalid CSRF token.': 'Ungültiges CSRF-Token.',
+    'Unknown user.': 'Unbekannter Benutzer.',
+    'This passkey is already registered.': 'Dieser Passkey ist bereits registriert.',
+    'Unknown passkey.': 'Unbekannter Passkey.',
+    'Setup token is required.': 'Setup-Token ist erforderlich.',
+    'Setup token is not valid.': 'Setup-Token ist ungültig.',
+    'Challenge expired or was already used.': 'Die Anfrage ist abgelaufen oder wurde bereits verwendet.',
+    'Username is already in use.': 'Benutzername wird bereits verwendet.',
+    'Unknown permission.': 'Unbekannte Berechtigung.',
+    'Unknown object.': 'Unbekanntes Objekt.',
+    'Object has been deleted.': 'Objekt wurde gelöscht.',
+    'Object has already been deleted.': 'Objekt wurde bereits gelöscht.',
+    'Sensitive permission is required for this field.': 'Für dieses Feld ist die Berechtigung für sensible Daten erforderlich.',
+    'Unknown collection.': 'Unbekannte Sammlung.',
+    'Invalid object ID.': 'Ungültige Objekt-ID.',
+    'Unsupported credential type.': 'Nicht unterstützter Anmeldedatentyp.',
+    'Invalid attestation object.': 'Ungültiges Attestation-Objekt.',
+    'Passkey was created for a different site.': 'Der Passkey wurde für eine andere Website erstellt.',
+    'Credential ID mismatch.': 'Die Anmeldedaten-ID stimmt nicht überein.',
+    'Passkey mismatch.': 'Passkey stimmt nicht überein.',
+    'Passkey was used for a different site.': 'Der Passkey wurde für eine andere Website verwendet.',
+    'The PHP OpenSSL extension is required for passkey login.': 'Die PHP-Erweiterung OpenSSL ist für den Passkey-Login erforderlich.',
+    'Passkey signature verification failed.': 'Die Passkey-Signaturprüfung ist fehlgeschlagen.',
+    'Passkey sign counter did not advance.': 'Der Signaturzähler des Passkeys wurde nicht erhöht.',
+    'Missing WebAuthn field.': 'WebAuthn-Feld fehlt.',
+    'Missing WebAuthn response.': 'WebAuthn-Antwort fehlt.',
+    'Invalid WebAuthn client data.': 'Ungültige WebAuthn-Clientdaten.',
+    'WebAuthn client data did not match this request.': 'Die WebAuthn-Clientdaten passen nicht zu dieser Anfrage.',
+    'Cross-origin WebAuthn responses are not accepted.': 'Cross-Origin-WebAuthn-Antworten werden nicht akzeptiert.',
+    'Authenticator data is too short.': 'Authenticatordaten sind zu kurz.',
+    'Attested credential data is missing.': 'Attestierte Anmeldedaten fehlen.',
+    'Attested credential data is incomplete.': 'Attestierte Anmeldedaten sind unvollständig.',
+    'Credential ID is incomplete.': 'Anmeldedaten-ID ist unvollständig.',
+    'Credential public key is missing.': 'Öffentlicher Schlüssel der Anmeldedaten fehlt.',
+    'User presence was not verified.': 'Benutzerpräsenz wurde nicht bestätigt.',
+    'User verification is required.': 'Benutzerverifizierung ist erforderlich.',
+    'Only ES256 passkeys are supported.': 'Es werden nur ES256-Passkeys unterstützt.',
+    'Invalid ES256 public key.': 'Ungültiger öffentlicher ES256-Schlüssel.',
+  };
+
+  if (exact[message]) {
+    return exact[message];
+  }
+
+  if (message.startsWith('Request failed:')) {
+    return message.replace('Request failed:', 'Anfrage fehlgeschlagen:');
+  }
+
+  if (message.startsWith('Username must be 2-64 characters')) {
+    return 'Benutzername muss 2 bis 64 Zeichen lang sein und darf nur Buchstaben, Zahlen, Punkt, Bindestrich, Unterstrich oder @ enthalten.';
+  }
+
+  return message;
 }
 
 function escapeHtml(value) {
