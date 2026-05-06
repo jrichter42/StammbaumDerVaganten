@@ -13,22 +13,21 @@ Web app for gathering, documenting, and exploring the history of [Stamm der Vaga
 
 ## Deploy
 
-Upload the contents of `web/` to a PHP 8.0+ shared host and keep the included `.htaccess` files.
-Apache-compatible `.htaccess` support is needed for direct access protection.
-Configuration lives in `config/app.json`.
-Once editing is enabled, the app needs write access to `data/` and `var/`.
+Upload the contents of `web/` to a PHP 8.0+ shared host and keep the included `.htaccess` files.\
+Apache-compatible `.htaccess` support is needed for direct access protection.\
+
+Configuration lives in `config/app.json`.\
+Once editing is enabled, the app needs write access to `data/` and `var/`.\
+
 Data timestamps stay in UTC; the configured timezone is only for frontend display.
 
 ## Auth
 
-Login uses passkeys only.
+Login uses passkeys only.\
 Users and passkey public keys are stored in `var/auth/users.json`; setup tokens, login challenges, and audit logs stay below `var/auth/`.
 These files must not be web-readable.
 
-On first run with an empty `var/auth/users.json`, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
-Open that URL on the deployed site to register the initial passkey.
-
-For production, set a stable passkey relying-party configuration in `config/app.json` if automatic host detection is not exact:
+For production, set a stable passkey relying-party configuration in `config/app.json`:
 ```json
 {
   "auth": {
@@ -40,13 +39,16 @@ For production, set a stable passkey relying-party configuration in `config/app.
 }
 ```
 
-Passkeys require HTTPS (except on local development origins such as `localhost`).
+Passkeys require HTTPS (except on local development origins such as `localhost`).\
 `base_url` is used for generated setup links.
+
+On first run with an empty `var/auth/users.json`, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
+Open that URL on the deployed site to register the initial passkey.
 
 ## Data Model
 
-The app stores scout-group history as JSON objects.
-People, groups, roles, group types, and timepoints are independent objects linked by UUIDs.
+The app stores scout-group history as JSON objects.\
+People, groups, roles, group types, and timepoints are independent objects linked by UUIDs.\
 Memberships, activities, group phases, periods, and dates are embedded value objects.
 
 Model goals:
@@ -189,9 +191,9 @@ Period "1" *-- "0..2" Date
 
 ## Visibility
 
-- `+`: public - visible without login.
-- `-`: private - visible to logged-in users with read access.
-- `#`: protected - visible to logged-in users with the sensitive data permission.
+- public (`+`): visible without login.
+- private (`-`): visible to logged-in users with read access.
+- protected (`#`): visible to logged-in users with the sensitive data permission.
 
 ## Storage
 
@@ -208,20 +210,20 @@ web/data/
   timepoints/{uuid}.json
 ```
 
-Each object JSON contains the type's fields directly, including inherited base fields.
+Each object JSON contains the type's fields directly, including inherited base fields.\
 Runtime state files (such as auth files, generated cache data, change queues, and locks) live under `web/var/`.
 
 ## Versioning And Concurrency
 
-Updates change `_revision`; if the stored object changed in the meantime, the API returns `409 Conflict`.
-Previous versions are saved as `<id>_<revision>.json` before `<id>.json` is replaced.
+Updates change `_revision`; if the stored object changed in the meantime, the API returns `409 Conflict`.\
+Previous versions are saved as `<id>_<revision>.json` before `<id>.json` is replaced.\
 Deletes are soft deletes using `_deleted: true`.
 
 Objects use optimistic concurrency for multi-user editing.
 
 ## Default Data
 
-Default group types and roles are normal full UUID-backed objects.
+Default group types and roles are normal full UUID-backed objects.\
 They are starting data and can be removed on a fresh install.
 
 Group types:
