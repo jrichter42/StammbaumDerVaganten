@@ -106,18 +106,18 @@ $configWarnings = array_map(
         <nav class="sidebar editor-nav" aria-label="Editorbereiche">
           <div class="nav-group">
             <span class="nav-label">Daten</span>
-            <button class="nav-item is-active" type="button" data-view="people"><span>Personen</span><span class="nav-count" data-nav-count="people">0</span></button>
-            <button class="nav-item" type="button" data-view="groups"><span>Gruppen</span><span class="nav-count" data-nav-count="groups">0</span></button>
-            <button class="nav-item" type="button" data-view="timepoints"><span>Zeitpunkte</span><span class="nav-count" data-nav-count="timepoints">0</span></button>
+            <button class="nav-item is-active" type="button" data-view="people"><span class="nav-count" data-nav-count="people">0</span><span>Personen</span></button>
+            <button class="nav-item" type="button" data-view="groups"><span class="nav-count" data-nav-count="groups">0</span><span>Gruppen</span></button>
+            <button class="nav-item" type="button" data-view="timepoints"><span class="nav-count" data-nav-count="timepoints">0</span><span>Zeitpunkte</span></button>
           </div>
           <div class="nav-group">
             <span class="nav-label">Struktur</span>
-            <button class="nav-item" type="button" data-view="roles"><span>Rollen</span><span class="nav-count" data-nav-count="roles">0</span></button>
-            <button class="nav-item" type="button" data-view="group-types"><span>Gruppenarten</span><span class="nav-count" data-nav-count="group-types">0</span></button>
+            <button class="nav-item" type="button" data-view="roles"><span class="nav-count" data-nav-count="roles">0</span><span>Rollen</span></button>
+            <button class="nav-item" type="button" data-view="group-types"><span class="nav-count" data-nav-count="group-types">0</span><span>Gruppenarten</span></button>
           </div>
           <div class="nav-group" id="adminNavGroup" hidden>
             <span class="nav-label">Admin</span>
-            <button class="nav-item" id="adminNav" type="button" data-view="admin"><span>Benutzer</span><span class="nav-count" data-nav-count="users">0</span></button>
+            <button class="nav-item" id="adminNav" type="button" data-view="admin"><span class="nav-count" data-nav-count="users">0</span><span>Benutzer</span></button>
           </div>
         </nav>
 

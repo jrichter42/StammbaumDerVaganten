@@ -879,9 +879,18 @@ function renderNavigationCounts() {
   ]));
   counts.users = state.users.length;
 
-  document.querySelectorAll('[data-nav-count]').forEach((element) => {
-    element.textContent = String(counts[element.dataset.navCount] || 0);
+  const countElements = Array.from(document.querySelectorAll('[data-nav-count]'));
+  let maxCountLength = 1;
+
+  countElements.forEach((element) => {
+    const countText = String(counts[element.dataset.navCount] || 0);
+    element.textContent = countText;
+    if (!element.closest('.nav-group[hidden]')) {
+      maxCountLength = Math.max(maxCountLength, countText.length);
+    }
   });
+
+  document.querySelector('.editor-nav')?.style.setProperty('--nav-count-width', `${maxCountLength}ch`);
 }
 
 function renderObjectCollections() {

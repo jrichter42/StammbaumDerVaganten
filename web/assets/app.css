@@ -481,7 +481,7 @@ h3 {
 .nav-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
   width: 100%;
   padding: 10px 12px;
@@ -491,9 +491,11 @@ h3 {
 }
 
 .nav-count {
-  flex: 0 0 auto;
+  flex: 0 0 var(--nav-count-width, 1ch);
   color: var(--brand-strong);
   font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .nav-item:hover,
