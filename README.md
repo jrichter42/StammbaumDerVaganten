@@ -1,6 +1,6 @@
 # Stammbaum der Vaganten
 
-Web app for preserving and exploring the history of [Stamm der Vaganten](http://stammdervaganten.de).
+Web app for gathering, documenting, and exploring the history of [Stamm der Vaganten](http://stammdervaganten.de).
 
 ## Web App
 
