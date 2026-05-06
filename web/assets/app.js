@@ -171,6 +171,9 @@ userList.addEventListener('click', handleUserAction);
 document.addEventListener('click', handleNavigationJump);
 document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
+document.addEventListener('pointermove', handleDateDetailPointerMove);
+document.addEventListener('pointerover', handleDateDetailPreview);
+document.addEventListener('pointerout', handleDateDetailPreviewEnd);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleReferencePickerChange);
 document.addEventListener('change', handleObjectChange);
@@ -913,19 +916,25 @@ function referenceObjectLabel(collection, id) {
 }
 
 function dateDisplayValue(value) {
-  if (!value) {
+  const raw = dateRawString(value);
+  if (!raw) {
     return '';
   }
 
-  if (typeof value === 'string') {
-    return value;
+  const parts = datePartsFromRaw(raw);
+  if (!parts) {
+    return raw;
   }
 
-  if (typeof value === 'object') {
-    return value.display || value.rawValue || value.value || '';
+  if (parts.month === '00') {
+    return parts.year;
   }
 
-  return '';
+  if (parts.day === '00') {
+    return `${parts.month}.${parts.year}`;
+  }
+
+  return `${parts.day}.${parts.month}.${parts.year}`;
 }
 
 function renderPublicRoles(roles) {
@@ -1131,12 +1140,7 @@ function renderFieldInput(field, value, isCreate, context = {}) {
   const renderedValue = inputValue(value, field);
 
   if (field.kind === 'date') {
-    return `
-      <label class="object-field" for="${escapeAttribute(id)}">
-        <span>${escapeHtml(field.label)}</span>
-        <input id="${escapeAttribute(id)}" ${fieldAttrs} type="date" value="${escapeAttribute(renderedValue)}">
-      </label>
-    `;
+    return renderDateControl(id, field.label, value, fieldAttrs);
   }
 
   if (field.kind === 'certainty') {
@@ -1201,6 +1205,24 @@ function renderCertaintyField(field, value, fieldAttrs, id) {
       <select id="${escapeAttribute(id)}" ${fieldAttrs} data-certainty-input>
         ${certaintyOptions.map(([optionValue, label]) => `<option value="${escapeAttribute(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
       </select>
+    </label>
+  `;
+}
+
+function renderDateControl(id, label, value, inputAttrs = '') {
+  const raw = dateRawString(value);
+  const detail = dateDetailFromRaw(raw);
+  const visibleValue = dateVisibleValueForDetail(raw, detail);
+
+  return `
+    <label class="object-field date-field" for="${escapeAttribute(id)}">
+      <span>${escapeHtml(label)}</span>
+      <div class="date-control" data-date-control-root>
+        <input id="${escapeAttribute(id)}" ${inputAttrs} type="text" inputmode="numeric" data-date-control data-date-detail="${escapeAttribute(detail)}" data-date-raw="${escapeAttribute(raw)}" value="${escapeAttribute(visibleValue)}" placeholder="${escapeAttribute(datePlaceholderForDetail(detail))}" autocomplete="off">
+        <div class="date-detail-actions" data-date-detail-actions>
+          ${dateDetailActionsHtml(detail, '')}
+        </div>
+      </div>
     </label>
   `;
 }
@@ -1508,15 +1530,263 @@ function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepo
 }
 
 function renderNestedDateControl(id, label, value, nestedField) {
-  return `
-    <label class="object-field" for="${escapeAttribute(id)}">
-      <span>${escapeHtml(label)}</span>
-      <input id="${escapeAttribute(id)}" type="date" data-date-control data-nested-field="${escapeAttribute(nestedField)}" value="${escapeAttribute(dateInputValue(value))}">
-    </label>
-  `;
+  return renderDateControl(id, label, value, `data-nested-field="${escapeAttribute(nestedField)}"`);
+}
+
+function handleDateDetailAction(button) {
+  const root = button.closest('[data-date-control-root]');
+  const input = root?.querySelector('[data-date-control]');
+  if (!input) {
+    return;
+  }
+
+  input.dataset.dateRaw = readDateControlRaw(input);
+  const detail = input.dataset.dateDetail || dateDetailFromRaw(input.dataset.dateRaw || '');
+  const targetDetail = button.dataset.dateDetailTarget || '';
+  if (!targetDetail) {
+    return;
+  }
+  if (targetDetail === detail) {
+    if (input.dataset.dateConfirm) {
+      setDateControlConfirm(input, '');
+      focusDateControl(input);
+    }
+    return;
+  }
+
+  const isLessDetailed = dateDetailRank(targetDetail) < dateDetailRank(detail);
+  const needsConfirmation = isLessDetailed && dateDetailReductionRemovesValue(input.dataset.dateRaw || '', targetDetail);
+  if (needsConfirmation && input.dataset.dateConfirm !== targetDetail) {
+    setDateControlConfirm(input, targetDetail);
+    button.focus();
+    return;
+  }
+
+  const previousDetail = detail;
+  setDateControlDetail(input, targetDetail, isLessDetailed);
+  if (isLessDetailed) {
+    markDateControlChanged(input);
+  }
+
+  focusDateControl(input);
+  if (!isLessDetailed) {
+    selectExpandedDatePart(input, previousDetail, targetDetail);
+  }
+}
+
+function setDateControlDetail(input, detail, truncate) {
+  const raw = truncate ? dateRawForDetail(input.dataset.dateRaw || readDateControlRaw(input), detail) : (input.dataset.dateRaw || readDateControlRaw(input));
+  input.dataset.dateDetail = detail;
+  input.dataset.dateRaw = raw;
+  input.dataset.dateConfirm = '';
+  input.dataset.datePreview = '';
+  input.value = dateVisibleValueForDetail(raw, detail);
+  input.placeholder = datePlaceholderForDetail(detail);
+  updateDateDetailButtons(input);
+}
+
+function selectExpandedDatePart(input, previousDetail, detail) {
+  if (dateDetailRank(detail) <= dateDetailRank(previousDetail)) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    if (!input.isConnected || typeof input.setSelectionRange !== 'function') {
+      return;
+    }
+
+    if (detail === 'month') {
+      input.setSelectionRange(0, 2);
+      return;
+    }
+
+    if (detail === 'day') {
+      if (previousDetail === 'year') {
+        input.setSelectionRange(0, 5);
+        return;
+      }
+
+      input.setSelectionRange(0, 2);
+    }
+  }, 0);
+}
+
+function setDateControlConfirm(input, targetDetail) {
+  input.dataset.dateConfirm = targetDetail || '';
+  refreshDateDetailButtonStates(input);
+}
+
+function handleDateDetailPointerMove(event) {
+  const button = event.target.closest('[data-date-detail-action]');
+  if (!button) {
+    clearDateDetailPreviews();
+    return;
+  }
+
+  const root = button.closest('[data-date-control-root]');
+  const input = root?.querySelector('[data-date-control]');
+  const target = button.dataset.dateDetailTarget || '';
+  clearDateDetailPreviews(input);
+  if (input && input.dataset.datePreview !== target) {
+    input.dataset.datePreview = target;
+    refreshDateDetailButtonStates(input);
+  }
+}
+
+function handleDateDetailPreview(event) {
+  const button = event.target.closest('[data-date-detail-action]');
+  if (!button) {
+    return;
+  }
+
+  const root = button.closest('[data-date-control-root]');
+  const input = root?.querySelector('[data-date-control]');
+  if (!input) {
+    return;
+  }
+
+  input.dataset.datePreview = button.dataset.dateDetailTarget || '';
+  refreshDateDetailButtonStates(input);
+}
+
+function handleDateDetailPreviewEnd(event) {
+  const button = event.target.closest('[data-date-detail-action]');
+  const root = button?.closest('[data-date-control-root]');
+  const actions = button?.closest('[data-date-detail-actions]');
+  const nextButton = event.relatedTarget?.closest?.('[data-date-detail-action]');
+  if (!button || !root || (nextButton && actions?.contains(nextButton))) {
+    return;
+  }
+
+  if (!event.relatedTarget) {
+    clearDateDetailPreviews();
+    return;
+  }
+
+  const input = root.querySelector('[data-date-control]');
+  if (!input) {
+    return;
+  }
+
+  input.dataset.datePreview = '';
+  refreshDateDetailButtonStates(input);
+}
+
+document.addEventListener('mouseleave', () => {
+  clearDateDetailPreviews();
+});
+
+function clearDateDetailPreviews(exceptInput = null) {
+  document.querySelectorAll('[data-date-control]').forEach((input) => {
+    if (input === exceptInput || !input.dataset.datePreview) {
+      return;
+    }
+
+    input.dataset.datePreview = '';
+    refreshDateDetailButtonStates(input);
+  });
+}
+
+function updateDateDetailButtons(input) {
+  const actions = input.closest('[data-date-control-root]')?.querySelector('[data-date-detail-actions]');
+  if (!actions) {
+    return;
+  }
+
+  const detail = input.dataset.dateDetail || 'year';
+  actions.innerHTML = dateDetailActionsHtml(detail, input.dataset.dateConfirm || '');
+  updateDateControlState(input);
+}
+
+function refreshDateDetailButtonStates(input) {
+  const detail = input.dataset.dateDetail || 'year';
+  const confirmTarget = input.dataset.dateConfirm || '';
+  const previewDetail = input.dataset.datePreview || detail;
+  input.closest('[data-date-control-root]')?.querySelectorAll('[data-date-detail-action]').forEach((button) => {
+    const target = button.dataset.dateDetailTarget || '';
+    const isConfirming = confirmTarget === target;
+    const isIncluded = dateDetailRank(target) <= dateDetailRank(previewDetail);
+    const isAppliedIncluded = dateDetailRank(target) <= dateDetailRank(detail);
+    const isCurrent = target === previewDetail;
+    const isApplied = target === detail;
+    const isDisabled = isApplied && !confirmTarget;
+    const isPreviewAdded = previewDetail !== detail && isIncluded && !isAppliedIncluded;
+    const isPreviewRemoved = previewDetail !== detail && isAppliedIncluded && !isIncluded;
+    const label = dateDetailActionLabel(detail, target, isConfirming);
+    const aria = dateDetailActionAria(detail, target, isConfirming);
+    button.textContent = label;
+    button.setAttribute('aria-label', aria);
+    button.title = aria;
+    button.disabled = isDisabled;
+    button.setAttribute('aria-pressed', isIncluded ? 'true' : 'false');
+    button.classList.toggle('is-included', isIncluded);
+    button.classList.toggle('is-applied-included', isAppliedIncluded);
+    button.classList.toggle('is-current', isCurrent);
+    button.classList.toggle('is-applied', isApplied);
+    button.classList.toggle('is-disabled', isDisabled);
+    button.classList.toggle('is-preview-added', isPreviewAdded);
+    button.classList.toggle('is-preview-removed', isPreviewRemoved);
+    button.classList.toggle('is-confirming', isConfirming);
+  });
+  updateDateControlState(input);
+}
+
+function updateDateControlState(input) {
+  input.closest('[data-date-control-root]')?.classList.toggle('is-confirming', Boolean(input.dataset.dateConfirm));
+}
+
+function clearDateControl(input) {
+  input.value = '';
+  input.dataset.dateRaw = '';
+  input.dataset.dateConfirm = '';
+  input.dataset.datePreview = '';
+  updateDateDetailButtons(input);
+}
+
+function resetDateConfirmFromElement(element, relatedTarget) {
+  const root = element?.closest?.('[data-date-control-root]');
+  if (!root || root.contains(relatedTarget)) {
+    return;
+  }
+
+  const pendingInput = root.querySelector('[data-date-control][data-date-confirm]');
+  if (pendingInput?.dataset.dateConfirm) {
+    setDateControlConfirm(pendingInput, '');
+  }
+}
+
+function markDateControlChanged(input) {
+  const objectInput = input.closest('[data-object-field]');
+  const item = objectInput?.closest('[data-object-type][data-object-id]');
+  if (item) {
+    markObjectDirty(item);
+    scheduleObjectSave(item, 600);
+    if (objectInput?.dataset.objectField === 'birthdate') {
+      refreshReferencePickers(ownerRootForElement(objectInput));
+    }
+    return;
+  }
+
+  const boundary = input.closest('[data-period-boundary]');
+  if (boundary) {
+    markPeriodBoundaryChanged(boundary);
+    refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), input);
+    return;
+  }
+
+  const createForm = input.closest('[data-create-form]');
+  if (createForm) {
+    clearCreateState(createForm);
+  }
 }
 
 async function handleObjectClick(event) {
+  const dateDetailButton = event.target.closest('[data-date-detail-action]');
+  if (dateDetailButton) {
+    handleDateDetailAction(dateDetailButton);
+    return;
+  }
+
   const periodButton = event.target.closest('[data-period-action]');
   if (periodButton) {
     handlePeriodModeAction(periodButton);
@@ -1621,7 +1891,7 @@ function handlePeriodModeAction(button) {
       timepointInput.dataset.referenceValue = '';
     }
     if (dateInput) {
-      dateInput.value = '';
+      clearDateControl(dateInput);
     }
     setPeriodBoundaryMode(boundary, 'custom');
     button.dataset.periodAction = 'undo-custom-date';
@@ -1639,7 +1909,7 @@ function handlePeriodModeAction(button) {
         || referenceInputValue(boundary.dataset.previousTimepoint || '', timepointInput.dataset.referenceCollection || '', false);
     }
     if (dateInput) {
-      dateInput.value = '';
+      clearDateControl(dateInput);
     }
     delete boundary.dataset.previousTimepoint;
     delete boundary.dataset.previousTimepointLabel;
@@ -1653,7 +1923,7 @@ function handlePeriodModeAction(button) {
 
   if (action === 'use-timepoint') {
     if (dateInput) {
-      dateInput.value = '';
+      clearDateControl(dateInput);
     }
     setPeriodBoundaryMode(boundary, 'timepoint');
     button.dataset.periodAction = 'custom-date';
@@ -1763,12 +2033,14 @@ function markCompositeChanged(fieldRoot) {
 function handleReferencePickerChange(event) {
   const birthdateInput = event.target.closest('[data-object-field="birthdate"]');
   if (birthdateInput) {
+    syncDateControlRaw(birthdateInput);
     refreshReferencePickers(ownerRootForElement(birthdateInput));
     return;
   }
 
   const periodDateInput = event.target.closest('[data-date-control]');
   if (periodDateInput) {
+    syncDateControlRaw(periodDateInput);
     const periodEditor = periodDateInput.closest('[data-period-editor]');
     refreshPeriodDependentPickers(periodEditor, periodDateInput);
     return;
@@ -1882,7 +2154,7 @@ function clearPeriodBoundary(boundary) {
 
   const dateInput = boundary?.querySelector('[data-date-control]');
   if (dateInput) {
-    dateInput.value = '';
+    clearDateControl(dateInput);
   }
 }
 
@@ -2010,7 +2282,7 @@ function periodBoundaryYear(boundary) {
   }
 
   if (boundary.dataset.periodMode === 'custom') {
-    return numericYear(boundary.querySelector('[data-date-control]')?.value);
+    return numericYear(readDateControlRaw(boundary.querySelector('[data-date-control]')));
   }
 
   const select = boundary.querySelector('[data-reference-input]');
@@ -2028,13 +2300,21 @@ function ownerContextForElement(element) {
   const ownerObject = ownerType && ownerId ? structuredCloneSafe(findReferenceObject(ownerType, ownerId) || {}) : {};
   const birthdateInput = root?.querySelector('[data-object-field="birthdate"]');
   if (birthdateInput) {
-    ownerObject.birthdate = readDateValue(birthdateInput.value);
+    ownerObject.birthdate = readDateValue(readDateControlRaw(birthdateInput));
   }
 
   return { ownerType, ownerObject };
 }
 
 async function handleObjectInput(event) {
+  const dateInput = event.target.closest('[data-date-control]');
+  if (dateInput) {
+    syncDateControlRaw(dateInput);
+    if (!dateInput.closest('[data-object-field]')) {
+      markDateControlChanged(dateInput);
+    }
+  }
+
   const input = event.target.closest('[data-object-field]');
   if (!input) {
     return;
@@ -2050,6 +2330,15 @@ async function handleObjectInput(event) {
 }
 
 async function handleObjectChange(event) {
+  const dateInput = event.target.closest('[data-date-control]');
+  if (dateInput) {
+    syncDateControlRaw(dateInput);
+    if (!dateInput.closest('[data-object-field]')) {
+      markDateControlChanged(dateInput);
+      return;
+    }
+  }
+
   const input = event.target.closest('[data-object-field]');
   if (!input) {
     return;
@@ -2069,6 +2358,7 @@ async function handleObjectChange(event) {
 }
 
 function handleObjectBlur(event) {
+  resetDateConfirmFromElement(event.target, event.relatedTarget);
   const input = event.target.closest('[data-object-field]');
   const item = input?.closest('[data-object-type][data-object-id]');
   if (item) {
@@ -2077,12 +2367,12 @@ function handleObjectBlur(event) {
 }
 
 function handleEditorFocus(event) {
-  const input = event.target.closest('[data-reference-input], [data-certainty-input], input[type="date"]');
+  const input = event.target.closest('[data-reference-input], [data-certainty-input], [data-date-control]');
   if (!input) {
     return;
   }
 
-  if (typeof input.select === 'function' && input.type !== 'date') {
+  if (typeof input.select === 'function' && input.type !== 'date' && input.type !== 'month') {
     input.select();
   }
 
@@ -2457,7 +2747,7 @@ function readFieldValue(input, field) {
   }
 
   if (field.kind === 'date') {
-    return readDateValue(raw);
+    return readDateValue(readDateControlRaw(input));
   }
 
   if (field.kind === 'reference') {
@@ -2541,11 +2831,15 @@ function nestedValue(root, field) {
     return normalizeReferenceValue(input.value, input.dataset.referenceCollection || '', input.dataset.referenceValue || '');
   }
 
+  if (input.matches('[data-date-control]')) {
+    return readDateControlRaw(input);
+  }
+
   return input.value.trim();
 }
 
 function readDateValue(value) {
-  const raw = String(value || '').trim();
+  const raw = normalizeDateRaw(value);
   return raw ? { rawValue: raw } : null;
 }
 
@@ -2629,19 +2923,263 @@ function inputValue(value, field) {
 }
 
 function dateInputValue(value) {
+  return dateRawString(value);
+}
+
+function dateRawString(value) {
   if (!value) {
     return '';
   }
 
   if (typeof value === 'string') {
-    return value;
+    return normalizeDateRaw(value);
   }
 
   if (typeof value === 'object') {
-    return value.rawValue || value.value || '';
+    return normalizeDateRaw(value.rawValue || value.value || value.display || '');
   }
 
   return '';
+}
+
+function normalizeDateRaw(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const parts = datePartsFromRaw(raw);
+  if (!parts) {
+    return raw;
+  }
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function datePartsFromRaw(raw) {
+  const value = String(raw || '').trim();
+  let match = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{1,4})$/);
+  if (match) {
+    return {
+      year: match[3].padStart(4, '0'),
+      month: match[2].padStart(2, '0'),
+      day: match[1].padStart(2, '0'),
+    };
+  }
+
+  match = value.match(/^(\d{1,2})\.(\d{1,4})$/);
+  if (match) {
+    return {
+      year: match[2].padStart(4, '0'),
+      month: match[1].padStart(2, '0'),
+      day: '00',
+    };
+  }
+
+  match = value.match(/^(\d{1,4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = match[1].padStart(4, '0');
+  const month = match[2] === undefined ? '00' : match[2].padStart(2, '0');
+  const day = match[3] === undefined ? '00' : match[3].padStart(2, '0');
+  return { year, month, day };
+}
+
+function dateDetailFromRaw(raw) {
+  const parts = datePartsFromRaw(raw);
+  if (!parts || parts.month === '00') {
+    return 'year';
+  }
+
+  return parts.day === '00' ? 'month' : 'day';
+}
+
+function dateVisibleValueForDetail(raw, detail) {
+  const parts = datePartsFromRaw(raw);
+  if (!parts) {
+    return '';
+  }
+
+  if (detail === 'day') {
+    return parts.year === '0000' ? '' : `${parts.day}.${parts.month}.${parts.year}`;
+  }
+
+  if (detail === 'month') {
+    return parts.year === '0000' ? '' : `${parts.month}.${parts.year}`;
+  }
+
+  return parts.year === '0000' ? '' : parts.year;
+}
+
+function dateRawForDetail(raw, detail) {
+  const parts = datePartsFromRaw(raw);
+  if (!parts) {
+    return '';
+  }
+
+  if (detail === 'day') {
+    return parts.month === '00' || parts.day === '00' ? '' : `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
+  if (detail === 'month') {
+    return parts.month === '00' ? `${parts.year}-00-00` : `${parts.year}-${parts.month}-00`;
+  }
+
+  return parts.year === '0000' ? '' : `${parts.year}-00-00`;
+}
+
+function dateRawFromVisibleValue(value, detail) {
+  const visible = String(value || '').trim();
+  if (!visible) {
+    return '';
+  }
+
+  const parts = datePartsFromRaw(visible);
+  if (!parts) {
+    return '';
+  }
+
+  if (detail === 'year') {
+    return parts.year === '0000' ? '' : `${parts.year}-00-00`;
+  }
+
+  if (detail === 'month') {
+    return parts.year === '0000' ? '' : `${parts.year}-${parts.month}-00`;
+  }
+
+  return parts.year === '0000' ? '' : `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function readDateControlRaw(input) {
+  if (!input) {
+    return '';
+  }
+
+  const detail = input.dataset.dateDetail || dateDetailFromRaw(input.dataset.dateRaw || input.value);
+  const visibleRaw = dateRawFromVisibleValue(input.value, detail);
+  if (visibleRaw || input.value.trim() === '') {
+    return visibleRaw;
+  }
+
+  return input.dataset.dateRaw || normalizeDateRaw(input.value);
+}
+
+function syncDateControlRaw(input) {
+  if (!input) {
+    return;
+  }
+
+  const raw = dateRawFromVisibleValue(input.value, input.dataset.dateDetail || 'year');
+  if (raw || input.value.trim() === '') {
+    input.dataset.dateRaw = raw;
+  }
+  input.dataset.dateConfirm = '';
+  input.dataset.datePreview = '';
+  updateDateDetailButtons(input);
+}
+
+function dateDetailButtonAria(detail, isConfirming) {
+  if (isConfirming) {
+    return 'Auf Jahr umstellen und Monat sowie Tag auf 00 setzen';
+  }
+
+  if (detail === 'month') {
+    return 'Datumsgenauigkeit Monat, zur Tagesauswahl wechseln';
+  }
+
+  if (detail === 'day') {
+    return 'Datumsgenauigkeit Tag, Jahresauswahl bestätigen';
+  }
+
+  return 'Datumsgenauigkeit Jahr, zur Monatsauswahl wechseln';
+}
+
+function datePlaceholderForDetail(detail) {
+  if (detail === 'day') {
+    return 'TT.MM.JJJJ';
+  }
+
+  if (detail === 'month') {
+    return 'MM.JJJJ';
+  }
+
+  return 'JJJJ';
+}
+
+function dateDetailActionsHtml(detail, confirmTarget) {
+  return dateDetailScale().map((target) => {
+    const isConfirming = confirmTarget === target;
+    const isIncluded = dateDetailRank(target) <= dateDetailRank(detail);
+    const isAppliedIncluded = isIncluded;
+    const isCurrent = target === detail;
+    const isApplied = target === detail;
+    const isDisabled = isApplied && !confirmTarget;
+    const isPreviewAdded = false;
+    const isPreviewRemoved = false;
+    const label = dateDetailActionLabel(detail, target, isConfirming);
+    const aria = dateDetailActionAria(detail, target, isConfirming);
+    const classes = [
+      'date-detail-button',
+      isIncluded ? 'is-included' : '',
+      isCurrent ? 'is-current' : '',
+      isApplied ? 'is-applied' : '',
+      isAppliedIncluded ? 'is-applied-included' : '',
+      isDisabled ? 'is-disabled' : '',
+      isPreviewAdded ? 'is-preview-added' : '',
+      isPreviewRemoved ? 'is-preview-removed' : '',
+      isConfirming ? 'is-confirming' : '',
+    ].filter(Boolean).join(' ');
+    return `<button class="${escapeAttribute(classes)}" type="button" data-date-detail-action data-date-detail-target="${escapeAttribute(target)}" ${isDisabled ? 'disabled' : ''} aria-pressed="${isIncluded ? 'true' : 'false'}" aria-label="${escapeAttribute(aria)}" title="${escapeAttribute(aria)}">${escapeHtml(label)}</button>`;
+  }).join('');
+}
+
+function dateDetailScale() {
+  return ['day', 'month', 'year'];
+}
+
+function dateDetailRank(detail) {
+  return { year: 0, month: 1, day: 2 }[detail] ?? 0;
+}
+
+function dateDetailReductionRemovesValue(raw, targetDetail) {
+  const parts = datePartsFromRaw(raw);
+  if (!parts) {
+    return false;
+  }
+
+  if (targetDetail === 'year') {
+    return parts.month !== '00' || parts.day !== '00';
+  }
+
+  if (targetDetail === 'month') {
+    return parts.day !== '00';
+  }
+
+  return false;
+}
+
+function dateDetailActionLabel(detail, target, isConfirming) {
+  const targetLabel = { year: 'J', month: 'M', day: 'T' }[target] || target;
+  if (isConfirming) {
+    return `${targetLabel}?`;
+  }
+
+  return targetLabel;
+}
+
+function dateDetailActionAria(detail, target, isConfirming) {
+  const targetLabel = { year: 'Jahr', month: 'Monat', day: 'Tag' }[target] || target;
+  if (isConfirming) {
+    return `Auf ${targetLabel} umstellen und detailliertere Datumsteile auf 00 setzen`;
+  }
+
+  if (dateDetailRank(target) < dateDetailRank(detail)) {
+    return `Datumsgenauigkeit ${targetLabel} bestaetigen`;
+  }
+
+  return `Datumsgenauigkeit ${targetLabel} auswaehlen`;
 }
 
 function referenceInputValue(value, collection, showIds = true) {
@@ -2828,7 +3366,7 @@ function objectSummary(type, object) {
   }
 
   if (type === 'timepoints' && object.date) {
-    return typeof object.date === 'string' ? object.date : inputValue(object.date, { kind: 'date' });
+    return dateDisplayValue(object.date);
   }
 
   return '';
@@ -2974,20 +3512,7 @@ function personHasGroup(person, groupId) {
 }
 
 function timepointValue(timepoint) {
-  const date = timepoint.date;
-  if (!date) {
-    return '';
-  }
-
-  if (typeof date === 'string') {
-    return date;
-  }
-
-  if (typeof date === 'object') {
-    return date.display || date.value || date.rawValue || '';
-  }
-
-  return '';
+  return dateDisplayValue(timepoint.date);
 }
 
 function hasPendingObjectEdits() {
