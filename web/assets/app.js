@@ -120,6 +120,7 @@ const state = {
   createOpen: {},
   editing: {},
   editTimers: {},
+  exampleDataCreating: false,
 };
 
 const connectionStatus = document.querySelector('#connectionStatus');
@@ -138,6 +139,8 @@ const adminNav = document.querySelector('#adminNav');
 const adminNavGroup = document.querySelector('#adminNavGroup');
 const createUserForm = document.querySelector('#createUserForm');
 const setupResult = document.querySelector('#setupResult');
+const exampleDataButton = document.querySelector('#exampleDataButton');
+const exampleDataState = document.querySelector('#exampleDataState');
 const userList = document.querySelector('#userList');
 
 const urlSetup = new URLSearchParams(window.location.search).get('setup');
@@ -164,6 +167,7 @@ createUserForm.addEventListener('submit', createUser);
 setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
 document.addEventListener('click', handleNavigationJump);
+document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleObjectChange);
@@ -246,6 +250,9 @@ function renderShell() {
   document.querySelectorAll('[data-create-type]').forEach((button) => {
     button.hidden = !hasPermission('write');
   });
+  if (exampleDataButton) {
+    exampleDataButton.hidden = !hasPermission('write');
+  }
 }
 
 function showBootstrapHint() {
@@ -1790,6 +1797,144 @@ async function createObjectFromForm(form) {
   }
 }
 
+async function handleExampleDataClick(event) {
+  const button = event.target.closest('#exampleDataButton');
+  if (!button) {
+    return;
+  }
+
+  event.preventDefault();
+  await createWpfExampleData();
+}
+
+async function createWpfExampleData() {
+  if (state.exampleDataCreating || !hasPermission('write')) {
+    return;
+  }
+
+  state.exampleDataCreating = true;
+  setExampleDataState('Erstelle Beispieldaten', false);
+  if (exampleDataButton) {
+    exampleDataButton.disabled = true;
+  }
+
+  try {
+    const created = {};
+    const existingObject = (type, labelsToFind) => {
+      const labels = labelsToFind.map((label) => normalizeExampleDataLabel(label));
+      return (state.objects[type] || []).find((object) => labels.includes(normalizeExampleDataLabel(objectLabel(object, type)))) || null;
+    };
+    const useExisting = (type, key, ...labels) => {
+      const object = existingObject(type, labels);
+      if (!object) {
+        throw new Error(`${labels[0]} fehlt in den Basisdaten.`);
+      }
+
+      created[key] = object;
+      return object;
+    };
+    const create = async (type, key, object) => {
+      const response = await postJson('object-create', { type, object });
+      created[key] = response.object;
+      return response.object;
+    };
+    const id = (key) => objectId(created[key]);
+    const date = (rawValue) => ({ rawValue });
+    const period = (startTimepoint = '', customStart = null, endTimepoint = '', customEnd = null) => ({
+      startTimepoint,
+      customStart,
+      endTimepoint,
+      customEnd,
+    });
+    const phase = (groupType, phasePeriod) => ({ groupType, period: phasePeriod });
+
+    useExisting('group-types', 'typeStamm', 'Stamm');
+    useExisting('group-types', 'typeMeute', 'Meute');
+    useExisting('group-types', 'typeRudel', 'Rudel');
+    useExisting('group-types', 'typeSippe', 'Sippe');
+    useExisting('group-types', 'typeGilde', 'Gilde');
+    useExisting('group-types', 'typeRunde', 'Runde');
+    useExisting('group-types', 'typeKreis', 'Kreis');
+
+    useExisting('roles', 'roleStafue', 'Stammesführung');
+    useExisting('roles', 'roleStellvStafue', 'Stellv. Stammesführung');
+    useExisting('roles', 'roleKawa', 'Kassenwart');
+    useExisting('roles', 'roleStellvKawa', 'Stellv. Kassenwart', 'Stellv. Kassenwart*in');
+    useExisting('roles', 'roleHandkasse', 'Handkasse');
+    useExisting('roles', 'roleMeufue', 'Meutenführung');
+    useExisting('roles', 'roleMeutenassi', 'Meutenassistenz');
+    useExisting('roles', 'roleRudelfue', 'Rudelführung');
+    useExisting('roles', 'roleSifue', 'Sippenführung');
+    useExisting('roles', 'roleGildenspr', 'Gildensprecher', 'Gildensprecher*in');
+    useExisting('roles', 'roleRundenspr', 'Rundensprecher', 'Rundensprecher*in');
+    useExisting('roles', 'roleKreisleit', 'Kreisleitung');
+    await create('roles', 'roleMatihueschlue', { label: 'Matihüschlüwa', groupTypes: [id('typeStamm')], _certainty: 'confident' });
+
+    await create('timepoints', 'timepointStamm', { name: 'Stammesgründung', date: date('1952-01-01'), _certainty: 'confident' });
+    await create('timepoints', 'timepointPfila06', { name: 'Pfingstlager', date: date('2006-06-02'), _certainty: 'confident' });
+    await create('timepoints', 'timepointNiko06', { name: 'Nikofahrt', date: date('2006-11-16'), _certainty: 'confident' });
+    await create('timepoints', 'timepointNiko07', { name: 'Nikofahrt', date: date('2007-12-05'), _certainty: 'confident' });
+    await create('timepoints', 'timepointPfila08', { name: 'Pfingstlager', date: date('2008-05-06'), _certainty: 'confident' });
+    await create('timepoints', 'timepointNiko08', { name: 'Nikofahrt', date: date('2008-11-22'), _certainty: 'confident' });
+    await create('timepoints', 'timepointPfila12', { name: 'Pfingstlager', date: date('2012-06-01'), _certainty: 'confident' });
+
+    await create('groups', 'groupStamm', {
+      name: 'der Vaganten',
+      description: 'stammdervaganten.de',
+      _certainty: 'confident',
+      mainPhase: phase(id('typeStamm'), period(id('timepointStamm'), null, '', date('2000-01-01'))),
+      additionalPhases: [],
+    });
+    await create('groups', 'groupPhoenix', {
+      name: 'Phönix',
+      _certainty: 'confident',
+      mainPhase: phase(id('typeSippe'), period(id('timepointNiko06'), null, id('timepointPfila12'), null)),
+      additionalPhases: [
+        phase(id('typeRudel'), period(id('timepointPfila06'), null, id('timepointNiko06'), null)),
+        phase(id('typeRunde'), period(id('timepointPfila08'), null, id('timepointPfila12'), null)),
+      ],
+    });
+
+    await create('people', 'scoutBob', {
+      forename: 'Bob',
+      lastname: 'Meister',
+      scoutname: 'Baumeister',
+      birthdate: date('2001-02-01'),
+      _certainty: 'confident',
+      memberships: [{ group: id('groupStamm'), period: period('', date('2011-01-01'), '', date('2022-01-01')) }],
+      activities: [{ group: id('groupStamm'), role: id('roleStafue'), period: period('', date('1960-01-01'), id('timepointNiko06'), null) }],
+    });
+    await create('people', 'scoutKlaus', {
+      forename: 'Klaus',
+      lastname: 'Heinz',
+      contactInfo: 'klaus@heinz.rocks',
+      _certainty: 'confident',
+      memberships: [{ group: id('groupStamm'), period: period('', date('1997-01-01'), '', date('2003-01-01')) }],
+      activities: [{ group: id('groupStamm'), role: id('roleStellvKawa'), period: period('', date('1999-01-01'), '', date('2001-01-01')) }],
+    });
+    await create('people', 'scoutJaqueline', {
+      forename: 'Jaqueline',
+      lastname: 'Holz',
+      birthdate: date('1997-01-01'),
+      contactInfo: '+49800321456',
+      notes: 'dazu gekommen durch Klaus',
+      _certainty: 'confident',
+      memberships: [{ group: id('groupStamm'), period: period('', date('2005-01-01'), '', date('2010-01-01')) }],
+      activities: [],
+    });
+
+    await reloadObjectData();
+    setExampleDataState('Beispieldaten erstellt', false, true);
+  } catch (error) {
+    setExampleDataState(localizeErrorMessage(error.message || 'Beispieldaten konnten nicht erstellt werden.'), true);
+  } finally {
+    state.exampleDataCreating = false;
+    if (exampleDataButton) {
+      exampleDataButton.disabled = false;
+    }
+  }
+}
+
 async function deleteObject(item) {
   const type = item.dataset.objectType;
   const id = item.dataset.objectId;
@@ -2194,6 +2339,27 @@ function setCreateState(form, text, isError) {
   element.hidden = false;
   element.textContent = text;
   element.className = `object-save-state ${isError ? 'is-error' : ''}`;
+}
+
+function setExampleDataState(text, isError, autoHide = false) {
+  if (!exampleDataState) {
+    return;
+  }
+
+  exampleDataState.hidden = false;
+  exampleDataState.textContent = text;
+  exampleDataState.className = `object-save-state ${isError ? 'is-error' : ''}`;
+  if (autoHide) {
+    window.setTimeout(() => {
+      if (exampleDataState.textContent === text) {
+        exampleDataState.hidden = true;
+      }
+    }, 2200);
+  }
+}
+
+function normalizeExampleDataLabel(label) {
+  return String(label || '').trim().toLocaleLowerCase('de-DE');
 }
 
 function clearCreateState(form) {

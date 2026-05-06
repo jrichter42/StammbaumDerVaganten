@@ -161,6 +161,20 @@ h3 {
   color: var(--brand-ink);
 }
 
+.button-subtle {
+  min-height: 30px;
+  padding: 5px 9px;
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--line);
+  font-size: 0.82rem;
+}
+
+.button-subtle:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+
 .button-danger {
   color: #2a0806;
   background: var(--danger);
@@ -524,6 +538,14 @@ h3 {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.example-data-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .basic-groups-panel {

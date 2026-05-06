@@ -208,6 +208,10 @@ $configWarnings = array_map(
                       <h2>System</h2>
                       <p id="systemVersion">Schema</p>
                     </div>
+                    <div class="example-data-control">
+                      <button class="button button-subtle" id="exampleDataButton" type="button">Beispieldaten</button>
+                      <p class="object-save-state" id="exampleDataState" hidden></p>
+                    </div>
                   </div>
                   <div class="metric-grid" id="metricGrid"></div>
                   <dl class="status-list" id="systemList"></dl>
