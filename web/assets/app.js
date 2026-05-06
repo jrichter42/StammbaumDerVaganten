@@ -250,7 +250,7 @@ function renderShell() {
   adminNavGroup.hidden = !canManageUsers;
   adminNav.hidden = !canManageUsers;
   if (!canManageUsers && document.querySelector('#view-admin')?.classList.contains('is-active')) {
-    activateView('basic');
+    activateView('people');
   }
 
   document.querySelectorAll('[data-create-type]').forEach((button) => {
@@ -417,6 +417,7 @@ async function loadAdminUsers() {
   const response = await getJson('api.php?action=admin-users');
   state.users = response.users || [];
   renderAdmin();
+  renderNavigationCounts();
 }
 
 async function createUser(event) {
@@ -561,8 +562,6 @@ async function readJsonResponse(response) {
 
 function render() {
   renderPublicOverview();
-  renderBasicFlow();
-  renderAdvancedFlow();
   renderMetrics();
   renderReferenceData();
   renderSystem();
@@ -587,29 +586,6 @@ function renderPublicOverview() {
   renderPublicTree(groups, people, groupTypes);
   renderPublicRoles(roles);
   renderPublicTimeline(timepoints);
-}
-
-function renderBasicFlow() {
-  const groups = state.objects.groups || [];
-
-  setText('#basicGroupCount', formatCount(groups.length, 'record'));
-
-  renderBasicGroupCreatePanel();
-  renderBasicGroups(groups);
-}
-
-function renderAdvancedFlow() {
-  const timepoints = state.objects.timepoints || [];
-
-  setText('#advancedRoleCount', formatCount((state.objects.roles || []).length, 'record'));
-  setText('#advancedTimepointCount', formatCount(timepoints.length, 'record'));
-  setText('#advancedGroupCount', formatCount((state.objects.groups || []).length, 'record'));
-  setText('#advancedPeopleCount', formatCount((state.objects.people || []).length, 'record'));
-
-  renderWorkbenchCollection('roles', '#advancedRolesList', '[data-advanced-create-panel="roles"]');
-  renderWorkbenchCollection('timepoints', '#advancedTimepointsList', '[data-advanced-create-panel="timepoints"]');
-  renderWorkbenchCollection('groups', '#advancedGroupsList', '[data-advanced-create-panel="groups"]');
-  renderWorkbenchCollection('people', '#advancedPeopleList', '[data-advanced-create-panel="people"]');
 }
 
 function publicOverviewText(groups, people, roles, timepoints) {
@@ -696,140 +672,6 @@ function renderTreeBoard({ treeSelector, subtitleSelector, groups, people, group
   }).join('');
 }
 
-function renderBasicGroups(groups) {
-  const list = document.querySelector('#basicGroupsList');
-  if (!list) {
-    return;
-  }
-
-  list.innerHTML = groups.map(renderBasicGroupItem).join('')
-    || '<div class="empty-state empty-state-compact">Noch keine Gruppen.</div>';
-}
-
-function renderBasicGroupCreatePanel() {
-  const panel = document.querySelector('[data-basic-create-panel="groups"]');
-  if (!panel) {
-    return;
-  }
-
-  if (!state.createOpen.groups || !hasPermission('write')) {
-    panel.hidden = true;
-    panel.innerHTML = '';
-    return;
-  }
-
-  panel.hidden = false;
-  panel.innerHTML = `
-    <form class="rough-group-card rough-group-create" data-create-form="groups">
-      ${renderBasicGroupEditor({}, '')}
-      <div class="form-actions rough-create-actions">
-        <button class="button button-secondary" type="button" data-create-cancel="groups">Abbrechen</button>
-        <button class="button" type="submit">Erstellen</button>
-      </div>
-      <p class="object-save-state" data-create-state hidden></p>
-    </form>
-  `;
-}
-
-function renderBasicGroupItem(group) {
-  const phase = group.mainPhase && typeof group.mainPhase === 'object' ? group.mainPhase : {};
-  const period = phase.period && typeof phase.period === 'object' ? phase.period : {};
-  const canWrite = hasPermission('write');
-
-  return `
-    <article class="rough-group-card" data-object-type="groups" data-object-id="${escapeAttribute(objectId(group))}" data-revision="${Number(group._revision || 0)}">
-      <div class="rough-group-header">
-        <div class="rough-group-title">
-          <span data-basic-group-type>${escapeHtml(groupTypeLabel(group, state.groupTypes || []) || 'Gruppe')}</span>
-          <strong data-object-title>${escapeHtml(objectLabel(group, 'groups'))}</strong>
-        </div>
-        <small data-basic-period-span>${escapeHtml(periodYearSpan(period) || 'offener Zeitraum')}</small>
-      </div>
-      ${canWrite ? `
-        ${renderBasicGroupEditor(phase, group.name || '')}
-        <p class="object-save-state" data-save-state hidden></p>
-        <div class="user-actions object-actions">
-          <button class="button button-danger" type="button" data-object-action="delete">Löschen</button>
-        </div>
-      ` : `
-        <div class="rough-group-static">
-          <span>${escapeHtml(groupTypeLabel(group, state.groupTypes || []) || 'Kein Typ')}</span>
-          <span>${escapeHtml(group.name || 'Unbenannte Gruppe')}</span>
-          <span>${escapeHtml(periodYearSpan(period) || 'Kein Zeitraum')}</span>
-        </div>
-      `}
-    </article>
-  `;
-}
-
-function renderBasicGroupEditor(phase = {}, name = '') {
-  return `
-    <div class="rough-group-editor" data-object-editor>
-      ${renderBasicGroupPhaseField(phase)}
-      ${renderBasicGroupNameField(name)}
-    </div>
-  `;
-}
-
-function renderBasicGroupNameField(value) {
-  const id = `basic-group-name-${Math.random().toString(36).slice(2)}`;
-  return `
-    <label class="object-field rough-name-field" for="${escapeAttribute(id)}">
-      <span>Name</span>
-      <input id="${escapeAttribute(id)}" data-object-field="name" data-field-kind="text" value="${escapeAttribute(value)}" autocomplete="off">
-    </label>
-  `;
-}
-
-function renderBasicGroupPhaseField(value = {}) {
-  return `
-    <section class="object-field rough-phase-field" data-object-field="mainPhase" data-field-kind="group-phase">
-      ${renderBasicGroupPhaseEditor(value)}
-    </section>
-  `;
-}
-
-function renderBasicGroupPhaseEditor(value = {}) {
-  const idBase = `basic-group-phase-${Math.random().toString(36).slice(2)}`;
-  return `
-    <div class="rough-phase-editor">
-      <div class="rough-type-field">
-        ${renderReferenceControl({ id: `${idBase}-type`, label: 'Typ', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType', showIds: false })}
-      </div>
-      ${renderPeriodEditor(value.period || {}, `${idBase}-period`, true)}
-    </div>
-  `;
-}
-
-function renderWorkbenchCollection(type, listSelector, createSelector) {
-  renderScopedCreatePanel(createSelector, type, visibleFields(type));
-
-  const list = document.querySelector(listSelector);
-  if (!list) {
-    return;
-  }
-
-  const objects = state.objects[type] || [];
-  list.innerHTML = objects.map((object) => renderObjectItem(type, object)).join('')
-    || `<div class="empty-state empty-state-compact">Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.</div>`;
-}
-
-function renderScopedCreatePanel(selector, type, fields) {
-  const panel = document.querySelector(selector);
-  if (!panel) {
-    return;
-  }
-
-  if (!state.createOpen[type] || !hasPermission('write')) {
-    panel.hidden = true;
-    panel.innerHTML = '';
-    return;
-  }
-
-  panel.hidden = false;
-  panel.innerHTML = renderCreateForm(type, fields);
-}
-
 function renderCreateForm(type, fields) {
   return `
     <form class="object-editor object-create-form" data-create-form="${escapeAttribute(type)}">
@@ -843,40 +685,7 @@ function renderCreateForm(type, fields) {
   `;
 }
 
-function fieldsByName(type, names) {
-  const fields = visibleFields(type);
-  return names.map((name) => fields.find((field) => field.name === name)).filter(Boolean);
-}
-
-function compactObjectSummary(type, object) {
-  if (type === 'timepoints') {
-    return timepointValue(object) || '';
-  }
-
-  if (type === 'groups') {
-    const phase = object.mainPhase && typeof object.mainPhase === 'object' ? object.mainPhase : null;
-    return [groupTypeLabel(object, state.groupTypes || []), periodLabel(phase?.period)].filter(Boolean).join(' / ');
-  }
-
-  return objectSummary(type, object);
-}
-
-function periodLabel(period) {
-  if (!period || typeof period !== 'object') {
-    return '';
-  }
-
-  const start = referenceObjectLabel('timepoints', period.startTimepoint) || dateDisplayValue(period.customStart);
-  const end = referenceObjectLabel('timepoints', period.endTimepoint) || dateDisplayValue(period.customEnd);
-
-  if (start && end) {
-    return `${start} - ${end}`;
-  }
-
-  return start || end || '';
-}
-
-function periodYearSpan(period) {
+function periodYearLabel(period) {
   if (!period || typeof period !== 'object') {
     return '';
   }
@@ -885,10 +694,18 @@ function periodYearSpan(period) {
   const end = referenceYear('timepoints', period.endTimepoint) || dateYear(period.customEnd);
 
   if (start && end) {
-    return `${start} - ${end}`;
+    return start === end ? start : `${start} bis ${end}`;
   }
 
-  return start || end || '';
+  if (start) {
+    return `seit ${start}`;
+  }
+
+  if (end) {
+    return `bis ${end}`;
+  }
+
+  return '';
 }
 
 function referenceYear(collection, id) {
@@ -904,15 +721,6 @@ function dateYear(value) {
   const display = dateDisplayValue(value);
   const match = String(display || '').match(/\d{4}/);
   return match ? match[0] : '';
-}
-
-function referenceObjectLabel(collection, id) {
-  if (!id) {
-    return '';
-  }
-
-  const object = (state.objects[collection] || []).find((candidate) => objectId(candidate) === id);
-  return object ? objectLabel(object, collection) : id;
 }
 
 function dateDisplayValue(value) {
@@ -968,6 +776,10 @@ function renderPublicTimeline(timepoints) {
 
 function renderMetrics() {
   const grid = document.querySelector('#metricGrid');
+  if (!grid) {
+    return;
+  }
+
   const collections = state.status?.storage?.collections || {};
   const visible = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
 
@@ -1056,6 +868,20 @@ function renderSectionCounts() {
   setText('#groupTypesCount', formatCount(collections['group-types'], 'record'));
   setText('#rolesCount', formatCount(collections.roles, 'record'));
   setText('#timepointsCount', formatCount(collections.timepoints, 'record'));
+  renderNavigationCounts();
+}
+
+function renderNavigationCounts() {
+  const collections = state.status?.storage?.collections || {};
+  const counts = Object.fromEntries(objectCollections.map((type) => [
+    type,
+    Number(Array.isArray(state.objects[type]) ? state.objects[type].length : collections[type] || 0),
+  ]));
+  counts.users = state.users.length;
+
+  document.querySelectorAll('[data-nav-count]').forEach((element) => {
+    element.textContent = String(counts[element.dataset.navCount] || 0);
+  });
 }
 
 function renderObjectCollections() {
@@ -1091,8 +917,8 @@ function renderObjectItem(type, object) {
       <div class="object-main">
         <div class="object-title-row">
           <div>
-            <h3 data-object-title>${escapeHtml(objectLabel(object, type))}</h3>
-            <small data-object-meta>${escapeHtml(objectMeta(object))}</small>
+            <h3 data-object-title>${escapeHtml(objectListTitle(type, object))}</h3>
+            <small data-object-meta>${escapeHtml(objectListMeta(type, object))}</small>
           </div>
           <span class="tag">${escapeHtml(objectTypeLabels[type] || labels[type] || type)}</span>
         </div>
@@ -1819,8 +1645,6 @@ async function handleObjectClick(event) {
   if (createButton) {
     state.createOpen[createButton.dataset.createType] = true;
     renderObjectCollection(createButton.dataset.createType);
-    renderBasicFlow();
-    renderAdvancedFlow();
     return;
   }
 
@@ -1828,8 +1652,6 @@ async function handleObjectClick(event) {
   if (createCancel) {
     state.createOpen[createCancel.dataset.createCancel] = false;
     renderObjectCollection(createCancel.dataset.createCancel);
-    renderBasicFlow();
-    renderAdvancedFlow();
     return;
   }
 
@@ -1862,8 +1684,6 @@ async function handleObjectClick(event) {
     await flushObjectEdit(item, true);
     state.editing[key] = false;
     renderObjectCollection(type);
-    renderBasicFlow();
-    renderAdvancedFlow();
     return;
   }
 
@@ -1902,8 +1722,6 @@ async function focusObjectEditor(item) {
   state.editing = {};
   state.editing[targetKey] = true;
   renderObjectCollections();
-  renderBasicFlow();
-  renderAdvancedFlow();
   scrollObjectEditorIntoView(targetType, targetId, targetListId);
 }
 
@@ -3335,20 +3153,11 @@ function updateObjectInState(type, object) {
 function updateObjectChrome(item, type, object) {
   const title = item.querySelector('[data-object-title]');
   const meta = item.querySelector('[data-object-meta]');
-  const basicGroupType = item.querySelector('[data-basic-group-type]');
-  const basicPeriod = item.querySelector('[data-basic-period-span]');
   if (title) {
-    title.textContent = objectLabel(object, type);
+    title.textContent = objectListTitle(type, object);
   }
   if (meta) {
-    meta.textContent = objectMeta(object);
-  }
-  if (type === 'groups' && basicGroupType) {
-    basicGroupType.textContent = groupTypeLabel(object, state.groupTypes || []) || 'Gruppe';
-  }
-  if (type === 'groups' && basicPeriod) {
-    const period = object.mainPhase && typeof object.mainPhase === 'object' ? object.mainPhase.period : null;
-    basicPeriod.textContent = periodYearSpan(period) || 'offener Zeitraum';
+    meta.textContent = objectListMeta(type, object);
   }
 }
 
@@ -3432,20 +3241,56 @@ function objectMeta(object) {
   return parts.join(' / ');
 }
 
-function objectSummary(type, object) {
+function objectListTitle(type, object) {
+  if (type === 'people') {
+    const name = [object.forename, object.lastname].filter(Boolean).join(' ');
+    if (object.scoutname && name) {
+      return `${object.scoutname} (${name})`;
+    }
+
+    return object.scoutname || name || objectId(object);
+  }
+
+  if (type === 'groups') {
+    const groupType = groupTypeLabel(object, state.groupTypes || []) || 'Gruppe';
+    const name = object.name || object.label || object.description || objectId(object);
+    return [groupType, name].filter(Boolean).join(' ');
+  }
+
+  return objectLabel(object, type);
+}
+
+function objectListMeta(type, object) {
+  if (type === 'groups') {
+    const period = object.mainPhase && typeof object.mainPhase === 'object' ? object.mainPhase.period : null;
+    return periodYearLabel(period) || 'offener Zeitraum';
+  }
+
+  if (type === 'timepoints') {
+    return timepointValue(object) || objectMeta(object);
+  }
+
   if (type === 'roles') {
-    const labels = (Array.isArray(object.groupTypes) ? object.groupTypes : [])
-      .map((id) => state.groupTypes.find((candidate) => objectId(candidate) === id))
-      .filter(Boolean)
-      .map((groupType) => objectLabel(groupType, 'group-types'));
-    return labels.length ? labels.join(', ') : 'Nicht eingeschränkt';
+    const labels = roleGroupTypeLabels(object);
+    return labels.length ? `für ${labels.join(', ')}` : 'für alle Gruppenarten';
   }
 
-  if (type === 'timepoints' && object.date) {
-    return dateDisplayValue(object.date);
+  if (type === 'people' && object.birthdate) {
+    return `geboren ${dateDisplayValue(object.birthdate)}`;
   }
 
-  return '';
+  return objectMeta(object);
+}
+
+function objectSummary(type, object) {
+  return object.description || '';
+}
+
+function roleGroupTypeLabels(role) {
+  return (Array.isArray(role.groupTypes) ? role.groupTypes : [])
+    .map((id) => state.groupTypes.find((candidate) => objectId(candidate) === id))
+    .filter(Boolean)
+    .map((groupType) => objectLabel(groupType, 'group-types'));
 }
 
 function groupTypeLabel(group, groupTypes) {
@@ -3613,6 +3458,7 @@ function renderAdmin() {
   }
 
   setText('#userAdminCount', formatCount(state.users.length, 'user'));
+  renderNavigationCounts();
   renderSetupResult();
 
   userList.innerHTML = state.users.map((user) => `

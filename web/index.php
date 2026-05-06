@@ -105,122 +105,24 @@ $configWarnings = array_map(
       <main class="workspace" id="workspace" hidden>
         <nav class="sidebar editor-nav" aria-label="Editorbereiche">
           <div class="nav-group">
-            <span class="nav-label">Ablauf</span>
-            <button class="nav-item is-active" type="button" data-view="basic">Einfach</button>
-            <button class="nav-item" type="button" data-view="advanced">Erweitert</button>
+            <span class="nav-label">Daten</span>
+            <button class="nav-item is-active" type="button" data-view="people"><span>Personen</span><span class="nav-count" data-nav-count="people">0</span></button>
+            <button class="nav-item" type="button" data-view="groups"><span>Gruppen</span><span class="nav-count" data-nav-count="groups">0</span></button>
+            <button class="nav-item" type="button" data-view="timepoints"><span>Zeitpunkte</span><span class="nav-count" data-nav-count="timepoints">0</span></button>
           </div>
           <div class="nav-group">
-            <span class="nav-label">Daten</span>
-            <button class="nav-item" type="button" data-view="people">Personen</button>
-            <button class="nav-item" type="button" data-view="groups">Gruppen</button>
-            <button class="nav-item" type="button" data-view="roles">Rollen</button>
-            <button class="nav-item" type="button" data-view="timepoints">Zeitpunkte</button>
-            <button class="nav-item" type="button" data-view="group-types">Gruppenarten</button>
+            <span class="nav-label">Struktur</span>
+            <button class="nav-item" type="button" data-view="roles"><span>Rollen</span><span class="nav-count" data-nav-count="roles">0</span></button>
+            <button class="nav-item" type="button" data-view="group-types"><span>Gruppenarten</span><span class="nav-count" data-nav-count="group-types">0</span></button>
           </div>
           <div class="nav-group" id="adminNavGroup" hidden>
             <span class="nav-label">Admin</span>
-            <button class="nav-item" id="adminNav" type="button" data-view="admin">Benutzer</button>
+            <button class="nav-item" id="adminNav" type="button" data-view="admin"><span>Benutzer</span><span class="nav-count" data-nav-count="users">0</span></button>
           </div>
         </nav>
 
         <section class="content-area" aria-live="polite">
-          <div class="view is-active" id="view-basic">
-            <section class="panel basic-groups-panel">
-              <div class="panel-header">
-                <div>
-                  <h2>Gruppen</h2>
-                  <p id="basicGroupCount">0 Datensätze</p>
-                </div>
-                <div class="flow-actions">
-                  <button class="button" type="button" data-create-type="groups">Gruppe hinzufügen</button>
-                  <button class="button button-secondary" type="button" data-jump-view="groups">Vollständige Liste</button>
-                </div>
-              </div>
-              <div class="object-create" data-basic-create-panel="groups" hidden></div>
-              <div class="rough-group-list" id="basicGroupsList"></div>
-            </section>
-          </div>
-
-          <div class="view" id="view-advanced">
-            <section class="advanced-workbench">
-              <div class="workbench-stack">
-                <details class="panel workbench-expander">
-                  <summary>
-                    <span>Rollen</span>
-                    <small id="advancedRoleCount">0 Datensätze</small>
-                  </summary>
-                  <div class="panel-toolbar">
-                    <button class="button" type="button" data-create-type="roles">Rolle hinzufügen</button>
-                    <button class="button button-secondary" type="button" data-jump-view="roles">Vollständige Liste</button>
-                  </div>
-                  <div class="object-create" data-advanced-create-panel="roles" hidden></div>
-                  <div class="list object-list" id="advancedRolesList"></div>
-                </details>
-
-                <details class="panel workbench-expander">
-                  <summary>
-                    <span>Zeitpunkte</span>
-                    <small id="advancedTimepointCount">0 Datensätze</small>
-                  </summary>
-                  <div class="panel-toolbar">
-                    <button class="button" type="button" data-create-type="timepoints">Zeitpunkt hinzufügen</button>
-                    <button class="button button-secondary" type="button" data-jump-view="timepoints">Vollständige Liste</button>
-                  </div>
-                  <div class="object-create" data-advanced-create-panel="timepoints" hidden></div>
-                  <div class="list object-list" id="advancedTimepointsList"></div>
-                </details>
-
-                <section class="panel workbench-panel">
-                  <div class="panel-header">
-                    <div>
-                      <h2>Gruppen</h2>
-                      <p id="advancedGroupCount">0 Datensätze</p>
-                    </div>
-                    <div class="flow-actions">
-                      <button class="button" type="button" data-create-type="groups">Gruppe hinzufügen</button>
-                      <button class="button button-secondary" type="button" data-jump-view="groups">Vollständige Liste</button>
-                    </div>
-                  </div>
-                  <div class="object-create" data-advanced-create-panel="groups" hidden></div>
-                  <div class="list object-list" id="advancedGroupsList"></div>
-                </section>
-
-                <section class="panel workbench-panel">
-                  <div class="panel-header">
-                    <div>
-                      <h2>Personen</h2>
-                      <p id="advancedPeopleCount">0 Datensätze</p>
-                    </div>
-                    <div class="flow-actions">
-                      <button class="button" type="button" data-create-type="people">Person hinzufügen</button>
-                      <button class="button button-secondary" type="button" data-jump-view="people">Vollständige Liste</button>
-                    </div>
-                  </div>
-                  <div class="object-create" data-advanced-create-panel="people" hidden></div>
-                  <div class="list object-list" id="advancedPeopleList"></div>
-                </section>
-              </div>
-
-              <div class="workbench-stack">
-                <section class="panel">
-                  <div class="panel-header">
-                    <div>
-                      <h2>System</h2>
-                      <p id="systemVersion">Schema</p>
-                    </div>
-                    <div class="example-data-control">
-                      <button class="button button-subtle" id="exampleDataButton" type="button">Beispieldaten</button>
-                      <p class="object-save-state" id="exampleDataState" hidden></p>
-                    </div>
-                  </div>
-                  <div class="metric-grid" id="metricGrid"></div>
-                  <dl class="status-list" id="systemList"></dl>
-                </section>
-              </div>
-            </section>
-          </div>
-
-          <div class="view" id="view-people">
+          <div class="view is-active" id="view-people">
             <section class="panel">
               <div class="panel-header">
                 <div>
