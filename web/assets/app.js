@@ -1854,10 +1854,7 @@ async function handleObjectClick(event) {
   const action = button.dataset.objectAction;
 
   if (action === 'edit') {
-    state.editing[key] = true;
-    renderObjectCollection(type);
-    renderBasicFlow();
-    renderAdvancedFlow();
+    await focusObjectEditor(item);
     return;
   }
 
@@ -1883,6 +1880,65 @@ async function handleObjectClick(event) {
   if (action === 'confirm-delete') {
     await deleteObject(item);
   }
+}
+
+async function focusObjectEditor(item) {
+  const targetType = item.dataset.objectType;
+  const targetId = item.dataset.objectId;
+  const targetKey = objectKey(targetType, targetId);
+  const targetListId = item.parentElement?.id || '';
+  const openItems = Array.from(document.querySelectorAll('[data-object-editor]'))
+    .map((editor) => editor.closest('[data-object-type][data-object-id]'))
+    .filter(Boolean);
+
+  for (const openItem of openItems) {
+    const key = objectKey(openItem.dataset.objectType, openItem.dataset.objectId);
+    window.clearTimeout(state.editTimers[key]);
+    if (key !== targetKey) {
+      await flushObjectEdit(openItem, true);
+    }
+  }
+
+  state.editing = {};
+  state.editing[targetKey] = true;
+  renderObjectCollections();
+  renderBasicFlow();
+  renderAdvancedFlow();
+  scrollObjectEditorIntoView(targetType, targetId, targetListId);
+}
+
+function scrollObjectEditorIntoView(type, id, listId = '') {
+  const scrollWhenStable = () => {
+    const selector = `[data-object-type="${cssEscape(type)}"][data-object-id="${cssEscape(id)}"]`;
+    const item = listId
+      ? document.querySelector(`#${cssEscape(listId)} ${selector}`)
+      : document.querySelector(selector);
+    const editor = item?.querySelector('[data-object-editor]');
+    if (!editor) {
+      return;
+    }
+
+    const margin = 16;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const itemRect = item.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    const target = itemRect.height + margin * 2 <= viewportHeight ? item : editor;
+    const rect = target.getBoundingClientRect();
+    const fullyVisible = rect.top >= margin && rect.bottom <= viewportHeight - margin;
+    if (fullyVisible) {
+      return;
+    }
+
+    const scrollTop = rect.height + margin * 2 <= viewportHeight
+      ? window.scrollY + rect.top - margin
+      : window.scrollY + rect.top;
+    window.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+  };
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(scrollWhenStable);
+    window.setTimeout(scrollWhenStable, 120);
+  });
 }
 
 function handlePeriodModeAction(button) {
