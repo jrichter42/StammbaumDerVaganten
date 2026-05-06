@@ -8,5 +8,7 @@
 			"name": "Webspace"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"powershell.cwd": "StammbaumDerVaganten"
+	}
 }

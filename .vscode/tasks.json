@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Deploy Data",
+      "type": "shell",
+      "command": "${workspaceFolder}\\deploy-data.bat",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "panel": "new"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
