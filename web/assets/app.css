@@ -1038,6 +1038,35 @@ h3 {
   background: rgba(21, 27, 32, 0.78);
 }
 
+.composite-summary {
+  display: none;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 0, 0.24);
+  border-radius: 6px;
+  color: var(--text);
+  text-align: left;
+  background: rgba(36, 39, 23, 0.74);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.composite-summary:hover,
+.composite-summary:focus-visible {
+  border-color: rgba(255, 255, 0, 0.48);
+  outline: 0;
+  background: #242717;
+}
+
+.composite-item.is-collapsed .composite-summary {
+  display: block;
+}
+
+.composite-item.is-collapsed .composite-editor {
+  display: none;
+}
+
 .reference-list-item {
   grid-template-columns: minmax(0, 1fr) auto;
 }

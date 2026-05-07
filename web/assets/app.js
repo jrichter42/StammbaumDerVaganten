@@ -1815,12 +1815,63 @@ function renderObjectListField(field, value, context = {}) {
 }
 
 function renderComplexListItem(kind, value = {}, context = {}) {
+  const hasValue = complexItemHasValue(kind, value);
+  const summary = hasValue ? complexItemSummary(kind, value) : '';
   return `
-    <div class="composite-item" data-list-item>
-      ${renderComplexEditor(kind, value, true, context)}
+    <div class="composite-item ${hasValue ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${hasValue ? '1' : '0'}">
+      ${summary ? `
+        <button class="composite-summary" type="button" data-list-action="toggle" aria-expanded="false">
+          ${escapeHtml(summary)}
+        </button>
+      ` : ''}
+      <div class="composite-editor" data-composite-editor>
+        ${renderComplexEditor(kind, value, true, context)}
+      </div>
       <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
     </div>
   `;
+}
+
+function complexItemHasValue(kind, value) {
+  if (kind === 'group-phase-list' || kind === 'group-phase') {
+    return groupPhaseHasValue(value);
+  }
+
+  if (kind === 'membership-list') {
+    return membershipHasValue(value);
+  }
+
+  if (kind === 'activity-list') {
+    return activityHasValue(value);
+  }
+
+  return false;
+}
+
+function complexItemSummary(kind, value = {}) {
+  if (kind === 'membership-list') {
+    return [
+      objectLabel(findReferenceObject('groups', value.group), 'groups') || 'Keine Gruppe',
+      periodYearLabel(value.period),
+    ].filter(Boolean).join(' · ');
+  }
+
+  if (kind === 'activity-list') {
+    return [
+      objectLabel(findReferenceObject('roles', value.role), 'roles') || 'Keine Rolle',
+      objectLabel(findReferenceObject('groups', value.group), 'groups') || 'Keine Gruppe',
+      periodYearLabel(value.period),
+    ].filter(Boolean).join(' · ');
+  }
+
+  if (kind === 'group-phase-list' || kind === 'group-phase') {
+    return [
+      objectLabel(findReferenceObject('group-types', value.groupType), 'group-types') || 'Keine Gruppenart',
+      periodYearLabel(value.period),
+    ].filter(Boolean).join(' · ');
+  }
+
+  return '';
 }
 
 function renderComplexEditor(kind, value = {}, compact = false, context = {}) {
@@ -2443,6 +2494,15 @@ function focusDateControl(input) {
 function handleListAction(button) {
   const fieldRoot = button.closest('[data-object-field]');
   if (!fieldRoot) {
+    return;
+  }
+
+  if (button.dataset.listAction === 'toggle') {
+    const item = button.closest('[data-list-item]');
+    if (item?.dataset.listCollapsible === '1') {
+      const isCollapsed = item.classList.toggle('is-collapsed');
+      button.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+    }
     return;
   }
 
