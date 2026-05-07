@@ -124,10 +124,10 @@ $configWarnings = array_map(
         <section class="content-area" aria-live="polite">
           <div class="view is-active" id="view-people">
             <section class="panel">
-              <div class="panel-header">
-                <div>
+              <div class="panel-header collection-header">
+                <div class="collection-heading">
                   <h2>Personen</h2>
-                  <p id="peopleCount">0 Datensätze</p>
+                  <div class="collection-controls" data-collection-controls="people"></div>
                 </div>
                 <button class="button" type="button" data-create-type="people">Person hinzufügen</button>
               </div>
@@ -138,10 +138,10 @@ $configWarnings = array_map(
 
           <div class="view" id="view-groups">
             <section class="panel">
-              <div class="panel-header">
-                <div>
+              <div class="panel-header collection-header">
+                <div class="collection-heading">
                   <h2>Gruppen</h2>
-                  <p id="groupsCount">0 Datensätze</p>
+                  <div class="collection-controls" data-collection-controls="groups"></div>
                 </div>
                 <button class="button" type="button" data-create-type="groups">Gruppe hinzufügen</button>
               </div>
@@ -152,10 +152,10 @@ $configWarnings = array_map(
 
           <div class="view" id="view-group-types">
             <section class="panel">
-              <div class="panel-header">
-                <div>
+              <div class="panel-header collection-header">
+                <div class="collection-heading">
                   <h2>Gruppenarten</h2>
-                  <p id="groupTypesCount">0 Datensätze</p>
+                  <div class="collection-controls" data-collection-controls="group-types"></div>
                 </div>
                 <button class="button" type="button" data-create-type="group-types">Gruppenart hinzufügen</button>
               </div>
@@ -166,10 +166,10 @@ $configWarnings = array_map(
 
           <div class="view" id="view-roles">
             <section class="panel">
-              <div class="panel-header">
-                <div>
+              <div class="panel-header collection-header">
+                <div class="collection-heading">
                   <h2>Rollen</h2>
-                  <p id="rolesCount">0 Datensätze</p>
+                  <div class="collection-controls" data-collection-controls="roles"></div>
                 </div>
                 <button class="button" type="button" data-create-type="roles">Rolle hinzufügen</button>
               </div>
@@ -180,10 +180,10 @@ $configWarnings = array_map(
 
           <div class="view" id="view-timepoints">
             <section class="panel">
-              <div class="panel-header">
-                <div>
+              <div class="panel-header collection-header">
+                <div class="collection-heading">
                   <h2>Zeitpunkte</h2>
-                  <p id="timepointsCount">0 Datensätze</p>
+                  <div class="collection-controls" data-collection-controls="timepoints"></div>
                 </div>
                 <button class="button" type="button" data-create-type="timepoints">Zeitpunkt hinzufügen</button>
               </div>
@@ -194,10 +194,10 @@ $configWarnings = array_map(
 
           <div class="view" id="view-admin">
             <section class="panel">
-              <div class="panel-header">
-                <div>
+              <div class="panel-header collection-header">
+                <div class="collection-heading">
                   <h2>Benutzer</h2>
-                  <p id="userAdminCount">0 Benutzer</p>
+                  <div class="collection-controls" data-collection-controls="users"></div>
                 </div>
               </div>
               <form class="form-grid admin-create" id="createUserForm">

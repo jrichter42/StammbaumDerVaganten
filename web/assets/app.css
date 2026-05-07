@@ -539,6 +539,115 @@ h3 {
   border-bottom: 1px solid var(--line);
 }
 
+.collection-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.collection-heading {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr);
+  align-items: start;
+  gap: 14px;
+  min-width: min(100%, 620px);
+  flex: 1 1 620px;
+}
+
+.collection-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.collection-control {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.collection-control-wide {
+  min-width: 210px;
+}
+
+.collection-control span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.collection-control input,
+.collection-control select {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: #0f1418;
+}
+
+.collection-control select[multiple] {
+  min-height: 74px;
+}
+
+.collection-control input:focus-visible,
+.collection-control select:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+.collection-filter-section {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 320px);
+}
+
+.collection-filter-title {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.collection-filter-label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.collection-filter-toggle {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--brand-strong);
+  background: #0f1418;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.collection-filter-toggle:hover {
+  border-color: rgba(255, 255, 0, 0.42);
+  background: var(--surface-raised);
+}
+
+.collection-filter-toggle:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+.collection-sort-direction {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.collection-filter-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .split-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
@@ -1218,6 +1327,18 @@ h3 {
 
   .topbar-actions {
     justify-content: start;
+  }
+
+  .collection-heading,
+  .collection-controls,
+  .collection-control,
+  .collection-filter-section,
+  .collection-filter-controls {
+    width: 100%;
+  }
+
+  .collection-heading {
+    grid-template-columns: 1fr;
   }
 
   .workspace,

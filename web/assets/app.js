@@ -35,6 +35,8 @@ const emptyCollectionLabels = {
 };
 
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
+const collectionTypes = [...objectCollections, 'users'];
+const sortCollator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const pickerActionShowAllGroups = '__picker_show_all_groups__';
 const pickerActionShowAllRoles = '__picker_show_all_roles__';
 const certaintyOptions = [
@@ -50,7 +52,6 @@ const certaintyOptions = [
 const objectConfigs = {
   people: {
     list: '#peopleList',
-    count: '#peopleCount',
     fields: [
       { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'forename', label: 'Vorname', visibility: 'private' },
@@ -67,7 +68,6 @@ const objectConfigs = {
   },
   groups: {
     list: '#groupsList',
-    count: '#groupsCount',
     fields: [
       { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'name', label: 'Name' },
@@ -80,19 +80,17 @@ const objectConfigs = {
   },
   'group-types': {
     list: '#groupTypesList',
-    count: '#groupTypesCount',
     fields: [
       { name: 'description', label: 'Beschreibung', kind: 'textarea' },
-      { name: 'label', label: 'Bezeichnung' },
+      { name: 'label', label: 'Name' },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
     ],
   },
   roles: {
     list: '#rolesList',
-    count: '#rolesCount',
     fields: [
       { name: 'description', label: 'Beschreibung', kind: 'textarea' },
-      { name: 'label', label: 'Bezeichnung' },
+      { name: 'label', label: 'Name' },
       { name: 'groupTypes', label: 'Gruppenarten', kind: 'reference-list', collection: 'group-types', defaultValue: [] },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
@@ -101,7 +99,6 @@ const objectConfigs = {
   },
   timepoints: {
     list: '#timepointsList',
-    count: '#timepointsCount',
     fields: [
       { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'name', label: 'Name' },
@@ -113,6 +110,52 @@ const objectConfigs = {
   },
 };
 
+const collectionSortOptions = {
+  people: [
+    ['scoutname', 'Pfadiname'],
+    ['forename', 'Vorname'],
+    ['lastname', 'Nachname'],
+    ['birthdate', 'Geburtsdatum'],
+    ['membershipStart', 'Mitgliedschaft'],
+    ['activityStart', 'Aktivität'],
+  ],
+  groups: [
+    ['name', 'Name'],
+    ['groupType', 'Gruppenart'],
+    ['start', 'Start'],
+    ['end', 'Ende'],
+  ],
+  'group-types': [
+    ['label', 'Name'],
+  ],
+  roles: [
+    ['label', 'Name'],
+    ['groupType', 'Gruppenart'],
+  ],
+  timepoints: [
+    ['name', 'Name'],
+    ['date', 'Datum'],
+  ],
+  users: [
+    ['username', 'Benutzername'],
+    ['passkeys', 'Passkeys'],
+    ['status', 'Status'],
+  ],
+};
+
+const collectionDefaultSorts = {
+  people: 'forename',
+  groups: 'name',
+  'group-types': 'label',
+  roles: 'label',
+  timepoints: 'date',
+  users: 'username',
+};
+
+const collectionDefaultSortDirections = {
+  timepoints: 'desc',
+};
+
 const state = {
   status: null,
   objects: Object.fromEntries(objectCollections.map((type) => [type, []])),
@@ -120,6 +163,7 @@ const state = {
   users: [],
   setupResult: null,
   createOpen: {},
+  collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirections[type] || 'asc', search: '', filters: {}, filtersOpen: false }])),
   editing: {},
   editTimers: {},
   exampleDataCreating: false,
@@ -174,7 +218,9 @@ document.addEventListener('click', handleObjectClick);
 document.addEventListener('pointermove', handleDateDetailPointerMove);
 document.addEventListener('pointerover', handleDateDetailPreview);
 document.addEventListener('pointerout', handleDateDetailPreviewEnd);
+document.addEventListener('input', handleCollectionControlInput);
 document.addEventListener('input', handleObjectInput);
+document.addEventListener('change', handleCollectionControlChange);
 document.addEventListener('change', handleReferencePickerChange);
 document.addEventListener('change', handleObjectChange);
 document.addEventListener('focusout', handleObjectBlur);
@@ -566,6 +612,7 @@ function render() {
   renderReferenceData();
   renderSystem();
   renderSectionCounts();
+  renderCollectionControls();
   renderObjectCollections();
   renderAdmin();
 }
@@ -862,12 +909,6 @@ function renderWarnings(warnings) {
 }
 
 function renderSectionCounts() {
-  const collections = state.status?.storage?.collections || {};
-  setText('#peopleCount', formatCount(collections.people, 'record'));
-  setText('#groupsCount', formatCount(collections.groups, 'record'));
-  setText('#groupTypesCount', formatCount(collections['group-types'], 'record'));
-  setText('#rolesCount', formatCount(collections.roles, 'record'));
-  setText('#timepointsCount', formatCount(collections.timepoints, 'record'));
   renderNavigationCounts();
 }
 
@@ -893,6 +934,142 @@ function renderNavigationCounts() {
   document.querySelector('.editor-nav')?.style.setProperty('--nav-count-width', `${maxCountLength}ch`);
 }
 
+function renderCollectionControls() {
+  collectionTypes.forEach((type) => {
+    const target = document.querySelector(`[data-collection-controls="${cssEscape(type)}"]`);
+    if (!target) {
+      return;
+    }
+
+    target.innerHTML = collectionControlsHtml(type);
+  });
+}
+
+function collectionControlsHtml(type) {
+  const ui = collectionUi(type);
+  const sortOptions = collectionSortOptions[type] || [[collectionDefaultSorts[type] || 'name', 'Name']];
+  const activeSort = sortOptions.some(([value]) => value === ui.sort) ? ui.sort : collectionDefaultSorts[type];
+  const controls = [
+    `
+      <label class="collection-control">
+        <span class="collection-filter-label">
+          <span>Sortierung</span>
+          <span class="collection-sort-direction">${escapeHtml(ui.sortDirection === 'desc' ? 'desc' : 'asc')}</span>
+          <button class="period-toggle" type="button" data-collection-sort-direction="${escapeAttribute(type)}" aria-label="${escapeAttribute(sortDirectionLabel(ui.sortDirection))}" title="${escapeAttribute(sortDirectionLabel(ui.sortDirection))}">(↻)</button>
+        </span>
+        <select data-collection-control data-collection-type="${escapeAttribute(type)}" data-collection-control-name="sort">
+          ${sortOptions.map(([value, label]) => `<option value="${escapeAttribute(value)}" ${activeSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+        </select>
+      </label>
+    `,
+    `
+      <label class="collection-control collection-control-wide">
+        <span>Suche</span>
+        <input type="search" value="${escapeAttribute(ui.search || '')}" placeholder="Suche" data-collection-control data-collection-type="${escapeAttribute(type)}" data-collection-control-name="search">
+      </label>
+    `,
+  ];
+
+  const filterControls = collectionFilterControls(type, ui.filters || {});
+  if (filterControls.length) {
+    const isOpen = Boolean(ui.filtersOpen);
+    controls.push(`
+      <section class="collection-filter-section ${isOpen ? 'is-open' : ''}">
+        <div class="collection-filter-title">
+          <button class="collection-filter-toggle" type="button" data-collection-filter-toggle="${escapeAttribute(type)}" aria-expanded="${isOpen ? 'true' : 'false'}">${isOpen ? 'Filter ausblenden' : 'Filter anzeigen'}</button>
+        </div>
+        <div class="collection-filter-controls" ${isOpen ? '' : 'hidden'}>
+          ${filterControls.join('')}
+        </div>
+      </section>
+    `);
+  }
+
+  return controls.join('');
+}
+
+function collectionFilterControls(type, filters) {
+  if (type === 'people') {
+    return [
+      collectionMultiSelectControl(type, 'membershipGroups', 'Mitgliedschaft', 'groups', filters.membershipGroups),
+      collectionMultiSelectControl(type, 'activityGroups', 'Aktivität', 'groups', filters.activityGroups),
+    ];
+  }
+
+  if (type === 'groups') {
+    return [
+      collectionMultiSelectControl(type, 'groupTypes', 'Gruppenart', 'group-types', filters.groupTypes),
+    ];
+  }
+
+  if (type === 'roles') {
+    return [
+      collectionMultiSelectControl(type, 'groupTypes', 'Gruppenart', 'group-types', filters.groupTypes),
+    ];
+  }
+
+  if (type === 'users') {
+    return [
+      collectionStaticSelectControl(type, 'permissions', 'Berechtigung', [
+        ['read', 'Lesen'],
+        ['write', 'Schreiben'],
+        ['sensitive', 'Sensible Daten'],
+        ['manage_users', 'Benutzer verwalten'],
+      ], filters.permissions, true),
+      collectionStaticSelectControl(type, 'status', 'Status', [
+        ['enabled', 'Aktiv'],
+        ['disabled', 'Inaktiv'],
+      ], filters.status, false),
+    ];
+  }
+
+  return [];
+}
+
+function collectionMultiSelectControl(type, name, label, collection, selectedValues = []) {
+  const selected = new Set(Array.isArray(selectedValues) ? selectedValues : []);
+  const objects = (state.objects[collection] || []).slice()
+    .sort((left, right) => sortCollator.compare(objectLabel(left, collection), objectLabel(right, collection)));
+
+  return `
+    <label class="collection-control">
+      <span class="collection-filter-label">
+        <span>${escapeHtml(label)}</span>
+        <button class="period-toggle" type="button" data-collection-clear-filter="${escapeAttribute(type)}" data-collection-filter-name="${escapeAttribute(name)}">(reset)</button>
+      </span>
+      <select multiple size="3" data-collection-control data-collection-type="${escapeAttribute(type)}" data-collection-control-name="${escapeAttribute(name)}">
+        ${objects.map((object) => {
+          const id = objectId(object);
+          return `<option value="${escapeAttribute(id)}" ${selected.has(id) ? 'selected' : ''}>${escapeHtml(referenceOptionLabel(object, collection, objects))}</option>`;
+        }).join('')}
+      </select>
+    </label>
+  `;
+}
+
+function collectionStaticSelectControl(type, name, label, options, selectedValues = [], multiple = false) {
+  const selected = new Set(Array.isArray(selectedValues) ? selectedValues : []);
+  const multipleAttrs = multiple ? 'multiple size="3"' : '';
+  const emptyOption = multiple ? '' : '<option value="">Alle</option>';
+
+  return `
+    <label class="collection-control">
+      <span class="collection-filter-label">
+        <span>${escapeHtml(label)}</span>
+        <button class="period-toggle" type="button" data-collection-clear-filter="${escapeAttribute(type)}" data-collection-filter-name="${escapeAttribute(name)}">(reset)</button>
+      </span>
+      <select ${multipleAttrs} data-collection-control data-collection-type="${escapeAttribute(type)}" data-collection-control-name="${escapeAttribute(name)}">
+        ${emptyOption}
+        ${options.map(([value, labelText]) => `<option value="${escapeAttribute(value)}" ${selected.has(value) ? 'selected' : ''}>${escapeHtml(labelText)}</option>`).join('')}
+      </select>
+    </label>
+  `;
+}
+
+function sortDirectionLabel(direction) {
+  return direction === 'desc' ? 'Absteigend sortiert, zu aufsteigend wechseln' : 'Aufsteigend sortiert, zu absteigend wechseln';
+}
+
 function renderObjectCollections() {
   objectCollections.forEach(renderObjectCollection);
 }
@@ -910,9 +1087,298 @@ function renderObjectCollection(type) {
     return;
   }
 
-  const objects = state.objects[type] || [];
+  const sourceObjects = state.objects[type] || [];
+  const objects = collectionObjects(type);
   list.innerHTML = objects.map((object) => renderObjectItem(type, object)).join('')
-    || `<div class="empty-state">Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.</div>`;
+    || `<div class="empty-state">${sourceObjects.length ? 'Keine Treffer.' : `Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.`}</div>`;
+}
+
+function collectionObjects(type) {
+  const objects = (state.objects[type] || []).filter((object) => collectionObjectMatches(type, object));
+  return objects.sort((left, right) => compareCollectionObjects(type, left, right));
+}
+
+function collectionObjectMatches(type, object) {
+  const ui = collectionUi(type);
+  const search = String(ui.search || '').trim().toLocaleLowerCase('de');
+  if (search && !collectionSearchText(type, object).toLocaleLowerCase('de').includes(search)) {
+    return false;
+  }
+
+  const filters = ui.filters || {};
+  if (type === 'people') {
+    return personMatchesGroupFilter(object, 'memberships', filters.membershipGroups)
+      && personMatchesGroupFilter(object, 'activities', filters.activityGroups);
+  }
+
+  if (type === 'groups') {
+    return objectMatchesAny(groupTypeIds(object), filters.groupTypes);
+  }
+
+  if (type === 'roles') {
+    return roleMatchesGroupTypeFilter(object, filters.groupTypes);
+  }
+
+  return true;
+}
+
+function collectionSearchText(type, object) {
+  return [
+    objectListTitle(type, object),
+    objectListMeta(type, object),
+    objectSummary(type, object),
+    objectId(object),
+    object.name,
+    object.label,
+    object.forename,
+    object.lastname,
+    object.scoutname,
+    object.description,
+  ].filter(Boolean).join(' ');
+}
+
+function personMatchesGroupFilter(person, field, selectedIds = []) {
+  if (!Array.isArray(selectedIds) || !selectedIds.length) {
+    return true;
+  }
+
+  return (Array.isArray(person[field]) ? person[field] : []).some((entry) => selectedIds.includes(periodEntryGroupId(entry)));
+}
+
+function objectMatchesAny(actualIds, selectedIds = []) {
+  if (!Array.isArray(selectedIds) || !selectedIds.length) {
+    return true;
+  }
+
+  return (actualIds || []).some((id) => selectedIds.includes(id));
+}
+
+function roleMatchesGroupTypeFilter(role, selectedIds = []) {
+  if (!Array.isArray(selectedIds) || !selectedIds.length) {
+    return true;
+  }
+
+  const roleIds = roleGroupTypeIds(role);
+  return !roleIds.length || objectMatchesAny(roleIds, selectedIds);
+}
+
+function compareCollectionObjects(type, left, right) {
+  const sort = collectionSortKey(type);
+  const leftValue = collectionSortValue(type, left, sort);
+  const rightValue = collectionSortValue(type, right, sort);
+  const compared = compareSortValues(leftValue, rightValue);
+  const result = compared || sortCollator.compare(objectListTitle(type, left), objectListTitle(type, right));
+  return collectionSortDirection(type) === 'desc' ? -result : result;
+}
+
+function collectionSortValue(type, object, sort) {
+  if (type === 'people') {
+    if (sort === 'forename') {
+      return object.forename || '';
+    }
+    if (sort === 'scoutname') {
+      return object.scoutname || object.forename || '';
+    }
+    if (sort === 'lastname') {
+      return object.lastname || '';
+    }
+    if (sort === 'birthdate') {
+      return dateSortKey(object.birthdate);
+    }
+    if (sort === 'membershipStart') {
+      return periodListFirstStartKey(object.memberships);
+    }
+    if (sort === 'activityStart') {
+      return periodListFirstStartKey(object.activities);
+    }
+  }
+
+  if (type === 'groups') {
+    if (sort === 'name') {
+      return object.name || '';
+    }
+    if (sort === 'groupType') {
+      return groupTypeLabel(object, state.groupTypes || []);
+    }
+    if (sort === 'start') {
+      return periodStartSortKey(object.mainPhase?.period);
+    }
+    if (sort === 'end') {
+      return periodEndSortKey(object.mainPhase?.period);
+    }
+  }
+
+  if (type === 'roles') {
+    if (sort === 'label') {
+      return object.label || '';
+    }
+    if (sort === 'groupType') {
+      return roleGroupTypeLabels(object).join(', ');
+    }
+  }
+
+  if (type === 'group-types' && sort === 'label') {
+    return object.label || '';
+  }
+
+  if (type === 'timepoints') {
+    if (sort === 'name') {
+      return object.name || '';
+    }
+    if (sort === 'date') {
+      return dateSortKey(object.date);
+    }
+  }
+
+  return objectListTitle(type, object);
+}
+
+function compareSortValues(left, right) {
+  const leftEmpty = left === null || left === undefined || left === '';
+  const rightEmpty = right === null || right === undefined || right === '';
+  if (leftEmpty || rightEmpty) {
+    return leftEmpty === rightEmpty ? 0 : (leftEmpty ? 1 : -1);
+  }
+
+  if (typeof left === 'number' && typeof right === 'number') {
+    return left - right;
+  }
+
+  return sortCollator.compare(String(left), String(right));
+}
+
+function periodListFirstStartKey(list) {
+  const first = Array.isArray(list) ? list[0] : null;
+  return periodStartSortKey(first?.period);
+}
+
+function periodStartSortKey(period) {
+  if (!period || typeof period !== 'object') {
+    return null;
+  }
+
+  return periodBoundarySortKey(period.startTimepoint, period.customStart);
+}
+
+function periodEndSortKey(period) {
+  if (!period || typeof period !== 'object') {
+    return null;
+  }
+
+  return periodBoundarySortKey(period.endTimepoint, period.customEnd);
+}
+
+function periodBoundarySortKey(timepointId, customDate) {
+  const timepoint = findReferenceObject('timepoints', timepointId);
+  return dateSortKey(timepoint?.date || customDate);
+}
+
+function dateSortKey(value) {
+  const parts = datePartsFromRaw(dateRawString(value));
+  if (!parts || parts.year === '0000') {
+    return null;
+  }
+
+  return Number(parts.year) * 10000 + Number(parts.month) * 100 + Number(parts.day);
+}
+
+function periodEntryGroupId(entry) {
+  return entry?.group || entry?.groupId || entry?.group_id || '';
+}
+
+function collectionUi(type) {
+  if (!state.collectionUi[type]) {
+    state.collectionUi[type] = { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirections[type] || 'asc', search: '', filters: {}, filtersOpen: false };
+  }
+
+  if (state.collectionUi[type].sort === 'title' || !state.collectionUi[type].sort) {
+    state.collectionUi[type].sort = collectionDefaultSorts[type];
+  }
+
+  if (!['asc', 'desc'].includes(state.collectionUi[type].sortDirection)) {
+    state.collectionUi[type].sortDirection = collectionDefaultSortDirections[type] || 'asc';
+  }
+
+  state.collectionUi[type].filters = state.collectionUi[type].filters || {};
+  state.collectionUi[type].filtersOpen = Boolean(state.collectionUi[type].filtersOpen);
+  return state.collectionUi[type];
+}
+
+function collectionSortKey(type) {
+  const ui = collectionUi(type);
+  const options = collectionSortOptions[type] || [];
+  return options.some(([value]) => value === ui.sort) ? ui.sort : collectionDefaultSorts[type];
+}
+
+function collectionSortDirection(type) {
+  return collectionUi(type).sortDirection === 'desc' ? 'desc' : 'asc';
+}
+
+function collectionUsers() {
+  return state.users
+    .filter((user) => collectionUserMatches(user))
+    .sort((left, right) => compareUsers(left, right));
+}
+
+function collectionUserMatches(user) {
+  const ui = collectionUi('users');
+  const search = String(ui.search || '').trim().toLocaleLowerCase('de');
+  if (search && !userSearchText(user).toLocaleLowerCase('de').includes(search)) {
+    return false;
+  }
+
+  const filters = ui.filters || {};
+  if (Array.isArray(filters.permissions) && filters.permissions.length) {
+    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+    if (!filters.permissions.some((permission) => permissions.includes(permission))) {
+      return false;
+    }
+  }
+
+  if (Array.isArray(filters.status) && filters.status.length) {
+    const status = user.enabled ? 'enabled' : 'disabled';
+    if (!filters.status.includes(status)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function compareUsers(left, right) {
+  const sort = collectionSortKey('users');
+  const compared = compareSortValues(userSortValue(left, sort), userSortValue(right, sort));
+  const result = compared || sortCollator.compare(userTitle(left), userTitle(right));
+  return collectionSortDirection('users') === 'desc' ? -result : result;
+}
+
+function userSortValue(user, sort) {
+  if (sort === 'username') {
+    return user.username || '';
+  }
+
+  if (sort === 'passkeys') {
+    return Number(user.credential_count || 0);
+  }
+
+  if (sort === 'status') {
+    return user.enabled ? 'aktiv' : 'inaktiv';
+  }
+
+  return userTitle(user);
+}
+
+function userTitle(user) {
+  return user.display_name || user.username || '(kein Benutzername)';
+}
+
+function userSearchText(user) {
+  return [
+    userTitle(user),
+    user.username,
+    user.enabled ? 'aktiv' : 'inaktiv',
+    ...(Array.isArray(user.permissions) ? user.permissions : []),
+  ].filter(Boolean).join(' ');
 }
 
 function renderObjectItem(type, object) {
@@ -1632,6 +2098,44 @@ function markDateControlChanged(input) {
 }
 
 async function handleObjectClick(event) {
+  const filterToggle = event.target.closest('[data-collection-filter-toggle]');
+  if (filterToggle) {
+    const type = filterToggle.dataset.collectionFilterToggle;
+    const ui = collectionUi(type);
+    ui.filtersOpen = !ui.filtersOpen;
+    renderCollectionControls();
+    return;
+  }
+
+  const sortDirectionButton = event.target.closest('[data-collection-sort-direction]');
+  if (sortDirectionButton) {
+    const type = sortDirectionButton.dataset.collectionSortDirection;
+    const ui = collectionUi(type);
+    ui.sortDirection = ui.sortDirection === 'desc' ? 'asc' : 'desc';
+    renderCollectionControls();
+    if (type === 'users') {
+      renderUserList();
+    } else {
+      renderObjectCollection(type);
+    }
+    return;
+  }
+
+  const clearFilterButton = event.target.closest('[data-collection-clear-filter]');
+  if (clearFilterButton) {
+    const type = clearFilterButton.dataset.collectionClearFilter;
+    const name = clearFilterButton.dataset.collectionFilterName;
+    const ui = collectionUi(type);
+    delete ui.filters[name];
+    renderCollectionControls();
+    if (type === 'users') {
+      renderUserList();
+    } else {
+      renderObjectCollection(type);
+    }
+    return;
+  }
+
   const dateDetailButton = event.target.closest('[data-date-detail-action]');
   if (dateDetailButton) {
     handleDateDetailAction(dateDetailButton);
@@ -2207,6 +2711,47 @@ function ownerContextForElement(element) {
   }
 
   return { ownerType, ownerObject };
+}
+
+function handleCollectionControlInput(event) {
+  const control = event.target.closest('[data-collection-control]');
+  if (!control || control.dataset.collectionControlName !== 'search') {
+    return;
+  }
+
+  updateCollectionControl(control);
+}
+
+function handleCollectionControlChange(event) {
+  const control = event.target.closest('[data-collection-control]');
+  if (!control) {
+    return;
+  }
+
+  updateCollectionControl(control);
+}
+
+function updateCollectionControl(control) {
+  const type = control.dataset.collectionType;
+  const name = control.dataset.collectionControlName;
+  if (!type || !name) {
+    return;
+  }
+
+  const ui = collectionUi(type);
+  if (name === 'sort') {
+    ui.sort = control.value || collectionDefaultSorts[type];
+  } else if (name === 'search') {
+    ui.search = control.value || '';
+  } else {
+    ui.filters[name] = Array.from(control.selectedOptions || []).map((option) => option.value).filter(Boolean);
+  }
+
+  if (type === 'users') {
+    renderUserList();
+  } else {
+    renderObjectCollection(type);
+  }
 }
 
 async function handleObjectInput(event) {
@@ -3466,14 +4011,18 @@ function renderAdmin() {
     return;
   }
 
-  setText('#userAdminCount', formatCount(state.users.length, 'user'));
+  renderCollectionControls();
   renderNavigationCounts();
   renderSetupResult();
+  renderUserList();
+}
 
-  userList.innerHTML = state.users.map((user) => `
+function renderUserList() {
+  const users = collectionUsers();
+  userList.innerHTML = users.map((user) => `
     <article class="list-item" data-user-id="${escapeHtml(user.id)}">
       <div>
-        <h3>${escapeHtml(user.display_name || user.username || '(kein Benutzername)')}</h3>
+        <h3>${escapeHtml(userTitle(user))}</h3>
         <small>${escapeHtml(user.username || 'Benutzername offen')} / ${formatCount(user.credential_count, 'passkey')} / ${user.enabled ? 'aktiv' : 'inaktiv'}</small>
         <label class="inline-field">
           <span>Anzeigename</span>
@@ -3489,7 +4038,7 @@ function renderAdmin() {
         <button class="button button-secondary" type="button" data-action="toggle">${user.enabled ? 'Deaktivieren' : 'Aktivieren'}</button>
       </div>
     </article>
-  `).join('') || '<div class="empty-state">Keine Benutzer.</div>';
+  `).join('') || `<div class="empty-state">${state.users.length ? 'Keine Treffer.' : 'Keine Benutzer.'}</div>`;
 }
 
 function renderPermissionCheckboxes(permissions) {
