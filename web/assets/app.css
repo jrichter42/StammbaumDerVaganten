@@ -741,6 +741,34 @@ h3 {
   font-size: 0.88rem;
 }
 
+.reverse-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.reverse-column {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(15, 20, 24, 0.58);
+}
+
+.reverse-column strong {
+  font-size: 0.82rem;
+}
+
+.reverse-column strong span {
+  color: var(--brand-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.reverse-column small {
+  color: var(--muted);
+}
+
 .object-create {
   border-bottom: 1px solid var(--line);
   background: var(--surface-raised);

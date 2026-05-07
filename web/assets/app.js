@@ -1398,6 +1398,7 @@ function renderObjectItem(type, object) {
           <span class="tag">${escapeHtml(objectTypeLabels[type] || labels[type] || type)}</span>
         </div>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
+        ${type === 'groups' ? renderGroupReverseView(object) : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
         <p class="object-save-state" data-save-state hidden></p>
       </div>
@@ -1409,6 +1410,61 @@ function renderObjectItem(type, object) {
       </div>
     </article>
   `;
+}
+
+function renderGroupReverseView(group) {
+  const groupId = objectId(group);
+  const memberships = [];
+  const activities = [];
+
+  (state.objects.people || []).forEach((person) => {
+    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
+      if (periodEntryGroupId(membership) === groupId) {
+        memberships.push({ person, period: membership.period });
+      }
+    });
+
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+      if (periodEntryGroupId(activity) === groupId) {
+        activities.push({ person, role: findReferenceObject('roles', activity.role), period: activity.period });
+      }
+    });
+  });
+
+  if (!memberships.length && !activities.length) {
+    return '';
+  }
+
+  return `
+    <div class="reverse-view" aria-label="Abgeleitete Gruppendaten">
+      ${renderReverseColumn('Mitglieder', memberships.map((entry) => reversePersonLine(entry.person, entry.period)))}
+      ${renderReverseColumn('Aktivitäten', activities.map((entry) => reverseActivityLine(entry)))}
+    </div>
+  `;
+}
+
+function renderReverseColumn(title, lines) {
+  const visible = lines.filter(Boolean).slice(0, 4);
+  const more = lines.length > visible.length ? `+${lines.length - visible.length} weitere` : '';
+  return `
+    <section class="reverse-column">
+      <strong>${escapeHtml(title)} <span>${lines.length}</span></strong>
+      ${visible.map((line) => `<small>${escapeHtml(line)}</small>`).join('')}
+      ${more ? `<small>${escapeHtml(more)}</small>` : ''}
+    </section>
+  `;
+}
+
+function reversePersonLine(person, period) {
+  return [objectListTitle('people', person), periodYearLabel(period)].filter(Boolean).join(' · ');
+}
+
+function reverseActivityLine(entry) {
+  return [
+    objectListTitle('people', entry.person),
+    objectLabel(entry.role, 'roles'),
+    periodYearLabel(entry.period),
+  ].filter(Boolean).join(' · ');
 }
 
 function renderObjectEditor(type, object) {
