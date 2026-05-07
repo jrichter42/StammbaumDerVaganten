@@ -264,6 +264,7 @@ document.addEventListener('pointermove', handleDateDetailPointerMove);
 document.addEventListener('pointerover', handleDateDetailPreview);
 document.addEventListener('pointerout', handleDateDetailPreviewEnd);
 document.addEventListener('input', handleCollectionControlInput);
+document.addEventListener('input', handleReferenceFilterInput);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleCollectionControlChange);
 document.addEventListener('change', handleReferencePickerChange);
@@ -2056,12 +2057,13 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
   ].filter(Boolean).join(' ');
 
   return `
-    <label class="object-field" for="${escapeAttribute(id)}">
+    <div class="object-field reference-field" data-reference-field>
       ${labelHtml}
+      <input class="reference-filter" type="search" data-reference-filter placeholder="Auswahl filtern" aria-label="${escapeAttribute(label ? `${label} filtern` : 'Auswahl filtern')}" autocomplete="off">
       <select id="${escapeAttribute(id)}" ${attrs} ${labelAttr}>
         ${referenceOptions(collection, showIds, { ...optionConfig, currentValue: storedValue })}
       </select>
-    </label>
+    </div>
   `;
 }
 
@@ -2186,12 +2188,36 @@ function referencePickerObjects(collection, config = {}) {
 function referenceOptionLabel(object, collection, objects, showIds = false) {
   const label = objectLabel(object, collection);
   const duplicate = objects.filter((candidate) => objectLabel(candidate, collection) === label).length > 1;
-  if (!showIds && !duplicate) {
-    return label;
+  const id = objectId(object);
+  const detail = referenceOptionDetail(object, collection);
+  const disambiguator = showIds || duplicate ? shortObjectId(id) : '';
+  return [
+    label && label !== id ? label : id,
+    detail,
+    disambiguator,
+  ].filter(Boolean).join(' · ');
+}
+
+function referenceOptionDetail(object, collection) {
+  if (collection === 'groups') {
+    const period = periodYearLabel(object.mainPhase?.period);
+    return [groupTypeLabel(object, state.groupTypes || []), period].filter(Boolean).join(', ');
   }
 
-  const id = objectId(object);
-  return label && label !== id ? `${label} (${shortObjectId(id)})` : id;
+  if (collection === 'roles') {
+    const labels = roleGroupTypeLabels(object);
+    return labels.length ? `für ${labels.join(', ')}` : 'für alle Gruppenarten';
+  }
+
+  if (collection === 'timepoints') {
+    return dateDisplayValue(object.date);
+  }
+
+  if (collection === 'people' && object.birthdate) {
+    return `geboren ${dateDisplayValue(object.birthdate)}`;
+  }
+
+  return '';
 }
 
 function shortObjectId(id) {
@@ -3514,6 +3540,16 @@ function clearActivityPicker(editor, nestedField) {
   }
 }
 
+function handleReferenceFilterInput(event) {
+  const input = event.target.closest('[data-reference-filter]');
+  if (!input) {
+    return;
+  }
+
+  const select = input.closest('[data-reference-field]')?.querySelector('[data-reference-input]');
+  filterReferenceOptions(select, input.value);
+}
+
 function updateReferenceSelectOptions(select) {
   const current = referenceSelectValue(select);
   const collection = select.dataset.referenceCollection || '';
@@ -3522,6 +3558,23 @@ function updateReferenceSelectOptions(select) {
   const nextValue = referenceValueInScope(collection, current, config) ? current : '';
   select.innerHTML = referenceOptions(collection, showIds, { ...config, currentValue: nextValue });
   select.value = Array.from(select.options).some((option) => option.value === nextValue) ? nextValue : '';
+  filterReferenceOptions(select, select.closest('[data-reference-field]')?.querySelector('[data-reference-filter]')?.value || '');
+}
+
+function filterReferenceOptions(select, query) {
+  if (!select) {
+    return;
+  }
+
+  const needle = String(query || '').trim().toLocaleLowerCase('de');
+  Array.from(select.options).forEach((option) => {
+    const isControlOption = !option.value || option.value.startsWith('__picker_');
+    const isSelected = option.value && option.value === select.value;
+    option.hidden = Boolean(needle)
+      && !isControlOption
+      && !isSelected
+      && !option.textContent.toLocaleLowerCase('de').includes(needle);
+  });
 }
 
 function referenceValueInScope(collection, value, config = {}) {

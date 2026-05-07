@@ -1015,6 +1015,21 @@ button.object-title-row:focus-visible {
   cursor: pointer;
 }
 
+.reference-field {
+  align-content: start;
+}
+
+.reference-filter {
+  min-height: 30px !important;
+  padding-block: 5px !important;
+  color: var(--muted) !important;
+  background: rgba(15, 20, 24, 0.72) !important;
+}
+
+.reference-filter:focus-visible {
+  color: var(--text) !important;
+}
+
 .date-control {
   display: grid;
   grid-template-columns: minmax(11ch, 1fr) max-content;
