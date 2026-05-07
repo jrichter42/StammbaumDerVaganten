@@ -1147,6 +1147,11 @@ h3 {
   color: var(--text);
 }
 
+.period-save-timepoint {
+  display: inline-block;
+  margin-top: 6px;
+}
+
 .icon-button {
   width: 32px;
   min-width: 32px;

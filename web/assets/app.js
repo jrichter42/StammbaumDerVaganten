@@ -1977,6 +1977,9 @@ function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepo
   const action = mode === 'custom' ? 'use-timepoint' : 'custom-date';
   const actionLabel = mode === 'custom' ? 'zu Zeitpunkt wechseln' : 'zu Datum wechseln';
   const actionHtml = `<button class="period-toggle" type="button" data-period-action="${escapeAttribute(action)}">(${escapeHtml(actionLabel)})</button>`;
+  const saveTimepointHtml = mode === 'custom'
+    ? '<button class="period-toggle period-save-timepoint" type="button" data-period-action="save-timepoint">(als Zeitpunkt speichern)</button>'
+    : '';
 
   return `
     <div class="period-boundary" data-period-boundary="${escapeAttribute(timepointField)}" data-period-mode="${escapeAttribute(mode)}">
@@ -1985,6 +1988,7 @@ function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepo
       </div>
       <div data-period-custom${customHidden}>
         ${renderNestedDateControl(`${idBase}-custom`, label, dateValue, dateField, false, actionHtml)}
+        ${saveTimepointHtml}
       </div>
     </div>
   `;
@@ -2292,7 +2296,7 @@ async function handleObjectClick(event) {
 
   const periodButton = event.target.closest('[data-period-action]');
   if (periodButton) {
-    handlePeriodModeAction(periodButton);
+    await handlePeriodModeAction(periodButton);
     return;
   }
 
@@ -2434,7 +2438,7 @@ function scrollObjectEditorIntoView(type, id, listId = '') {
   });
 }
 
-function handlePeriodModeAction(button) {
+async function handlePeriodModeAction(button) {
   const boundary = button.closest('[data-period-boundary]');
   if (!boundary) {
     return;
@@ -2491,6 +2495,52 @@ function handlePeriodModeAction(button) {
     setPeriodBoundaryMode(boundary, 'timepoint');
     setPeriodBoundaryAction(boundary, 'custom-date', 'zu Datum wechseln');
     markPeriodBoundaryChanged(boundary);
+    refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), timepointInput);
+  }
+
+  if (action === 'save-timepoint') {
+    await saveBoundaryTimepoint(boundary);
+  }
+}
+
+async function saveBoundaryTimepoint(boundary) {
+  const dateInput = boundary.querySelector('[data-period-custom] [data-date-control]');
+  const raw = dateInput ? readDateControlRaw(dateInput) : '';
+  if (!raw) {
+    return;
+  }
+
+  const name = window.prompt('Name für Zeitpunkt', `Zeitpunkt ${dateDisplayValue(raw)}`)?.trim();
+  if (!name) {
+    return;
+  }
+
+  const dateField = dateInput.dataset.nestedField || '';
+  const timepointField = boundary.dataset.periodBoundary || '';
+  const response = await postJson('object-create', {
+    type: 'timepoints',
+    object: { name, date: readDateValue(raw), _certainty: 'confident' },
+  });
+
+  await loadObjects();
+
+  const timepointId = objectId(response.object);
+  const timepointInput = boundary.querySelector('[data-period-timepoint] [data-reference-input]');
+  if (timepointInput) {
+    timepointInput.dataset.referenceValue = timepointId;
+    timepointInput.innerHTML = referenceOptions('timepoints', timepointInput.dataset.referenceShowIds === '1', { currentValue: timepointId });
+    timepointInput.value = timepointId;
+  }
+  if (dateInput) {
+    clearDateControl(dateInput);
+  }
+
+  setPeriodBoundaryMode(boundary, 'timepoint');
+  setPeriodBoundaryAction(boundary, 'custom-date', 'zu Datum wechseln');
+  boundary.querySelector('.period-save-timepoint')?.remove();
+  markPeriodBoundaryChanged(boundary);
+
+  if (dateField || timepointField) {
     refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), timepointInput);
   }
 }
