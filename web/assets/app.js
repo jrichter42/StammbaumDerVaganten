@@ -201,6 +201,7 @@ const state = {
   setupResult: null,
   createOpen: {},
   collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, sortExplicit: false }])),
+  collectionVisibleCounts: Object.fromEntries(collectionTypes.map((type) => [type, 80])),
   deepLinkTarget: null,
   editing: {},
   relationshipEditing: {},
@@ -1456,7 +1457,12 @@ function renderObjectCollection(type) {
 
   const sourceObjects = state.objects[type] || [];
   const objects = collectionObjects(type);
-  list.innerHTML = renderObjectListItems(type, objects)
+  const visibleCount = collectionVisibleCount(type);
+  const visibleObjects = objects.slice(0, visibleCount);
+  const more = objects.length > visibleObjects.length
+    ? renderCollectionMoreButton(type, objects.length - visibleObjects.length)
+    : '';
+  list.innerHTML = renderObjectListItems(type, visibleObjects) + more
     || `<div class="empty-state">${sourceObjects.length ? 'Keine Treffer.' : `Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.`}</div>`;
 }
 
@@ -1472,6 +1478,21 @@ function renderObjectListItems(type, objects) {
     currentYear = year;
     return `${header}${renderObjectItem(type, object)}`;
   }).join('');
+}
+
+function collectionVisibleCount(type) {
+  const count = Number(state.collectionVisibleCounts[type] || 80);
+  return Math.max(40, count);
+}
+
+function renderCollectionMoreButton(type, remaining) {
+  return `
+    <div class="list-more">
+      <button class="button button-secondary" type="button" data-collection-more="${escapeAttribute(type)}">
+        Mehr anzeigen (${Math.min(80, remaining)} von ${remaining})
+      </button>
+    </div>
+  `;
 }
 
 function collectionObjects(type) {
@@ -3038,6 +3059,14 @@ async function handleObjectClick(event) {
     return;
   }
 
+  const moreButton = event.target.closest('[data-collection-more]');
+  if (moreButton) {
+    const type = moreButton.dataset.collectionMore;
+    state.collectionVisibleCounts[type] = collectionVisibleCount(type) + 80;
+    renderObjectCollection(type);
+    return;
+  }
+
   const periodButton = event.target.closest('[data-period-action]');
   if (periodButton) {
     await handlePeriodModeAction(periodButton);
@@ -3982,6 +4011,7 @@ function updateCollectionControl(control) {
   } else {
     ui.filters[name] = Array.from(control.selectedOptions || []).map((option) => option.value).filter(Boolean);
   }
+  state.collectionVisibleCounts[type] = 80;
 
   if (shouldRenderControls) {
     renderCollectionControls();

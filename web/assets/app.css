@@ -958,6 +958,13 @@ h3 {
   background: var(--surface-raised);
 }
 
+.list-more {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: var(--surface);
+}
+
 .list-item small {
   color: var(--muted);
 }
