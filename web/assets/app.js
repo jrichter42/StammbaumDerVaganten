@@ -1786,6 +1786,7 @@ function renderObjectItem(type, object) {
   const titleAttrs = canWrite
     ? `type="button" data-object-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}"`
     : '';
+  const warnings = objectValidationWarnings(type, object);
 
   return `
     <article class="list-item object-item ${canWrite ? 'is-clickable' : ''} ${isEditing ? 'is-editing' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}">
@@ -1799,6 +1800,7 @@ function renderObjectItem(type, object) {
           <small class="object-modified" data-object-modified ${modified ? '' : 'hidden'}>${objectModifiedHtml(object)}</small>
         </${titleTag}>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
+        ${warnings.length ? renderObjectValidationWarnings(warnings) : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
         ${type === 'groups' ? renderGroupReverseView(object) : ''}
         ${type === 'timepoints' ? renderTimepointReverseView(object) : ''}
@@ -1986,6 +1988,14 @@ function periodBoundaryMatchesTimepoint(timepoint, period, boundary) {
     (timepointId && period[referenceField] === timepointId)
     || (timepointRaw && dateRawString(period[dateField]) === timepointRaw)
   );
+}
+
+function renderObjectValidationWarnings(warnings) {
+  return `
+    <ul class="object-validation" aria-label="Datenwarnungen">
+      ${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}
+    </ul>
+  `;
 }
 
 function renderObjectEditor(type, object) {
@@ -5312,6 +5322,71 @@ function personRelationshipSpan(person) {
 
 function objectSummary(type, object) {
   return object.description || '';
+}
+
+function objectValidationWarnings(type, object) {
+  const warnings = [];
+
+  if (type === 'groups') {
+    collectPeriodWarnings(warnings, object.mainPhase?.period, 'Hauptphase');
+    (Array.isArray(object.additionalPhases) ? object.additionalPhases : []).forEach((phase, index) => {
+      collectPeriodWarnings(warnings, phase?.period, `Weitere Phase ${index + 1}`);
+    });
+  }
+
+  if (type === 'people') {
+    const birthYear = birthYearFromDateValue(object.birthdate);
+    (Array.isArray(object.memberships) ? object.memberships : []).forEach((membership, index) => {
+      const label = `Mitgliedschaft ${index + 1}`;
+      collectPeriodWarnings(warnings, membership?.period, label);
+      collectBirthPeriodWarning(warnings, birthYear, membership?.period, label);
+      collectGroupPeriodWarning(warnings, membership?.group, membership?.period, label);
+    });
+
+    (Array.isArray(object.activities) ? object.activities : []).forEach((activity, index) => {
+      const label = `Aktivität ${index + 1}`;
+      collectPeriodWarnings(warnings, activity?.period, label);
+      collectBirthPeriodWarning(warnings, birthYear, activity?.period, label);
+      collectGroupPeriodWarning(warnings, activity?.group, activity?.period, label);
+      collectActivityRoleWarning(warnings, activity);
+    });
+  }
+
+  return [...new Set(warnings)];
+}
+
+function collectPeriodWarnings(warnings, period, label) {
+  const start = periodStartYear(period);
+  const end = periodEndYear(period);
+  if (start && end && start > end) {
+    warnings.push(`${label}: Ende liegt vor Start.`);
+  }
+}
+
+function collectBirthPeriodWarning(warnings, birthYear, period, label) {
+  const start = periodStartYear(period);
+  if (birthYear && start && start < birthYear) {
+    warnings.push(`${label}: Start liegt vor Geburtsjahr.`);
+  }
+}
+
+function collectGroupPeriodWarning(warnings, groupId, period, label) {
+  const group = findReferenceObject('groups', groupId);
+  if (!group || !periodHasValue(period)) {
+    return;
+  }
+
+  if (!groupCouldOverlapPeriod(group, period)) {
+    warnings.push(`${label}: Zeitraum passt nicht zur Gruppenlaufzeit.`);
+  }
+}
+
+function collectActivityRoleWarning(warnings, activity) {
+  const role = findReferenceObject('roles', activity?.role);
+  const group = findReferenceObject('groups', activity?.group);
+  if (role && group && !roleUsableForGroup(role, group)) {
+    warnings.push('Aktivität: Rolle passt nicht zur Gruppenart.');
+  }
 }
 
 function roleGroupTypeLabels(role) {
