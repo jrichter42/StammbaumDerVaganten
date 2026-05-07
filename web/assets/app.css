@@ -119,11 +119,73 @@ h3 {
 }
 
 .topbar-actions {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.global-search {
+  position: relative;
+}
+
+.global-search input {
+  width: min(34vw, 280px);
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: #0f1418;
+}
+
+.global-search input:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+.global-search-results {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  width: min(420px, 88vw);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.global-search-results button {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.global-search-results button:hover,
+.global-search-results button:focus-visible {
+  background: var(--surface-raised);
+  outline: 0;
+}
+
+.global-search-results span,
+.global-search-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.global-search-empty {
+  padding: 10px;
 }
 
 .button,

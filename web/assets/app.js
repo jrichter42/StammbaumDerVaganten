@@ -215,6 +215,9 @@ const authScreen = document.querySelector('#authScreen');
 const publicOverview = document.querySelector('#publicOverview');
 const workspace = document.querySelector('#workspace');
 const authMessage = document.querySelector('#authMessage');
+const globalSearch = document.querySelector('#globalSearch');
+const globalSearchInput = document.querySelector('#globalSearchInput');
+const globalSearchResults = document.querySelector('#globalSearchResults');
 const setupForm = document.querySelector('#setupForm');
 const setupPanel = document.querySelector('#setupPanel');
 const setupInput = document.querySelector('#setupInput');
@@ -246,11 +249,13 @@ document.querySelectorAll('[data-view]').forEach((button) => {
 loginButton.addEventListener('click', beginLogin);
 passkeyLoginButton.addEventListener('click', beginLogin);
 logoutButton.addEventListener('click', logout);
+globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
 setupForm.addEventListener('submit', beginSetup);
 createUserForm.addEventListener('submit', createUser);
 setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
 document.addEventListener('click', handleNavigationJump);
+document.addEventListener('click', handleGlobalSearchClick);
 document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
 document.addEventListener('pointermove', handleDateDetailPointerMove);
@@ -411,6 +416,61 @@ function activeViewHasOpenEditor(viewName) {
   return Boolean(view?.querySelector('[data-object-editor], [data-create-form]'));
 }
 
+function handleGlobalSearchClick(event) {
+  const button = event.target.closest('[data-global-search-result]');
+  if (!button) {
+    if (!event.target.closest('#globalSearch')) {
+      hideGlobalSearchResults();
+    }
+    return;
+  }
+
+  const type = button.dataset.globalSearchType;
+  const id = button.dataset.globalSearchId;
+  if (!type || !id) {
+    return;
+  }
+
+  activateView(type);
+  hideGlobalSearchResults();
+  globalSearchInput.value = '';
+  window.requestAnimationFrame(() => {
+    document.querySelector(`[data-object-type="${cssEscape(type)}"][data-object-id="${cssEscape(id)}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
+function renderGlobalSearchResults() {
+  if (!globalSearchResults) {
+    return;
+  }
+
+  const query = String(globalSearchInput?.value || '').trim().toLocaleLowerCase('de');
+  if (query.length < 2) {
+    hideGlobalSearchResults();
+    return;
+  }
+
+  const matches = objectCollections.flatMap((type) => (state.objects[type] || []).map((object) => ({ type, object })))
+    .filter(({ type, object }) => collectionSearchText(type, object).toLocaleLowerCase('de').includes(query))
+    .slice(0, 10);
+
+  globalSearchResults.hidden = false;
+  globalSearchResults.innerHTML = matches.map(({ type, object }) => `
+    <button type="button" data-global-search-result data-global-search-type="${escapeAttribute(type)}" data-global-search-id="${escapeAttribute(objectId(object))}">
+      <strong>${escapeHtml(objectListTitle(type, object))}</strong>
+      <span>${escapeHtml([labels[type] || type, objectListMeta(type, object)].filter(Boolean).join(' · '))}</span>
+    </button>
+  `).join('') || '<div class="global-search-empty">Keine Treffer</div>';
+}
+
+function hideGlobalSearchResults() {
+  if (globalSearchResults) {
+    globalSearchResults.hidden = true;
+    globalSearchResults.innerHTML = '';
+  }
+}
+
 async function refresh() {
   setConnection('Lädt', '');
   clearAuthMessage();
@@ -447,6 +507,9 @@ function renderShell() {
   publicOverview.hidden = Boolean(user) || isSetupPage;
   workspace.hidden = !user;
   connectionStatus.hidden = !user;
+  if (globalSearch) {
+    globalSearch.hidden = !user;
+  }
   loginButton.hidden = Boolean(user);
   logoutButton.hidden = !user;
   currentUserLabel.hidden = !user;

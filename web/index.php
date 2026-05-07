@@ -31,6 +31,10 @@ $configWarnings = array_map(
           <a class="version-chip" href="https://github.stammbaumdervaganten.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a>
         </div>
         <div class="topbar-actions" aria-label="App-Status">
+          <div class="global-search" id="globalSearch" hidden>
+            <input id="globalSearchInput" type="search" placeholder="Alles suchen" autocomplete="off" aria-label="Alle Daten durchsuchen">
+            <div class="global-search-results" id="globalSearchResults" hidden></div>
+          </div>
           <span class="status-pill" id="connectionStatus">Lädt</span>
           <span class="status-pill" id="currentUserLabel" hidden></span>
           <button class="button button-secondary" id="loginButton" type="button" hidden>Login</button>
