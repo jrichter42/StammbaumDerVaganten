@@ -2240,6 +2240,10 @@ function markDateControlChanged(input) {
 }
 
 async function handleObjectClick(event) {
+  if (!event.target.closest('[data-danger-confirm]')) {
+    resetDangerConfirmations();
+  }
+
   const filterToggle = event.target.closest('[data-collection-filter-toggle]');
   if (filterToggle) {
     const type = filterToggle.dataset.collectionFilterToggle;
@@ -2344,7 +2348,11 @@ async function handleObjectClick(event) {
   }
 
   if (action === 'delete') {
-    showDeleteConfirm(item);
+    if (!confirmDangerButton(button)) {
+      return;
+    }
+    await deleteObject(item);
+    resetDangerConfirmations();
     return;
   }
 
@@ -2554,6 +2562,10 @@ function handleListAction(button) {
   }
 
   if (button.dataset.listAction === 'remove') {
+    if (!confirmDangerButton(button)) {
+      return;
+    }
+
     const item = button.closest('[data-list-item]');
     const personKey = relationshipPersonKeyFromFieldRoot(fieldRoot);
     if (personKey) {
@@ -2579,6 +2591,40 @@ function handleListAction(button) {
   }
 
   markCompositeChanged(fieldRoot);
+}
+
+function confirmDangerButton(button) {
+  if (button.dataset.dangerConfirm === '1') {
+    return true;
+  }
+
+  resetDangerConfirmations(button);
+  button.dataset.dangerConfirm = '1';
+  button.dataset.dangerConfirmText = button.textContent;
+  button.dataset.dangerConfirmLabel = button.getAttribute('aria-label') || '';
+  button.textContent = '?';
+  button.setAttribute('aria-label', 'Bestätigen');
+  button.classList.add('is-confirming');
+  return false;
+}
+
+function resetDangerConfirmations(exceptButton = null) {
+  document.querySelectorAll('[data-danger-confirm="1"]').forEach((button) => {
+    if (button === exceptButton) {
+      return;
+    }
+
+    button.textContent = button.dataset.dangerConfirmText || button.textContent;
+    if (button.dataset.dangerConfirmLabel) {
+      button.setAttribute('aria-label', button.dataset.dangerConfirmLabel);
+    } else {
+      button.removeAttribute('aria-label');
+    }
+    delete button.dataset.dangerConfirm;
+    delete button.dataset.dangerConfirmText;
+    delete button.dataset.dangerConfirmLabel;
+    button.classList.remove('is-confirming');
+  });
 }
 
 function isRelationshipListField(fieldRoot) {

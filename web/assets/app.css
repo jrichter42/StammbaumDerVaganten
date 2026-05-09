@@ -186,6 +186,14 @@ h3 {
   background: #ef8178;
 }
 
+.button-danger.is-confirming,
+.icon-button-danger.is-confirming {
+  color: #190403;
+  background: #ef8178;
+  border-color: rgba(255, 213, 209, 0.72);
+  font-weight: 800;
+}
+
 .button:focus-visible,
 .nav-item:focus-visible,
 .period-toggle:focus-visible {
