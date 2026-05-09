@@ -165,6 +165,7 @@ const state = {
   createOpen: {},
   collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirections[type] || 'asc', search: '', filters: {}, filtersOpen: false }])),
   editing: {},
+  relationshipEditing: {},
   editTimers: {},
   exampleDataCreating: false,
 };
@@ -1800,14 +1801,15 @@ function renderGroupPhaseField(field, value, context = {}) {
 }
 
 function renderObjectListField(field, value, context = {}) {
-  const values = Array.isArray(value) && value.length ? value : [{}];
+  const useBlankStarter = !['membership-list', 'activity-list'].includes(field.kind);
+  const values = Array.isArray(value) && value.length ? value : (useBlankStarter ? [{}] : []);
   return `
     <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
       <div class="composite-header">
         <span>${escapeHtml(field.label)}</span>
       </div>
       <div class="composite-list" data-list-items>
-        ${values.map((itemValue) => renderComplexListItem(field.kind, itemValue, context)).join('')}
+        ${values.map((itemValue, index) => renderComplexListItem(field.kind, itemValue, { ...context, listField: field.name, listIndex: index })).join('')}
       </div>
       <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="${escapeAttribute(field.label)} hinzufügen">+</button>
     </section>
@@ -1816,11 +1818,15 @@ function renderObjectListField(field, value, context = {}) {
 
 function renderComplexListItem(kind, value = {}, context = {}) {
   const hasValue = complexItemHasValue(kind, value);
-  const summary = hasValue ? complexItemSummary(kind, value) : '';
+  const rowKey = relationshipRowKey(context);
+  const summary = hasValue ? complexItemSummary(kind, value) : emptyComplexItemSummary(kind);
+  const personKey = relationshipPersonKey(context.ownerType, context.ownerObject);
+  const isOpenRelationshipRow = Boolean(rowKey && personKey && state.relationshipEditing[personKey] === rowKey);
+  const isCollapsed = hasValue && !isOpenRelationshipRow;
   return `
-    <div class="composite-item ${hasValue ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${hasValue ? '1' : '0'}">
+    <div class="composite-item ${summary ? 'has-summary' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
       ${summary ? `
-        <button class="composite-summary" type="button" data-list-action="toggle" aria-expanded="false">
+        <button class="composite-summary" type="button" data-list-action="toggle" aria-expanded="${isCollapsed ? 'false' : 'true'}">
           ${escapeHtml(summary)}
         </button>
       ` : ''}
@@ -1874,6 +1880,18 @@ function complexItemSummary(kind, value = {}) {
   return '';
 }
 
+function emptyComplexItemSummary(kind) {
+  if (kind === 'membership-list') {
+    return 'Neue Mitgliedschaft';
+  }
+
+  if (kind === 'activity-list') {
+    return 'Neue Aktivität';
+  }
+
+  return '';
+}
+
 function renderComplexEditor(kind, value = {}, compact = false, context = {}) {
   if (kind === 'group-phase-list' || kind === 'group-phase') {
     return renderGroupPhaseEditor(value, compact, context);
@@ -1888,6 +1906,23 @@ function renderComplexEditor(kind, value = {}, compact = false, context = {}) {
   }
 
   return '';
+}
+
+function relationshipRowKey(context = {}) {
+  if (!['memberships', 'activities'].includes(context.listField || '')) {
+    return '';
+  }
+
+  return Number.isInteger(context.listIndex) ? `${context.listField}:${context.listIndex}` : '';
+}
+
+function relationshipPersonKey(ownerType, ownerObject) {
+  if (ownerType !== 'people') {
+    return '';
+  }
+
+  const id = objectId(ownerObject || {});
+  return id ? objectKey('people', id) : '';
 }
 
 function renderGroupPhaseEditor(value = {}, compact = false, context = {}) {
@@ -2303,6 +2338,7 @@ async function handleObjectClick(event) {
   if (action === 'close') {
     await flushObjectEdit(item, true);
     state.editing[key] = false;
+    delete state.relationshipEditing[key];
     renderObjectCollection(type);
     return;
   }
@@ -2336,6 +2372,7 @@ async function focusObjectEditor(item) {
     window.clearTimeout(state.editTimers[key]);
     if (key !== targetKey) {
       await flushObjectEdit(openItem, true);
+      delete state.relationshipEditing[key];
     }
   }
 
@@ -2500,28 +2537,77 @@ function handleListAction(button) {
   if (button.dataset.listAction === 'toggle') {
     const item = button.closest('[data-list-item]');
     if (item?.dataset.listCollapsible === '1') {
-      const isCollapsed = item.classList.toggle('is-collapsed');
-      button.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      const willOpen = item.classList.contains('is-collapsed');
+      const personKey = relationshipPersonKeyFromFieldRoot(fieldRoot);
+      if (personKey) {
+        if (willOpen) {
+          collapseRelationshipRowsForPerson(fieldRoot, item);
+          state.relationshipEditing[personKey] = item.dataset.relationshipRowKey || '';
+        } else if (state.relationshipEditing[personKey] === (item.dataset.relationshipRowKey || '')) {
+          delete state.relationshipEditing[personKey];
+        }
+      }
+      item.classList.toggle('is-collapsed', !willOpen);
+      button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     }
     return;
   }
 
   if (button.dataset.listAction === 'remove') {
     const item = button.closest('[data-list-item]');
+    const personKey = relationshipPersonKeyFromFieldRoot(fieldRoot);
+    if (personKey) {
+      delete state.relationshipEditing[personKey];
+    }
     if (item) {
       const list = item.parentElement;
       item.remove();
-      if (list && list.children.length === 0) {
+      if (list && list.children.length === 0 && !isRelationshipListField(fieldRoot)) {
         appendBlankListItem(fieldRoot);
       }
     }
   }
 
   if (button.dataset.listAction === 'add') {
+    const personKey = relationshipPersonKeyFromFieldRoot(fieldRoot);
+    if (personKey) {
+      collapseRelationshipRowsForPerson(fieldRoot);
+      const list = fieldRoot.querySelector('[data-list-items]');
+      state.relationshipEditing[personKey] = `${fieldRoot.dataset.objectField}:${list?.children.length || 0}`;
+    }
     appendBlankListItem(fieldRoot);
   }
 
   markCompositeChanged(fieldRoot);
+}
+
+function isRelationshipListField(fieldRoot) {
+  return ['membership-list', 'activity-list'].includes(fieldRoot?.dataset.fieldKind || '');
+}
+
+function relationshipPersonKeyFromFieldRoot(fieldRoot) {
+  if (!isRelationshipListField(fieldRoot)) {
+    return '';
+  }
+
+  const personItem = fieldRoot.closest('[data-object-type="people"][data-object-id]');
+  return personItem ? objectKey('people', personItem.dataset.objectId || '') : '';
+}
+
+function collapseRelationshipRowsForPerson(fieldRoot, exceptItem = null) {
+  const personItem = fieldRoot.closest('[data-object-type="people"][data-object-id]');
+  if (!personItem) {
+    return;
+  }
+
+  personItem.querySelectorAll('[data-object-field="memberships"] [data-list-item][data-list-collapsible="1"], [data-object-field="activities"] [data-list-item][data-list-collapsible="1"]').forEach((item) => {
+    if (item === exceptItem) {
+      return;
+    }
+
+    item.classList.add('is-collapsed');
+    item.querySelector('[data-list-action="toggle"]')?.setAttribute('aria-expanded', 'false');
+  });
 }
 
 function appendBlankListItem(fieldRoot) {
@@ -2536,7 +2622,11 @@ function appendBlankListItem(fieldRoot) {
     return;
   }
 
-  list.insertAdjacentHTML('beforeend', renderComplexListItem(kind, {}, ownerContextForElement(fieldRoot)));
+  list.insertAdjacentHTML('beforeend', renderComplexListItem(kind, {}, {
+    ...ownerContextForElement(fieldRoot),
+    listField: fieldRoot.dataset.objectField || '',
+    listIndex: list.children.length,
+  }));
 }
 
 function markCompositeChanged(fieldRoot) {
@@ -3231,6 +3321,7 @@ async function deleteObject(item) {
     });
 
     state.editing[objectKey(type, id)] = false;
+    delete state.relationshipEditing[objectKey(type, id)];
     await reloadObjectData();
   } catch (error) {
     handleObjectSaveError(item, error);
@@ -3829,6 +3920,48 @@ function updateObjectChrome(item, type, object) {
   if (meta) {
     meta.textContent = objectListMeta(type, object);
   }
+  updateCompositeRowSummaries(item, type, object);
+}
+
+function updateCompositeRowSummaries(item, type, object) {
+  visibleFields(type).forEach((field) => {
+    if (!['group-phase-list', 'membership-list', 'activity-list'].includes(field.kind)) {
+      return;
+    }
+
+    const fieldRoot = item.querySelector(`[data-object-field="${cssEscape(field.name)}"]`);
+    if (!fieldRoot) {
+      return;
+    }
+
+    const values = Array.isArray(object[field.name]) ? object[field.name] : [];
+    fieldRoot.querySelectorAll(':scope [data-list-item]').forEach((row, index) => {
+      const value = values[index] || {};
+      const hasValue = complexItemHasValue(field.kind, value);
+      const summary = hasValue ? complexItemSummary(field.kind, value) : emptyComplexItemSummary(field.kind);
+      let button = row.querySelector(':scope > .composite-summary');
+
+      if (summary && !button) {
+        button = document.createElement('button');
+        button.className = 'composite-summary';
+        button.type = 'button';
+        button.dataset.listAction = 'toggle';
+        row.insertBefore(button, row.firstElementChild);
+      }
+
+      if (button) {
+        if (summary) {
+          button.textContent = summary;
+          button.setAttribute('aria-expanded', row.classList.contains('is-collapsed') ? 'false' : 'true');
+        } else {
+          button.remove();
+        }
+      }
+
+      row.classList.toggle('has-summary', Boolean(summary));
+      row.dataset.listCollapsible = hasValue || row.dataset.relationshipRowKey ? '1' : '0';
+    });
+  });
 }
 
 function handleObjectSaveError(item, error) {
@@ -4107,7 +4240,7 @@ function timepointValue(timepoint) {
 }
 
 function hasPendingObjectEdits() {
-  return Boolean(document.querySelector('[data-create-form], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
+  return Boolean(document.querySelector('[data-create-form], [data-object-editor], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
 }
 
 function objectKey(type, id) {
