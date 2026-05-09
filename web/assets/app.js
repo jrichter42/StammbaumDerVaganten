@@ -1398,8 +1398,8 @@ function renderObjectItem(type, object) {
           <span class="tag">${escapeHtml(objectTypeLabels[type] || labels[type] || type)}</span>
         </div>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
-        ${type === 'groups' ? renderGroupReverseView(object) : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
+        ${type === 'groups' ? renderGroupReverseView(object) : ''}
         <p class="object-save-state" data-save-state hidden></p>
       </div>
       <div class="user-actions object-actions">
@@ -4757,6 +4757,10 @@ function canAccessObjects() {
 }
 
 function objectLabel(object, type = '') {
+  if (!object || typeof object !== 'object') {
+    return '';
+  }
+
   if (type === 'people') {
     const parts = [object.forename, object.lastname].filter(Boolean).join(' ');
     return object.scoutname || parts || objectId(object);
