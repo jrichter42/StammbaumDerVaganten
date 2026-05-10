@@ -1807,11 +1807,12 @@ function periodBoundaryMatchesTimepoint(timepoint, period, boundary) {
 }
 
 function renderObjectEditor(type, object) {
+  const deleteLabel = `${objectListTitle(type, object)} löschen`;
   return `
     <form class="object-editor" data-object-editor>
       ${visibleFields(type).map((field) => renderFieldInput(field, object[field.name], false, { ownerType: type, ownerObject: object })).join('')}
       <div class="object-editor-actions">
-        <button class="button button-danger" type="button" data-object-action="delete">Löschen</button>
+        <button class="button button-danger" type="button" data-object-action="delete">${escapeHtml(deleteLabel)}</button>
       </div>
     </form>
   `;
@@ -2166,6 +2167,8 @@ function renderComplexListItem(kind, value = {}, context = {}) {
   const isOpenRelationshipRow = Boolean(rowKey && personKey && state.relationshipEditing[personKey] === rowKey);
   const isRelationshipRow = Boolean(rowKey && personKey);
   const isCollapsed = isRelationshipRow ? !isOpenRelationshipRow : hasValue;
+  const hasEditToggle = Boolean(summary);
+  const deleteLabel = hasEditToggle ? `${summary} löschen` : '';
   return `
     <div class="composite-item ${summary ? 'has-summary' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
       ${summary ? `
@@ -2176,7 +2179,9 @@ function renderComplexListItem(kind, value = {}, context = {}) {
       <div class="composite-editor" data-composite-editor>
         ${renderComplexEditor(kind, value, true, context)}
         <div class="composite-editor-actions">
-          <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
+          ${hasEditToggle
+            ? `<button class="button button-danger" type="button" data-list-action="remove">${escapeHtml(deleteLabel)}</button>`
+            : '<button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>'}
         </div>
       </div>
     </div>
