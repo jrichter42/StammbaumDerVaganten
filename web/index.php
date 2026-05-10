@@ -116,7 +116,7 @@ $configWarnings = array_map(
             <button class="nav-item" type="button" data-view="group-types"><span class="nav-count" data-nav-count="group-types">0</span><span>Gruppenarten</span></button>
           </div>
           <div class="nav-group" id="usersNavGroup" hidden>
-            <span class="nav-label">Benutzer</span>
+            <span class="nav-label">Admin</span>
             <button class="nav-item" id="exampleDataButton" type="button" hidden><span class="nav-count"></span><span>Beispieldaten</span></button>
             <span class="nav-feedback object-save-state" id="exampleDataState" hidden></span>
             <button class="nav-item" id="usersNav" type="button" data-view="users"><span class="nav-count" data-nav-count="users">0</span><span>Benutzer</span></button>
