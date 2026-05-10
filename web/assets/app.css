@@ -1418,6 +1418,19 @@ h3 {
   margin-top: 8px;
 }
 
+.setup-token-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.setup-token-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .inline-field {
   display: grid;
   gap: 6px;

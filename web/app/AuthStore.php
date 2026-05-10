@@ -146,6 +146,40 @@ final class AuthStore
         });
     }
 
+    public function deleteUser(string $userId, string $deletedBy): array
+    {
+        if ($userId === $deletedBy) {
+            throw new InvalidArgumentException('You cannot delete your own user.');
+        }
+
+        $deleted = $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($userId, $deletedBy): array {
+            $index = $this->findUserIndex($data, $userId);
+            if ($index === null) {
+                throw new InvalidArgumentException('Unknown user.');
+            }
+
+            $user = $data['users'][$index];
+            $remainingUsers = array_values(array_filter($data['users'] ?? [], static function (array $candidate) use ($userId): bool {
+                return ($candidate['id'] ?? '') !== $userId;
+            }));
+            $remainingManagers = array_filter($remainingUsers, static function (array $candidate): bool {
+                $permissions = is_array($candidate['permissions'] ?? null) ? $candidate['permissions'] : [];
+                return ($candidate['enabled'] ?? false) && in_array('manage_users', $permissions, true);
+            });
+
+            if (!$remainingManagers) {
+                throw new InvalidArgumentException('At least one user manager must remain.');
+            }
+
+            $data['users'] = $remainingUsers;
+            return [$data, $this->publicUser($user)];
+        });
+
+        $this->revokeSetupTokensForUser($userId, $deletedBy);
+        $this->appendAudit('user_deleted', ['user_id' => $userId, 'deleted_by' => $deletedBy]);
+        return $deleted;
+    }
+
     public function setUsernameIfEmpty(string $userId, string $username): void
     {
         $username = $this->normalizeUsername($username, false);
@@ -360,6 +394,60 @@ final class AuthStore
             'setup_url' => $this->setupUrl($token),
             'expires_at' => $expiresAt,
         ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listSetupTokens(): array
+    {
+        $data = $this->readJson($this->tokensPath, $this->defaultTokens());
+        $tokens = [];
+        foreach (($data['tokens'] ?? []) as $token) {
+            if (!$this->isActiveToken($token)) {
+                continue;
+            }
+
+            $tokens[] = $this->publicSetupToken($token);
+        }
+
+        usort($tokens, static function (array $left, array $right): int {
+            return strcmp((string) ($right['created_at'] ?? ''), (string) ($left['created_at'] ?? ''));
+        });
+
+        return $tokens;
+    }
+
+    public function deleteSetupToken(string $tokenId, ?string $deletedBy): array
+    {
+        $deleted = $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId, $deletedBy): array {
+            foreach (($data['tokens'] ?? []) as $index => $token) {
+                if (($token['id'] ?? '') === $tokenId && $this->isActiveToken($token)) {
+                    $data['tokens'][$index]['revoked_at'] = $this->now();
+                    $data['tokens'][$index]['revoked_by'] = $deletedBy;
+                    return [$data, $this->publicSetupToken($data['tokens'][$index])];
+                }
+            }
+
+            throw new InvalidArgumentException('Setup token is not valid.');
+        });
+
+        $this->appendAudit('setup_token_deleted', ['token_id' => $tokenId, 'deleted_by' => $deletedBy]);
+        return $deleted;
+    }
+
+    private function revokeSetupTokensForUser(string $userId, ?string $deletedBy): void
+    {
+        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($userId, $deletedBy): array {
+            foreach (($data['tokens'] ?? []) as $index => $token) {
+                if (($token['user_id'] ?? '') === $userId && $this->isActiveToken($token)) {
+                    $data['tokens'][$index]['revoked_at'] = $this->now();
+                    $data['tokens'][$index]['revoked_by'] = $deletedBy;
+                }
+            }
+
+            return [$data, null];
+        });
     }
 
     /**
@@ -641,6 +729,22 @@ final class AuthStore
         ];
     }
 
+    /**
+     * @param array<string, mixed> $token
+     * @return array<string, mixed>
+     */
+    private function publicSetupToken(array $token): array
+    {
+        return [
+            'id' => (string) ($token['id'] ?? ''),
+            'user_id' => (string) ($token['user_id'] ?? ''),
+            'created_at' => $token['created_at'] ?? null,
+            'created_by' => $token['created_by'] ?? null,
+            'expires_at' => $token['expires_at'] ?? null,
+            'revoked_at' => $token['revoked_at'] ?? null,
+        ];
+    }
+
     private function normalizeUsername(string $username, bool $allowEmpty): string
     {
         $username = trim($username);
@@ -787,6 +891,7 @@ final class AuthStore
     private function isActiveToken(array $token): bool
     {
         return ($token['consumed_at'] ?? null) === null
+            && ($token['revoked_at'] ?? null) === null
             && is_string($token['expires_at'] ?? null)
             && strtotime($token['expires_at']) !== false
             && strtotime($token['expires_at']) > time();

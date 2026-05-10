@@ -266,6 +266,7 @@ try {
                 'ok' => true,
                 'permissions' => AuthStore::PERMISSIONS,
                 'users' => $auth->listUsers(),
+                'setup_tokens' => $auth->listSetupTokens(),
             ]);
             break;
 
@@ -304,6 +305,24 @@ try {
             Http::json(['ok' => true, 'user' => $user]);
             break;
 
+        case 'admin-delete-user':
+            Http::requireMethod('POST');
+            $admin = require_permission($auth, 'manage_users');
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $userId = (string) ($body['user_id'] ?? '');
+            if ($userId === '') {
+                Http::json(['ok' => false, 'error' => 'User ID is required'], 400);
+            }
+
+            $auth->deleteUser($userId, (string) $admin['id']);
+            Http::json([
+                'ok' => true,
+                'users' => $auth->listUsers(),
+                'setup_tokens' => $auth->listSetupTokens(),
+            ]);
+            break;
+
         case 'admin-create-setup-token':
             Http::requireMethod('POST');
             $admin = require_permission($auth, 'manage_users');
@@ -316,6 +335,20 @@ try {
 
             $setup = $auth->createSetupToken($userId, (string) $admin['id']);
             Http::json(['ok' => true, 'setup' => $setup]);
+            break;
+
+        case 'admin-delete-setup-token':
+            Http::requireMethod('POST');
+            $admin = require_permission($auth, 'manage_users');
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $tokenId = (string) ($body['token_id'] ?? '');
+            if ($tokenId === '') {
+                Http::json(['ok' => false, 'error' => 'Setup token ID is required'], 400);
+            }
+
+            $auth->deleteSetupToken($tokenId, (string) $admin['id']);
+            Http::json(['ok' => true, 'setup_tokens' => $auth->listSetupTokens()]);
             break;
 
         default:

@@ -195,6 +195,7 @@ const state = {
   objects: Object.fromEntries(objectCollections.map((type) => [type, []])),
   groupTypes: [],
   users: [],
+  setupTokens: [],
   setupResult: null,
   createOpen: {},
   collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false, sortExplicit: false }])),
@@ -621,6 +622,7 @@ async function loadManagedUsers() {
 
   const response = await getJson('api.php?action=admin-users');
   state.users = response.users || [];
+  state.setupTokens = response.setup_tokens || [];
   renderUsersManagement();
   renderNavigationCounts();
 }
@@ -674,7 +676,35 @@ async function handleUserAction(event) {
     if (button.dataset.action === 'setup') {
       const response = await postJson('admin-create-setup-token', { user_id: userId });
       state.setupResult = response.setup;
+      await loadManagedUsers();
       renderSetupResult();
+      return;
+    }
+
+    if (button.dataset.action === 'delete-setup-token') {
+      if (!confirmDangerButton(button)) {
+        return;
+      }
+
+      const tokenId = button.dataset.tokenId || '';
+      const response = await postJson('admin-delete-setup-token', { token_id: tokenId });
+      state.setupTokens = response.setup_tokens || [];
+      resetDangerConfirmations();
+      renderUserList();
+      return;
+    }
+
+    if (button.dataset.action === 'delete-user') {
+      if (!confirmDangerButton(button)) {
+        return;
+      }
+
+      const response = await postJson('admin-delete-user', { user_id: userId });
+      state.users = response.users || [];
+      state.setupTokens = response.setup_tokens || [];
+      resetDangerConfirmations();
+      renderNavigationCounts();
+      renderUserList();
       return;
     }
 
@@ -3159,7 +3189,7 @@ function confirmDangerButton(button) {
   button.dataset.dangerConfirm = '1';
   button.dataset.dangerConfirmText = button.textContent;
   button.dataset.dangerConfirmLabel = button.getAttribute('aria-label') || '';
-  button.textContent = '?';
+  button.textContent = `${button.textContent}?`;
   button.setAttribute('aria-label', 'Bestätigen');
   button.classList.add('is-confirming');
   return false;
@@ -4935,14 +4965,34 @@ function renderUserList() {
         <div class="permission-row">
           ${renderPermissionCheckboxes(user.permissions)}
         </div>
+        ${renderUserSetupTokens(user)}
       </div>
       <div class="user-actions">
         <button class="button button-secondary" type="button" data-action="save">Speichern</button>
         <button class="button button-secondary" type="button" data-action="setup">Setup-Link</button>
         <button class="button button-secondary" type="button" data-action="toggle">${user.enabled ? 'Deaktivieren' : 'Aktivieren'}</button>
+        ${state.status?.auth?.user?.id === user.id ? '' : '<button class="button button-danger" type="button" data-action="delete-user" data-danger-confirm>Löschen</button>'}
       </div>
     </article>
   `).join('') || `<div class="empty-state">${state.users.length ? 'Keine Treffer.' : 'Keine Benutzer.'}</div>`;
+}
+
+function renderUserSetupTokens(user) {
+  const tokens = (state.setupTokens || []).filter((token) => token.user_id === user.id);
+  if (!tokens.length) {
+    return '<div class="setup-token-list"><small>Keine aktiven Setup-Links.</small></div>';
+  }
+
+  return `
+    <div class="setup-token-list">
+      ${tokens.map((token) => `
+        <div class="setup-token-row">
+          <small>Setup-Link bis ${escapeHtml(formatDateTime(token.expires_at))}</small>
+          <button class="button button-danger" type="button" data-action="delete-setup-token" data-token-id="${escapeAttribute(token.id)}" data-danger-confirm data-danger-confirm-label="Löschen?">Löschen</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 function renderPermissionCheckboxes(permissions) {
@@ -5655,6 +5705,18 @@ function formatCount(value = 0, noun) {
   return `${count} ${count === 1 ? forms[0] : forms[1]}`;
 }
 
+function formatDateTime(value) {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) {
+    return value || '';
+  }
+
+  return new Intl.DateTimeFormat('de', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 function localizeErrorMessage(text) {
   const message = String(text || '');
   const exact = {
@@ -5663,9 +5725,12 @@ function localizeErrorMessage(text) {
     'Authentication required.': 'Login erforderlich.',
     'Invalid CSRF token.': 'Ungültiges CSRF-Token.',
     'Unknown user.': 'Unbekannter Benutzer.',
+    'You cannot delete your own user.': 'Der eigene Benutzer kann nicht gelöscht werden.',
+    'At least one user manager must remain.': 'Mindestens ein Benutzerverwalter muss bestehen bleiben.',
     'This passkey is already registered.': 'Dieser Passkey ist bereits registriert.',
     'Unknown passkey.': 'Unbekannter Passkey.',
     'Setup token is required.': 'Setup-Token ist erforderlich.',
+    'Setup token ID is required': 'Setup-Token-ID ist erforderlich.',
     'Setup token is not valid.': 'Setup-Token ist ungültig.',
     'Challenge expired or was already used.': 'Die Anfrage ist abgelaufen oder wurde bereits verwendet.',
     'Username is already in use.': 'Benutzername wird bereits verwendet.',
