@@ -283,17 +283,19 @@ function restoreUrlState() {
   const view = params.get('view');
   const id = params.get('id');
 
-  if (view && (objectCollections.includes(view) || view === 'admin')) {
-    const urlSort = readUrlSortState(view, params);
-    state.deepLinkTarget = id ? { view, id } : null;
-    state.collectionUi[view] = {
-      ...collectionUi(view),
+  if (view && (objectCollections.includes(view) || view === 'users')) {
+    const viewName = urlViewName(view);
+    const collectionType = viewCollectionType(view);
+    const urlSort = readUrlSortState(collectionType, params);
+    state.deepLinkTarget = id && objectCollections.includes(viewName) ? { view: viewName, id } : null;
+    state.collectionUi[collectionType] = {
+      ...collectionUi(collectionType),
       sort: urlSort.sort,
       sortDirection: urlSort.direction,
       search: params.get('q') || '',
       sortExplicit: urlSort.explicit,
     };
-    window.requestAnimationFrame(() => activateView(view, id ? { id } : {}));
+    window.requestAnimationFrame(() => activateView(viewName, id ? { id } : {}));
   }
 }
 
@@ -303,12 +305,14 @@ function writeUrlState(extra = {}) {
   }
 
   const activeView = extra.view || document.querySelector('[data-view].is-active')?.dataset.view || 'people';
-  const ui = collectionUi(activeView);
-  const activeSort = collectionSortKey(activeView);
+  const urlView = activeView === 'admin' ? 'users' : activeView;
+  const collectionType = viewCollectionType(urlView);
+  const ui = collectionUi(collectionType);
+  const activeSort = collectionSortKey(collectionType);
   const params = new URLSearchParams();
-  params.set('view', activeView);
-  const activeId = Object.prototype.hasOwnProperty.call(extra, 'id') ? extra.id : activeEditingId(activeView);
-  if (activeId) {
+  params.set('view', urlView);
+  const activeId = Object.prototype.hasOwnProperty.call(extra, 'id') ? extra.id : activeEditingId(collectionType);
+  if (activeId && objectCollections.includes(urlView)) {
     params.set('id', activeId);
   }
   if (ui?.search) {
@@ -319,6 +323,14 @@ function writeUrlState(extra = {}) {
   }
 
   window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+}
+
+function viewCollectionType(view) {
+  return view === 'users' ? 'users' : view;
+}
+
+function urlViewName(view) {
+  return view === 'users' ? 'admin' : view;
 }
 
 function readUrlSortState(type, params) {
