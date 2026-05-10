@@ -428,7 +428,9 @@ async function refresh() {
 
     render();
     const writable = Boolean(state.status.storage && state.status.storage.writable);
-    setConnection(user ? (writable ? 'Online' : 'Eingeloggt') : 'Öffentlich', user && writable ? 'is-online' : '');
+    if (user) {
+      setConnection(writable ? 'Online' : 'Eingeloggt', writable ? 'is-online' : '');
+    }
     if (!user) {
       showBootstrapHint();
     }
@@ -444,6 +446,7 @@ function renderShell() {
   authScreen.hidden = Boolean(user) || !isSetupPage;
   publicOverview.hidden = Boolean(user) || isSetupPage;
   workspace.hidden = !user;
+  connectionStatus.hidden = !user;
   loginButton.hidden = Boolean(user);
   logoutButton.hidden = !user;
   currentUserLabel.hidden = !user;
