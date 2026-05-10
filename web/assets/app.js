@@ -198,11 +198,10 @@ if (urlSetup) {
 }
 
 document.querySelectorAll('[data-view]').forEach((button) => {
-  button.addEventListener('click', () => {
-    activateView(button.dataset.view);
-    if (button.dataset.view === 'admin') {
-      loadAdminUsers();
-    }
+  button.addEventListener('click', async () => {
+    const viewName = button.dataset.view;
+    activateView(viewName);
+    await refreshActivatedView(viewName);
   });
 });
 
@@ -240,14 +239,47 @@ function activateView(viewName) {
   });
 }
 
-function handleNavigationJump(event) {
+async function handleNavigationJump(event) {
   const button = event.target.closest('[data-jump-view]');
   if (!button) {
     return;
   }
 
   event.preventDefault();
-  activateView(button.dataset.jumpView);
+  const viewName = button.dataset.jumpView;
+  activateView(viewName);
+  await refreshActivatedView(viewName);
+}
+
+async function refreshActivatedView(viewName) {
+  if (viewName === 'admin') {
+    await loadAdminUsers();
+    renderNavigationCounts();
+    renderUserList();
+    return;
+  }
+
+  if (!objectCollections.includes(viewName)) {
+    return;
+  }
+
+  if (canAccessObjects() && !hasPendingObjectEdits()) {
+    try {
+      await loadObjects();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  renderNavigationCounts();
+  if (!activeViewHasOpenEditor(viewName)) {
+    renderObjectCollection(viewName);
+  }
+}
+
+function activeViewHasOpenEditor(viewName) {
+  const view = document.querySelector(`#view-${cssEscape(viewName)}`);
+  return Boolean(view?.querySelector('[data-object-editor], [data-create-form]'));
 }
 
 async function refresh() {
@@ -2464,6 +2496,7 @@ async function handlePeriodModeAction(button) {
     }
     setPeriodBoundaryMode(boundary, 'custom');
     setPeriodBoundaryAction(boundary, 'undo-custom-date', 'zu Zeitpunkt wechseln');
+    syncPeriodSaveTimepointAction(boundary);
     focusDateControl(dateInput);
     markPeriodBoundaryChanged(boundary);
     refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), dateInput);
@@ -2483,6 +2516,7 @@ async function handlePeriodModeAction(button) {
     delete boundary.dataset.previousTimepointLabel;
     setPeriodBoundaryMode(boundary, 'timepoint');
     setPeriodBoundaryAction(boundary, 'custom-date', 'zu Datum wechseln');
+    syncPeriodSaveTimepointAction(boundary);
     markPeriodBoundaryChanged(boundary);
     refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), timepointInput);
     return;
@@ -2494,6 +2528,7 @@ async function handlePeriodModeAction(button) {
     }
     setPeriodBoundaryMode(boundary, 'timepoint');
     setPeriodBoundaryAction(boundary, 'custom-date', 'zu Datum wechseln');
+    syncPeriodSaveTimepointAction(boundary);
     markPeriodBoundaryChanged(boundary);
     refreshPeriodDependentPickers(boundary.closest('[data-period-editor]'), timepointInput);
   }
@@ -2510,11 +2545,7 @@ async function saveBoundaryTimepoint(boundary) {
     return;
   }
 
-  const name = window.prompt('Name für Zeitpunkt', `Zeitpunkt ${dateDisplayValue(raw)}`)?.trim();
-  if (!name) {
-    return;
-  }
-
+  const name = boundaryTimepointName(boundary, raw);
   const dateField = dateInput.dataset.nestedField || '';
   const timepointField = boundary.dataset.periodBoundary || '';
   const response = await postJson('object-create', {
@@ -2523,6 +2554,8 @@ async function saveBoundaryTimepoint(boundary) {
   });
 
   await loadObjects();
+  renderNavigationCounts();
+  renderObjectCollection('timepoints');
 
   const timepointId = objectId(response.object);
   const timepointInput = boundary.querySelector('[data-period-timepoint] [data-reference-input]');
@@ -2545,11 +2578,103 @@ async function saveBoundaryTimepoint(boundary) {
   }
 }
 
+function boundaryTimepointName(boundary, raw) {
+  const side = boundary.dataset.periodBoundary === 'endTimepoint' ? 'Ende' : 'Start';
+  const owner = periodOwnerLabel(boundary);
+  const activityEditor = boundary.closest('[data-activity-editor]');
+  if (activityEditor) {
+    return timepointNameParts([
+      owner,
+      referenceLabelFromRoot(activityEditor, 'role', 'roles') || 'Aktivität',
+      referenceLabelFromRoot(activityEditor, 'group', 'groups'),
+      side,
+    ], raw);
+  }
+
+  const membershipEditor = boundary.closest('[data-membership-editor]');
+  if (membershipEditor) {
+    return timepointNameParts([
+      owner,
+      'Mitgliedschaft',
+      referenceLabelFromRoot(membershipEditor, 'group', 'groups'),
+      side,
+    ], raw);
+  }
+
+  const groupPhaseEditor = boundary.closest('.nested-editor');
+  if (groupPhaseEditor?.querySelector('[data-nested-field="groupType"]')) {
+    return timepointNameParts([
+      owner,
+      referenceLabelFromRoot(groupPhaseEditor, 'groupType', 'group-types') || 'Phase',
+      side,
+    ], raw);
+  }
+
+  return timepointNameParts([owner, side], raw);
+}
+
+function periodOwnerLabel(element) {
+  const root = ownerRootForElement(element);
+  const type = root?.dataset.objectType || root?.dataset.createForm || '';
+  if (!type) {
+    return '';
+  }
+
+  const id = root?.dataset.objectId || '';
+  if (id) {
+    return objectListTitle(type, findReferenceObject(type, id) || {});
+  }
+
+  return objectListTitle(type, objectFromEditorRoot(root, type));
+}
+
+function objectFromEditorRoot(root, type) {
+  const object = {};
+  (objectConfigs[type]?.fields || []).forEach((field) => {
+    if (!['text', undefined].includes(field.kind) && field.kind !== 'textarea') {
+      return;
+    }
+
+    const fieldRoot = root?.querySelector(`[data-object-field="${cssEscape(field.name)}"]`);
+    const input = fieldRoot?.matches('input, textarea') ? fieldRoot : fieldRoot?.querySelector('input, textarea');
+    if (input) {
+      object[field.name] = input.value.trim();
+    }
+  });
+  return object;
+}
+
+function referenceLabelFromRoot(root, field, collection) {
+  const value = nestedValue(root, field);
+  const object = findReferenceObject(collection, value);
+  return objectLabel(object, collection) || '';
+}
+
+function timepointNameParts(parts, raw) {
+  const name = parts.map((part) => String(part || '').trim()).filter(Boolean).join(' ');
+  return name || `Zeitpunkt ${dateDisplayValue(raw)}`;
+}
+
 function setPeriodBoundaryAction(boundary, action, label) {
   boundary.querySelectorAll('[data-period-action]').forEach((button) => {
     button.dataset.periodAction = action;
     button.textContent = `(${label})`;
   });
+}
+
+function syncPeriodSaveTimepointAction(boundary) {
+  const customWrap = boundary.querySelector('[data-period-custom]');
+  if (!customWrap) {
+    return;
+  }
+
+  const shouldShow = boundary.dataset.periodMode === 'custom';
+  const existing = customWrap.querySelector('.period-save-timepoint');
+  if (shouldShow && !existing) {
+    customWrap.insertAdjacentHTML('beforeend', '<button class="period-toggle period-save-timepoint" type="button" data-period-action="save-timepoint">(als Zeitpunkt speichern)</button>');
+  } else if (!shouldShow && existing) {
+    existing.remove();
+  }
 }
 
 function setPeriodBoundaryMode(boundary, mode) {
