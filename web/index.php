@@ -115,11 +115,11 @@ $configWarnings = array_map(
             <button class="nav-item" type="button" data-view="roles"><span class="nav-count" data-nav-count="roles">0</span><span>Rollen</span></button>
             <button class="nav-item" type="button" data-view="group-types"><span class="nav-count" data-nav-count="group-types">0</span><span>Gruppenarten</span></button>
           </div>
-          <div class="nav-group" id="adminNavGroup" hidden>
-            <span class="nav-label">Admin</span>
+          <div class="nav-group" id="usersNavGroup" hidden>
+            <span class="nav-label">Benutzer</span>
             <button class="nav-item" id="exampleDataButton" type="button" hidden><span class="nav-count"></span><span>Beispieldaten</span></button>
             <span class="nav-feedback object-save-state" id="exampleDataState" hidden></span>
-            <button class="nav-item" id="adminNav" type="button" data-view="admin"><span class="nav-count" data-nav-count="users">0</span><span>Benutzer</span></button>
+            <button class="nav-item" id="usersNav" type="button" data-view="users"><span class="nav-count" data-nav-count="users">0</span><span>Benutzer</span></button>
           </div>
         </nav>
 
@@ -194,7 +194,7 @@ $configWarnings = array_map(
             </section>
           </div>
 
-          <div class="view" id="view-admin">
+          <div class="view" id="view-users">
             <section class="panel">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
@@ -202,7 +202,7 @@ $configWarnings = array_map(
                   <div class="collection-controls" data-collection-controls="users"></div>
                 </div>
               </div>
-              <form class="form-grid admin-create" id="createUserForm">
+              <form class="form-grid users-create" id="createUserForm">
                 <label>
                   <span>Benutzername</span>
                   <input name="username" autocomplete="off" required>

@@ -217,8 +217,8 @@ const authMessage = document.querySelector('#authMessage');
 const setupForm = document.querySelector('#setupForm');
 const setupPanel = document.querySelector('#setupPanel');
 const setupInput = document.querySelector('#setupInput');
-const adminNav = document.querySelector('#adminNav');
-const adminNavGroup = document.querySelector('#adminNavGroup');
+const usersNav = document.querySelector('#usersNav');
+const usersNavGroup = document.querySelector('#usersNavGroup');
 const createUserForm = document.querySelector('#createUserForm');
 const setupResult = document.querySelector('#setupResult');
 const exampleDataButton = document.querySelector('#exampleDataButton');
@@ -284,10 +284,9 @@ function restoreUrlState() {
   const id = params.get('id');
 
   if (view && (objectCollections.includes(view) || view === 'users')) {
-    const viewName = urlViewName(view);
     const collectionType = viewCollectionType(view);
     const urlSort = readUrlSortState(collectionType, params);
-    state.deepLinkTarget = id && objectCollections.includes(viewName) ? { view: viewName, id } : null;
+    state.deepLinkTarget = id && objectCollections.includes(view) ? { view, id } : null;
     state.collectionUi[collectionType] = {
       ...collectionUi(collectionType),
       sort: urlSort.sort,
@@ -295,7 +294,7 @@ function restoreUrlState() {
       search: params.get('q') || '',
       sortExplicit: urlSort.explicit,
     };
-    window.requestAnimationFrame(() => activateView(viewName, id ? { id } : {}));
+    window.requestAnimationFrame(() => activateView(view, id ? { id } : {}));
   }
 }
 
@@ -305,7 +304,7 @@ function writeUrlState(extra = {}) {
   }
 
   const activeView = extra.view || document.querySelector('[data-view].is-active')?.dataset.view || 'people';
-  const urlView = activeView === 'admin' ? 'users' : activeView;
+  const urlView = activeView;
   const collectionType = viewCollectionType(urlView);
   const ui = collectionUi(collectionType);
   const activeSort = collectionSortKey(collectionType);
@@ -327,10 +326,6 @@ function writeUrlState(extra = {}) {
 
 function viewCollectionType(view) {
   return view === 'users' ? 'users' : view;
-}
-
-function urlViewName(view) {
-  return view === 'users' ? 'admin' : view;
 }
 
 function readUrlSortState(type, params) {
@@ -385,8 +380,8 @@ async function handleNavigationJump(event) {
 }
 
 async function refreshActivatedView(viewName) {
-  if (viewName === 'admin') {
-    await loadAdminUsers();
+  if (viewName === 'users') {
+    await loadManagedUsers();
     renderNavigationCounts();
     renderUserList();
     return;
@@ -427,7 +422,7 @@ async function refresh() {
     await loadObjects();
 
     if (hasPermission('manage_users')) {
-      await loadAdminUsers();
+      await loadManagedUsers();
     }
 
     render();
@@ -459,9 +454,9 @@ function renderShell() {
   }
 
   const canManageUsers = hasPermission('manage_users');
-  adminNavGroup.hidden = !canManageUsers;
-  adminNav.hidden = !canManageUsers;
-  if (!canManageUsers && document.querySelector('#view-admin')?.classList.contains('is-active')) {
+  usersNavGroup.hidden = !canManageUsers;
+  usersNav.hidden = !canManageUsers;
+  if (!canManageUsers && document.querySelector('#view-users')?.classList.contains('is-active')) {
     activateView('people');
   }
 
@@ -619,14 +614,14 @@ async function pollObjects() {
   }
 }
 
-async function loadAdminUsers() {
+async function loadManagedUsers() {
   if (!hasPermission('manage_users')) {
     return;
   }
 
   const response = await getJson('api.php?action=admin-users');
   state.users = response.users || [];
-  renderAdmin();
+  renderUsersManagement();
   renderNavigationCounts();
 }
 
@@ -652,7 +647,7 @@ async function createUser(event) {
     createUserForm.reset();
     createUserForm.querySelector('input[value="read"]').checked = true;
     renderSetupResult();
-    await loadAdminUsers();
+    await loadManagedUsers();
   } catch (error) {
     showAuthMessage(localizeErrorMessage(error.message || 'Benutzer konnte nicht erstellt werden.'), true);
   }
@@ -714,7 +709,7 @@ async function reloadAfterUserChange(userId) {
     return;
   }
 
-  await loadAdminUsers();
+  await loadManagedUsers();
 }
 
 async function copySetupValue(event) {
@@ -778,7 +773,7 @@ function render() {
   renderSectionCounts();
   renderCollectionControls();
   renderObjectCollections();
-  renderAdmin();
+  renderUsersManagement();
   applyDeepLinkTarget();
 }
 
@@ -4915,7 +4910,7 @@ function structuredCloneSafe(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function renderAdmin() {
+function renderUsersManagement() {
   if (!hasPermission('manage_users')) {
     return;
   }
