@@ -2141,7 +2141,7 @@ function renderGroupPhaseField(field, value, context = {}) {
 }
 
 function renderObjectListField(field, value, context = {}) {
-  const useBlankStarter = !['membership-list', 'activity-list'].includes(field.kind);
+  const useBlankStarter = !['group-phase-list', 'membership-list', 'activity-list'].includes(field.kind);
   const savedValues = Array.isArray(value) ? value : [];
   const values = savedValues.length ? savedValues : (useBlankStarter ? [{}] : []);
   return `
@@ -2161,9 +2161,9 @@ function renderComplexListItem(kind, value = {}, context = {}) {
   const hasValue = complexItemHasValue(kind, value);
   const rowKey = relationshipRowKey(context);
   const summary = hasValue ? complexItemSummary(kind, value) : emptyComplexItemSummary(kind);
-  const personKey = relationshipPersonKey(context.ownerType, context.ownerObject);
-  const isOpenRelationshipRow = Boolean(rowKey && personKey && state.relationshipEditing[personKey] === rowKey);
-  const isRelationshipRow = Boolean(rowKey && personKey);
+  const ownerKey = relationshipOwnerKey(context);
+  const isOpenRelationshipRow = Boolean(rowKey && ownerKey && state.relationshipEditing[ownerKey] === rowKey);
+  const isRelationshipRow = Boolean(rowKey && ownerKey);
   const isCollapsed = isRelationshipRow ? !isOpenRelationshipRow : hasValue;
   const hasEditToggle = Boolean(summary);
   const deleteLabel = hasEditToggle ? `${summary} löschen` : '';
@@ -2237,6 +2237,10 @@ function emptyComplexItemSummary(kind) {
     return 'Neue Aktivität';
   }
 
+  if (kind === 'group-phase-list') {
+    return 'Neue Phase';
+  }
+
   return '';
 }
 
@@ -2257,20 +2261,20 @@ function renderComplexEditor(kind, value = {}, compact = false, context = {}) {
 }
 
 function relationshipRowKey(context = {}) {
-  if (!['memberships', 'activities'].includes(context.listField || '')) {
+  if (!['additionalPhases', 'memberships', 'activities'].includes(context.listField || '')) {
     return '';
   }
 
   return Number.isInteger(context.listIndex) ? `${context.listField}:${context.listIndex}` : '';
 }
 
-function relationshipPersonKey(ownerType, ownerObject) {
-  if (ownerType !== 'people') {
+function relationshipOwnerKey(context = {}) {
+  if (!relationshipRowKey(context) || !objectCollections.includes(context.ownerType)) {
     return '';
   }
 
-  const id = objectId(ownerObject || {});
-  return id ? objectKey('people', id) : '';
+  const id = objectId(context.ownerObject || {});
+  return id ? objectKey(context.ownerType, id) : '';
 }
 
 function renderGroupPhaseEditor(value = {}, compact = false, context = {}) {
@@ -3185,7 +3189,7 @@ function resetDangerConfirmations(exceptButton = null) {
 }
 
 function isRelationshipListField(fieldRoot) {
-  return ['membership-list', 'activity-list'].includes(fieldRoot?.dataset.fieldKind || '');
+  return ['group-phase-list', 'membership-list', 'activity-list'].includes(fieldRoot?.dataset.fieldKind || '');
 }
 
 function relationshipPersonKeyFromFieldRoot(fieldRoot) {
@@ -3193,17 +3197,24 @@ function relationshipPersonKeyFromFieldRoot(fieldRoot) {
     return '';
   }
 
-  const personItem = fieldRoot.closest('[data-object-type="people"][data-object-id]');
-  return personItem ? objectKey('people', personItem.dataset.objectId || '') : '';
+  const ownerItem = fieldRoot.closest('[data-object-type][data-object-id]');
+  return ownerItem ? objectKey(ownerItem.dataset.objectType || '', ownerItem.dataset.objectId || '') : '';
 }
 
 function collapseRelationshipRowsForPerson(fieldRoot, exceptItem = null) {
-  const personItem = fieldRoot.closest('[data-object-type="people"][data-object-id]');
-  if (!personItem) {
+  const ownerItem = fieldRoot.closest('[data-object-type][data-object-id]');
+  if (!ownerItem) {
     return;
   }
 
-  personItem.querySelectorAll('[data-object-field="memberships"] [data-list-item][data-list-collapsible="1"], [data-object-field="activities"] [data-list-item][data-list-collapsible="1"]').forEach((item) => {
+  const usePersonRelationshipGroup = ownerItem.dataset.objectType === 'people'
+    && ['membership-list', 'activity-list'].includes(fieldRoot.dataset.fieldKind || '');
+  const root = usePersonRelationshipGroup ? ownerItem : fieldRoot;
+  const selector = usePersonRelationshipGroup
+    ? '[data-object-field="memberships"] [data-list-item][data-list-collapsible="1"], [data-object-field="activities"] [data-list-item][data-list-collapsible="1"]'
+    : '[data-list-item][data-list-collapsible="1"]';
+
+  root.querySelectorAll(selector).forEach((item) => {
     if (item === exceptItem) {
       return;
     }
@@ -4595,6 +4606,10 @@ function updateCompositeRowSummaries(item, type, object) {
 
       row.classList.toggle('has-summary', Boolean(summary));
       row.dataset.listCollapsible = hasValue || row.dataset.relationshipRowKey ? '1' : '0';
+      const removeButton = row.querySelector(':scope > .composite-editor [data-list-action="remove"]');
+      if (summary && removeButton && !removeButton.classList.contains('icon-button')) {
+        removeButton.textContent = `${summary} löschen`;
+      }
     });
   });
 }
