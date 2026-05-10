@@ -1601,27 +1601,26 @@ function renderObjectItem(type, object) {
   const isEditing = Boolean(state.editing[key]);
   const canWrite = hasPermission('write');
   const summary = objectSummary(type, object);
+  const titleTag = canWrite ? 'button' : 'div';
+  const titleAttrs = canWrite
+    ? `type="button" data-object-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}"`
+    : '';
 
   return `
-    <article class="list-item object-item ${canWrite ? 'is-clickable' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}">
+    <article class="list-item object-item ${canWrite ? 'is-clickable' : ''} ${isEditing ? 'is-editing' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}">
       <div class="object-main">
-        <div class="object-title-row">
-          <div>
-            <h3 data-object-title>${escapeHtml(objectListTitle(type, object))}</h3>
+        <${titleTag} class="object-title-row" ${titleAttrs}>
+          <span class="object-title-text">
+            <span class="object-title-heading" data-object-title>${escapeHtml(objectListTitle(type, object))}</span>
             <small data-object-meta>${escapeHtml(objectListMeta(type, object))}</small>
-          </div>
+          </span>
           <span class="tag">${escapeHtml(objectTypeLabels[type] || labels[type] || type)}</span>
-        </div>
+        </${titleTag}>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
         ${type === 'groups' ? renderGroupReverseView(object) : ''}
         ${type === 'timepoints' ? renderTimepointReverseView(object) : ''}
         <p class="object-save-state" data-save-state hidden></p>
-      </div>
-      <div class="user-actions object-actions">
-        ${canWrite ? `
-          <button class="button button-secondary" type="button" data-object-action="${isEditing ? 'close' : 'edit'}">${isEditing ? 'Schließen' : 'Bearbeiten'}</button>
-        ` : ''}
       </div>
     </article>
   `;
@@ -2176,8 +2175,10 @@ function renderComplexListItem(kind, value = {}, context = {}) {
       ` : ''}
       <div class="composite-editor" data-composite-editor>
         ${renderComplexEditor(kind, value, true, context)}
+        <div class="composite-editor-actions">
+          <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
+        </div>
       </div>
-      <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
     </div>
   `;
 }
@@ -2677,38 +2678,20 @@ async function handleObjectClick(event) {
     return;
   }
 
-  const clickedItem = clickableObjectItemFromEvent(event);
-  if (clickedItem) {
-    await focusObjectEditor(clickedItem);
-    return;
-  }
-
   const button = event.target.closest('[data-object-action]');
-  if (!button) {
+  const item = button?.closest('[data-object-type][data-object-id]');
+  if (!button || !item) {
     return;
   }
 
-  const item = button.closest('[data-object-type][data-object-id]');
-  if (!item) {
-    return;
-  }
-
-  const type = item.dataset.objectType;
-  const id = item.dataset.objectId;
-  const key = objectKey(type, id);
   const action = button.dataset.objectAction;
 
-  if (action === 'edit') {
-    await focusObjectEditor(item);
-    return;
-  }
-
-  if (action === 'close') {
-    await flushObjectEdit(item, true);
-    state.editing[key] = false;
-    delete state.relationshipEditing[key];
-    writeUrlState({ view: type, id: '' });
-    renderObjectCollection(type);
+  if (action === 'toggle-editor') {
+    if (state.editing[objectKey(item.dataset.objectType, item.dataset.objectId)]) {
+      await closeObjectEditor(item);
+    } else {
+      await focusObjectEditor(item);
+    }
     return;
   }
 
@@ -2723,16 +2706,15 @@ async function handleObjectClick(event) {
 
 }
 
-function clickableObjectItemFromEvent(event) {
-  if (!hasPermission('write')) {
-    return null;
-  }
-
-  if (event.target.closest('a, button, input, select, textarea, label, [data-object-editor], [data-date-detail-popover]')) {
-    return null;
-  }
-
-  return event.target.closest('[data-object-type][data-object-id]');
+async function closeObjectEditor(item) {
+  const type = item.dataset.objectType;
+  const id = item.dataset.objectId;
+  const key = objectKey(type, id);
+  await flushObjectEdit(item, true);
+  state.editing[key] = false;
+  delete state.relationshipEditing[key];
+  writeUrlState({ view: type, id: '' });
+  renderObjectCollection(type);
 }
 
 async function focusObjectEditor(item) {
