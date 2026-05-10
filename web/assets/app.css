@@ -730,6 +730,13 @@ h3 {
   align-items: start;
 }
 
+.list-section-heading {
+  padding: 10px 4px 0;
+  color: var(--brand-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .object-main {
   display: grid;
   gap: 10px;

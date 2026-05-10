@@ -178,7 +178,16 @@ const collectionDefaultSorts = {
 };
 
 const collectionDefaultSortDirections = {
-  timepoints: 'desc',
+  groups: {
+    start: 'desc',
+    end: 'desc',
+  },
+  people: {
+    birthdate: 'desc',
+  },
+  timepoints: {
+    date: 'desc',
+  },
 };
 
 const state = {
@@ -188,7 +197,7 @@ const state = {
   users: [],
   setupResult: null,
   createOpen: {},
-  collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirections[type] || 'asc', search: '', filters: {}, filtersOpen: false }])),
+  collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false }])),
   editing: {},
   relationshipEditing: {},
   editTimers: {},
@@ -1146,8 +1155,22 @@ function renderObjectCollection(type) {
 
   const sourceObjects = state.objects[type] || [];
   const objects = collectionObjects(type);
-  list.innerHTML = objects.map((object) => renderObjectItem(type, object)).join('')
+  list.innerHTML = renderObjectListItems(type, objects)
     || `<div class="empty-state">${sourceObjects.length ? 'Keine Treffer.' : `Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.`}</div>`;
+}
+
+function renderObjectListItems(type, objects) {
+  if (type !== 'timepoints' || collectionSortKey(type) !== 'date') {
+    return objects.map((object) => renderObjectItem(type, object)).join('');
+  }
+
+  let currentYear = null;
+  return objects.map((object) => {
+    const year = dateYear(object.date) || 'ohne Jahr';
+    const header = year === currentYear ? '' : `<div class="list-section-heading">${escapeHtml(year)}</div>`;
+    currentYear = year;
+    return `${header}${renderObjectItem(type, object)}`;
+  }).join('');
 }
 
 function collectionObjects(type) {
@@ -1345,7 +1368,7 @@ function periodEntryGroupId(entry) {
 
 function collectionUi(type) {
   if (!state.collectionUi[type]) {
-    state.collectionUi[type] = { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirections[type] || 'asc', search: '', filters: {}, filtersOpen: false };
+    state.collectionUi[type] = { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false };
   }
 
   if (state.collectionUi[type].sort === 'title' || !state.collectionUi[type].sort) {
@@ -1353,7 +1376,7 @@ function collectionUi(type) {
   }
 
   if (!['asc', 'desc'].includes(state.collectionUi[type].sortDirection)) {
-    state.collectionUi[type].sortDirection = collectionDefaultSortDirections[type] || 'asc';
+    state.collectionUi[type].sortDirection = collectionDefaultSortDirection(type, state.collectionUi[type].sort);
   }
 
   state.collectionUi[type].filters = state.collectionUi[type].filters || {};
@@ -1369,6 +1392,15 @@ function collectionSortKey(type) {
 
 function collectionSortDirection(type) {
   return collectionUi(type).sortDirection === 'desc' ? 'desc' : 'asc';
+}
+
+function collectionDefaultSortDirection(type, sort = collectionDefaultSorts[type]) {
+  const configured = collectionDefaultSortDirections[type];
+  if (configured && typeof configured === 'object') {
+    return configured[sort] || 'asc';
+  }
+
+  return configured || 'asc';
 }
 
 function collectionUsers() {
@@ -3398,12 +3430,22 @@ function updateCollectionControl(control) {
   }
 
   const ui = collectionUi(type);
+  let shouldRenderControls = false;
   if (name === 'sort') {
-    ui.sort = control.value || collectionDefaultSorts[type];
+    const nextSort = control.value || collectionDefaultSorts[type];
+    if (nextSort !== ui.sort) {
+      ui.sort = nextSort;
+      ui.sortDirection = collectionDefaultSortDirection(type, nextSort);
+      shouldRenderControls = true;
+    }
   } else if (name === 'search') {
     ui.search = control.value || '';
   } else {
     ui.filters[name] = Array.from(control.selectedOptions || []).map((option) => option.value).filter(Boolean);
+  }
+
+  if (shouldRenderControls) {
+    renderCollectionControls();
   }
 
   if (type === 'users') {
