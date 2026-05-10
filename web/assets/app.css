@@ -805,6 +805,13 @@ h3 {
   padding: 12px 0 0;
 }
 
+.object-editor-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
 .object-create-form {
   padding: 18px;
 }
@@ -1540,7 +1547,7 @@ h3 {
   }
 
   .object-title-row,
-  .delete-confirm {
+  .object-editor-actions {
     align-items: stretch;
     flex-direction: column;
   }

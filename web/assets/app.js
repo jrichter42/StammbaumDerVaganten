@@ -1621,7 +1621,6 @@ function renderObjectItem(type, object) {
       <div class="user-actions object-actions">
         ${canWrite ? `
           <button class="button button-secondary" type="button" data-object-action="${isEditing ? 'close' : 'edit'}">${isEditing ? 'Schließen' : 'Bearbeiten'}</button>
-          <button class="button button-danger" type="button" data-object-action="delete">Löschen</button>
         ` : ''}
       </div>
     </article>
@@ -1812,6 +1811,9 @@ function renderObjectEditor(type, object) {
   return `
     <form class="object-editor" data-object-editor>
       ${visibleFields(type).map((field) => renderFieldInput(field, object[field.name], false, { ownerType: type, ownerObject: object })).join('')}
+      <div class="object-editor-actions">
+        <button class="button button-danger" type="button" data-object-action="delete">Löschen</button>
+      </div>
     </form>
   `;
 }
@@ -2719,14 +2721,6 @@ async function handleObjectClick(event) {
     return;
   }
 
-  if (action === 'cancel-delete') {
-    clearDeleteConfirm(item);
-    return;
-  }
-
-  if (action === 'confirm-delete') {
-    await deleteObject(item);
-  }
 }
 
 function clickableObjectItemFromEvent(event) {
@@ -4010,26 +4004,6 @@ async function deleteObject(item) {
   } catch (error) {
     handleObjectSaveError(item, error);
   }
-}
-
-function showDeleteConfirm(item) {
-  clearDeleteConfirm(item);
-  const actions = item.querySelector('.object-actions');
-  if (!actions) {
-    return;
-  }
-
-  actions.insertAdjacentHTML('beforeend', `
-    <div class="delete-confirm">
-      <span>Dieses Objekt löschen?</span>
-      <button class="button button-danger" type="button" data-object-action="confirm-delete">Bestätigen</button>
-      <button class="button button-secondary" type="button" data-object-action="cancel-delete">Abbrechen</button>
-    </div>
-  `);
-}
-
-function clearDeleteConfirm(item) {
-  item.querySelector('.delete-confirm')?.remove();
 }
 
 function collectObjectFields(root) {
