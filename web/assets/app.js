@@ -1433,6 +1433,7 @@ function renderObjectItem(type, object) {
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
         ${type === 'groups' ? renderGroupReverseView(object) : ''}
+        ${type === 'timepoints' ? renderTimepointReverseView(object) : ''}
         <p class="object-save-state" data-save-state hidden></p>
       </div>
       <div class="user-actions object-actions">
@@ -1498,6 +1499,131 @@ function reverseActivityLine(entry) {
     objectLabel(entry.role, 'roles'),
     periodYearLabel(entry.period),
   ].filter(Boolean).join(' · ');
+}
+
+function renderTimepointReverseView(timepoint) {
+  const groupLines = timepointGroupLines(timepoint);
+  const membershipLines = timepointMembershipLines(timepoint);
+  const activityLines = timepointActivityLines(timepoint);
+
+  if (!groupLines.length && !membershipLines.length && !activityLines.length) {
+    return '';
+  }
+
+  return `
+    <div class="reverse-view" aria-label="Ereignisse an diesem Zeitpunkt">
+      ${renderReverseColumn('Gruppen', groupLines)}
+      ${renderReverseColumn('Mitgliedschaften', membershipLines)}
+      ${renderReverseColumn('Aktivitäten', activityLines)}
+    </div>
+  `;
+}
+
+function timepointGroupLines(timepoint) {
+  const lines = [];
+  (state.objects.groups || []).forEach((group) => {
+    const starts = [];
+    const ends = [];
+    groupPhases(group).forEach((phase) => {
+      const label = objectLabel(findReferenceObject('group-types', groupPhaseTypeId(phase)), 'group-types') || 'Phase';
+      if (periodBoundaryMatchesTimepoint(timepoint, phase.period, 'start')) {
+        starts.push(label);
+      }
+      if (periodBoundaryMatchesTimepoint(timepoint, phase.period, 'end')) {
+        ends.push(label);
+      }
+    });
+
+    pairTransitions(ends, starts).forEach(([from, to]) => {
+      lines.push(`${objectListTitle('groups', group)}: ${from} → ${to}`);
+    });
+    ends.slice(starts.length).forEach((label) => lines.push(`${objectListTitle('groups', group)}: ${label} endet`));
+    starts.slice(ends.length).forEach((label) => lines.push(`${objectListTitle('groups', group)}: ${label} startet`));
+  });
+  return lines;
+}
+
+function timepointMembershipLines(timepoint) {
+  const lines = [];
+  (state.objects.people || []).forEach((person) => {
+    const starts = [];
+    const ends = [];
+    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
+      const group = objectLabel(findReferenceObject('groups', periodEntryGroupId(membership)), 'groups') || 'Gruppe';
+      if (periodBoundaryMatchesTimepoint(timepoint, membership.period, 'start')) {
+        starts.push(group);
+      }
+      if (periodBoundaryMatchesTimepoint(timepoint, membership.period, 'end')) {
+        ends.push(group);
+      }
+    });
+
+    pairTransitions(ends, starts).forEach(([from, to]) => {
+      lines.push(`${objectListTitle('people', person)}: ${from} → ${to}`);
+    });
+    ends.slice(starts.length).forEach((group) => lines.push(`${objectListTitle('people', person)}: verlässt ${group}`));
+    starts.slice(ends.length).forEach((group) => lines.push(`${objectListTitle('people', person)}: tritt ${group} bei`));
+  });
+  return lines;
+}
+
+function timepointActivityLines(timepoint) {
+  const lines = [];
+  (state.objects.people || []).forEach((person) => {
+    const starts = [];
+    const ends = [];
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+      const label = activityLabel(activity);
+      if (periodBoundaryMatchesTimepoint(timepoint, activity.period, 'start')) {
+        starts.push(label);
+      }
+      if (periodBoundaryMatchesTimepoint(timepoint, activity.period, 'end')) {
+        ends.push(label);
+      }
+    });
+
+    pairTransitions(ends, starts).forEach(([from, to]) => {
+      lines.push(`${objectListTitle('people', person)}: ${from} → ${to}`);
+    });
+    ends.slice(starts.length).forEach((label) => lines.push(`${objectListTitle('people', person)}: ${label} endet`));
+    starts.slice(ends.length).forEach((label) => lines.push(`${objectListTitle('people', person)}: ${label} startet`));
+  });
+  return lines;
+}
+
+function activityLabel(activity) {
+  return [
+    objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivität',
+    objectLabel(findReferenceObject('groups', periodEntryGroupId(activity)), 'groups'),
+  ].filter(Boolean).join(' in ');
+}
+
+function groupPhaseTypeId(phase) {
+  return phase?.groupType || phase?.groupTypeId || phase?.group_type_id || '';
+}
+
+function activityRoleId(activity) {
+  return activity?.role || activity?.roleId || activity?.role_id || '';
+}
+
+function pairTransitions(ends, starts) {
+  return ends.slice(0, Math.min(ends.length, starts.length)).map((end, index) => [end, starts[index]]);
+}
+
+function periodBoundaryMatchesTimepoint(timepoint, period, boundary) {
+  if (!timepoint || !period) {
+    return false;
+  }
+
+  const timepointId = objectId(timepoint);
+  const timepointRaw = dateRawString(timepoint.date);
+  const referenceField = boundary === 'end' ? 'endTimepoint' : 'startTimepoint';
+  const dateField = boundary === 'end' ? 'customEnd' : 'customStart';
+
+  return Boolean(
+    (timepointId && period[referenceField] === timepointId)
+    || (timepointRaw && dateRawString(period[dateField]) === timepointRaw)
+  );
 }
 
 function renderObjectEditor(type, object) {
