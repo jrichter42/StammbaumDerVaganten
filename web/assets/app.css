@@ -1150,8 +1150,8 @@ h3 {
 .period-save-timepoint {
   display: inline;
   width: fit-content;
-  margin-top: 2px;
-  font-size: inherit;
+  margin-top: 0;
+  font-size: 0.78rem;
   line-height: inherit;
 }
 
