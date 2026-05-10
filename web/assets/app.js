@@ -1802,9 +1802,10 @@ function renderGroupPhaseField(field, value, context = {}) {
 
 function renderObjectListField(field, value, context = {}) {
   const useBlankStarter = !['membership-list', 'activity-list'].includes(field.kind);
-  const values = Array.isArray(value) && value.length ? value : (useBlankStarter ? [{}] : []);
+  const savedValues = Array.isArray(value) ? value : [];
+  const values = savedValues.length ? savedValues : (useBlankStarter ? [{}] : []);
   return `
-    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
+    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}" data-list-saved-count="${savedValues.length}">
       <div class="composite-header">
         <span>${escapeHtml(field.label)}</span>
       </div>
@@ -1822,7 +1823,8 @@ function renderComplexListItem(kind, value = {}, context = {}) {
   const summary = hasValue ? complexItemSummary(kind, value) : emptyComplexItemSummary(kind);
   const personKey = relationshipPersonKey(context.ownerType, context.ownerObject);
   const isOpenRelationshipRow = Boolean(rowKey && personKey && state.relationshipEditing[personKey] === rowKey);
-  const isCollapsed = hasValue && !isOpenRelationshipRow;
+  const isRelationshipRow = Boolean(rowKey && personKey);
+  const isCollapsed = isRelationshipRow ? !isOpenRelationshipRow : hasValue;
   return `
     <div class="composite-item ${summary ? 'has-summary' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
       ${summary ? `
@@ -2302,8 +2304,16 @@ async function handleObjectClick(event) {
 
   const createButton = event.target.closest('[data-create-type]');
   if (createButton) {
-    state.createOpen[createButton.dataset.createType] = true;
-    renderObjectCollection(createButton.dataset.createType);
+    if (focusExistingCreateForm(createButton)) {
+      return;
+    }
+
+    const createType = createButton.dataset.createType;
+    collectionTypes.forEach((type) => {
+      state.createOpen[type] = false;
+    });
+    state.createOpen[createType] = true;
+    renderObjectCollection(createType);
     return;
   }
 
@@ -2581,6 +2591,10 @@ function handleListAction(button) {
   }
 
   if (button.dataset.listAction === 'add') {
+    if (isRelationshipListField(fieldRoot) && focusUnsavedRelationshipRow(fieldRoot, button)) {
+      return;
+    }
+
     const personKey = relationshipPersonKeyFromFieldRoot(fieldRoot);
     if (personKey) {
       collapseRelationshipRowsForPerson(fieldRoot);
@@ -2591,6 +2605,74 @@ function handleListAction(button) {
   }
 
   markCompositeChanged(fieldRoot);
+}
+
+function focusExistingCreateForm(triggerButton) {
+  const form = document.querySelector('[data-create-form]');
+  if (!form) {
+    return false;
+  }
+
+  showInlineActionFeedback(triggerButton, 'Offenen Eintrag erst speichern oder abbrechen.');
+  scrollElementIntoView(form);
+  form.querySelector('[data-object-field] input, [data-object-field] textarea, [data-object-field] select')?.focus();
+  return true;
+}
+
+function focusUnsavedRelationshipRow(fieldRoot, triggerButton) {
+  const list = fieldRoot.querySelector('[data-list-items]');
+  if (!list) {
+    return false;
+  }
+
+  const savedCount = Number(fieldRoot.dataset.listSavedCount || 0);
+  const row = list.children[savedCount];
+  if (!row) {
+    return false;
+  }
+
+  const personKey = relationshipPersonKeyFromFieldRoot(fieldRoot);
+  if (personKey) {
+    collapseRelationshipRowsForPerson(fieldRoot, row);
+    state.relationshipEditing[personKey] = row.dataset.relationshipRowKey || '';
+  }
+
+  row.classList.remove('is-collapsed');
+  row.querySelector('[data-list-action="toggle"]')?.setAttribute('aria-expanded', 'true');
+  showInlineActionFeedback(triggerButton, 'Offenen Eintrag erst speichern oder abbrechen.');
+  scrollElementIntoView(row);
+  return true;
+}
+
+function showInlineActionFeedback(trigger, text) {
+  if (!trigger) {
+    return;
+  }
+
+  document.querySelectorAll('[data-inline-action-feedback]').forEach((element) => element.remove());
+  const element = document.createElement('span');
+  element.dataset.inlineActionFeedback = '1';
+  element.className = 'inline-action-feedback';
+  element.textContent = text;
+  document.body.appendChild(element);
+
+  const rect = trigger.getBoundingClientRect();
+  const top = window.scrollY + rect.top;
+  const left = window.scrollX + rect.left + rect.width / 2;
+  element.style.top = `${Math.max(8, top - 8)}px`;
+  element.style.left = `${left}px`;
+
+  window.setTimeout(() => {
+    if (element.isConnected && element.textContent === text) {
+      element.remove();
+    }
+  }, 2400);
+}
+
+function scrollElementIntoView(element) {
+  window.requestAnimationFrame(() => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 }
 
 function confirmDangerButton(button) {
@@ -3981,6 +4063,7 @@ function updateCompositeRowSummaries(item, type, object) {
     }
 
     const values = Array.isArray(object[field.name]) ? object[field.name] : [];
+    fieldRoot.dataset.listSavedCount = String(values.length);
     fieldRoot.querySelectorAll(':scope [data-list-item]').forEach((row, index) => {
       const value = values[index] || {};
       const hasValue = complexItemHasValue(field.kind, value);

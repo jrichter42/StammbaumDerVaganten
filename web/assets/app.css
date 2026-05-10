@@ -1179,6 +1179,24 @@ h3 {
   justify-self: end;
 }
 
+.inline-action-feedback {
+  position: absolute;
+  z-index: 20;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  padding: 5px 8px;
+  border: 1px solid rgba(214, 106, 98, 0.58);
+  border-radius: 6px;
+  max-width: min(34ch, 100%);
+  color: #ffd5d1;
+  background: rgba(43, 21, 20, 0.96);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+
 .delete-confirm {
   flex: 1 1 100%;
   display: flex;
