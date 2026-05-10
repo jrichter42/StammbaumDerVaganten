@@ -1010,6 +1010,11 @@ h3 {
   color: #ffd5d1;
 }
 
+.nav-feedback {
+  padding: 0 10px;
+  font-size: 0.76rem;
+}
+
 .composite-field {
   gap: 10px;
   padding: 10px;

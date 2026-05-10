@@ -49,6 +49,31 @@ const certaintyOptions = [
   ['set_in_stone', 'Gesichert'],
 ];
 
+const stockGroupTypeLabelGroups = [
+  ['Stamm'],
+  ['Meute'],
+  ['Rudel'],
+  ['Gilde'],
+  ['Sippe'],
+  ['Runde'],
+  ['Kreis'],
+];
+
+const stockRoleLabelGroups = [
+  ['Stammesführung'],
+  ['Stellv. Stammesführung'],
+  ['Kassenwart'],
+  ['Stellv. Kassenwart', 'Stellv. Kassenwart*in'],
+  ['Handkasse'],
+  ['Meutenführung'],
+  ['Meutenassistenz'],
+  ['Rudelführung'],
+  ['Sippenführung'],
+  ['Gildensprecher', 'Gildensprecher*in'],
+  ['Rundensprecher', 'Rundensprecher*in'],
+  ['Kreisleitung'],
+];
+
 const objectConfigs = {
   people: {
     list: '#peopleList',
@@ -335,9 +360,7 @@ function renderShell() {
   document.querySelectorAll('[data-create-type]').forEach((button) => {
     button.hidden = !hasPermission('write');
   });
-  if (exampleDataButton) {
-    exampleDataButton.hidden = !hasPermission('write');
-  }
+  updateExampleDataVisibility();
 }
 
 function showBootstrapHint() {
@@ -943,6 +966,7 @@ function renderWarnings(warnings) {
 
 function renderSectionCounts() {
   renderNavigationCounts();
+  updateExampleDataVisibility();
 }
 
 function renderNavigationCounts() {
@@ -3577,6 +3601,45 @@ async function handleExampleDataClick(event) {
 
   event.preventDefault();
   await createExampleData();
+}
+
+function updateExampleDataVisibility() {
+  if (!exampleDataButton) {
+    return;
+  }
+
+  exampleDataButton.hidden = !canCreateExampleData();
+  if (exampleDataState && exampleDataButton.hidden && !state.exampleDataCreating) {
+    exampleDataState.hidden = true;
+  }
+}
+
+function canCreateExampleData() {
+  return hasPermission('write')
+    && ['people', 'groups', 'timepoints'].every((type) => (state.objects[type] || []).length === 0)
+    && objectLabelsMatchStock('group-types', stockGroupTypeLabelGroups)
+    && objectLabelsMatchStock('roles', stockRoleLabelGroups);
+}
+
+function objectLabelsMatchStock(type, labelGroups) {
+  const matched = new Set();
+  const labels = (state.objects[type] || []).map((object) => normalizeExampleDataLabel(objectLabel(object, type)));
+  if (labels.length !== labelGroups.length) {
+    return false;
+  }
+
+  return labels.every((label) => {
+    const index = labelGroups.findIndex((group, groupIndex) => (
+      !matched.has(groupIndex)
+      && group.map((candidate) => normalizeExampleDataLabel(candidate)).includes(label)
+    ));
+    if (index === -1) {
+      return false;
+    }
+
+    matched.add(index);
+    return true;
+  });
 }
 
 async function createExampleData() {
