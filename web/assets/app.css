@@ -630,38 +630,10 @@ h3 {
   min-width: min(100%, 320px);
 }
 
-.collection-filter-title {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
 .collection-filter-label {
   display: flex;
   align-items: baseline;
   gap: 4px;
-}
-
-.collection-filter-toggle {
-  min-height: 34px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--brand-strong);
-  background: #0f1418;
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.collection-filter-toggle:hover {
-  border-color: rgba(255, 255, 0, 0.42);
-  background: var(--surface-raised);
-}
-
-.collection-filter-toggle:focus-visible {
-  outline: 2px solid var(--brand-strong);
-  outline-offset: 2px;
 }
 
 .collection-sort-direction {

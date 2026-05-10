@@ -198,7 +198,7 @@ const state = {
   setupTokens: [],
   setupResult: null,
   createOpen: {},
-  collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false, sortExplicit: false }])),
+  collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, sortExplicit: false }])),
   deepLinkTarget: null,
   editing: {},
   relationshipEditing: {},
@@ -1163,13 +1163,9 @@ function collectionControlsHtml(type) {
 
   const filterControls = collectionFilterControls(type, ui.filters || {});
   if (filterControls.length) {
-    const isOpen = Boolean(ui.filtersOpen);
     controls.push(`
-      <section class="collection-filter-section ${isOpen ? 'is-open' : ''}">
-        <div class="collection-filter-title">
-          <button class="collection-filter-toggle" type="button" data-collection-filter-toggle="${escapeAttribute(type)}" aria-expanded="${isOpen ? 'true' : 'false'}">${isOpen ? 'Filter ausblenden' : 'Filter anzeigen'}</button>
-        </div>
-        <div class="collection-filter-controls" ${isOpen ? '' : 'hidden'}>
+      <section class="collection-filter-section">
+        <div class="collection-filter-controls">
           ${filterControls.join('')}
         </div>
       </section>
@@ -1493,7 +1489,7 @@ function periodEntryGroupId(entry) {
 
 function collectionUi(type) {
   if (!state.collectionUi[type]) {
-    state.collectionUi[type] = { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false, sortExplicit: false };
+    state.collectionUi[type] = { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, sortExplicit: false };
   }
 
   if (state.collectionUi[type].sort === 'title' || !state.collectionUi[type].sort) {
@@ -1505,7 +1501,6 @@ function collectionUi(type) {
   }
 
   state.collectionUi[type].filters = state.collectionUi[type].filters || {};
-  state.collectionUi[type].filtersOpen = Boolean(state.collectionUi[type].filtersOpen);
   state.collectionUi[type].sortExplicit = Boolean(state.collectionUi[type].sortExplicit);
   return state.collectionUi[type];
 }
@@ -2596,15 +2591,6 @@ function markDateControlChanged(input) {
 async function handleObjectClick(event) {
   if (!event.target.closest('[data-danger-confirm]')) {
     resetDangerConfirmations();
-  }
-
-  const filterToggle = event.target.closest('[data-collection-filter-toggle]');
-  if (filterToggle) {
-    const type = filterToggle.dataset.collectionFilterToggle;
-    const ui = collectionUi(type);
-    ui.filtersOpen = !ui.filtersOpen;
-    renderCollectionControls();
-    return;
   }
 
   const sortDirectionButton = event.target.closest('[data-collection-sort-direction]');
