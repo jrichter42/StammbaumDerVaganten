@@ -197,7 +197,8 @@ const state = {
   users: [],
   setupResult: null,
   createOpen: {},
-  collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false }])),
+  collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false, sortExplicit: false }])),
+  deepLinkTarget: null,
   editing: {},
   relationshipEditing: {},
   editTimers: {},
@@ -231,6 +232,8 @@ if (urlSetup) {
   setupPanel.hidden = false;
 }
 
+restoreUrlState();
+
 document.querySelectorAll('[data-view]').forEach((button) => {
   button.addEventListener('click', async () => {
     const viewName = button.dataset.view;
@@ -263,7 +266,7 @@ document.addEventListener('focusin', handleEditorFocus);
 refresh();
 window.setInterval(pollObjects, 12000);
 
-function activateView(viewName) {
+function activateView(viewName, urlExtra = {}) {
   document.querySelectorAll('[data-view]').forEach((button) => {
     button.classList.toggle('is-active', button.dataset.view === viewName);
   });
@@ -271,6 +274,90 @@ function activateView(viewName) {
   document.querySelectorAll('.view').forEach((view) => {
     view.classList.toggle('is-active', view.id === `view-${viewName}`);
   });
+
+  writeUrlState({ view: viewName, ...urlExtra });
+}
+
+function restoreUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get('view');
+  const id = params.get('id');
+
+  if (view && (objectCollections.includes(view) || view === 'admin')) {
+    const urlSort = readUrlSortState(view, params);
+    state.deepLinkTarget = id ? { view, id } : null;
+    state.collectionUi[view] = {
+      ...collectionUi(view),
+      sort: urlSort.sort,
+      sortDirection: urlSort.direction,
+      search: params.get('q') || '',
+      sortExplicit: urlSort.explicit,
+    };
+    window.requestAnimationFrame(() => activateView(view, id ? { id } : {}));
+  }
+}
+
+function writeUrlState(extra = {}) {
+  if (isSetupPage) {
+    return;
+  }
+
+  const activeView = extra.view || document.querySelector('[data-view].is-active')?.dataset.view || 'people';
+  const ui = collectionUi(activeView);
+  const activeSort = collectionSortKey(activeView);
+  const params = new URLSearchParams();
+  params.set('view', activeView);
+  const activeId = Object.prototype.hasOwnProperty.call(extra, 'id') ? extra.id : activeEditingId(activeView);
+  if (activeId) {
+    params.set('id', activeId);
+  }
+  if (ui?.search) {
+    params.set('q', ui.search);
+  }
+  if (activeSort && ui.sortExplicit) {
+    params.set('sort', `${ui.sortDirection === 'desc' ? '-' : ''}${activeSort}`);
+  }
+
+  window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+}
+
+function readUrlSortState(type, params) {
+  const fallbackSort = collectionDefaultSorts[type];
+  const rawSort = params.get('sort') || '';
+  const marker = rawSort[0] || '';
+  const requestedSort = ['-', '+', ' '].includes(marker) ? rawSort.slice(1) : rawSort;
+  const sortOptions = collectionSortOptions[type] || [];
+  const hasRequestedSort = sortOptions.some(([value]) => value === requestedSort);
+  const sort = hasRequestedSort ? requestedSort : fallbackSort;
+  const legacyDirection = params.get('dir');
+  const explicit = hasRequestedSort || ['asc', 'desc'].includes(legacyDirection);
+  const direction = ['asc', 'desc'].includes(legacyDirection)
+    ? legacyDirection
+    : (marker === '-' ? 'desc' : (['+', ' '].includes(marker) ? 'asc' : collectionDefaultSortDirection(type, sort)));
+  return { sort, direction: direction === 'desc' ? 'desc' : 'asc', explicit };
+}
+
+function activeEditingId(type) {
+  const prefix = `${type}:`;
+  const key = Object.keys(state.editing).find((candidate) => state.editing[candidate] && candidate.startsWith(prefix));
+  return key ? key.slice(prefix.length) : '';
+}
+
+function applyDeepLinkTarget() {
+  const target = state.deepLinkTarget;
+  if (!target?.view || !target.id) {
+    return;
+  }
+
+  const item = document.querySelector(`[data-object-type="${cssEscape(target.view)}"][data-object-id="${cssEscape(target.id)}"]`);
+  if (!item) {
+    return;
+  }
+
+  state.deepLinkTarget = null;
+  state.editing[objectKey(target.view, target.id)] = true;
+  renderObjectCollection(target.view);
+  window.requestAnimationFrame(() => scrollObjectEditorIntoView(target.view, target.id, item.parentElement?.id || ''));
 }
 
 async function handleNavigationJump(event) {
@@ -680,6 +767,7 @@ function render() {
   renderCollectionControls();
   renderObjectCollections();
   renderAdmin();
+  applyDeepLinkTarget();
 }
 
 function renderPublicOverview() {
@@ -1368,7 +1456,7 @@ function periodEntryGroupId(entry) {
 
 function collectionUi(type) {
   if (!state.collectionUi[type]) {
-    state.collectionUi[type] = { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false };
+    state.collectionUi[type] = { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, filtersOpen: false, sortExplicit: false };
   }
 
   if (state.collectionUi[type].sort === 'title' || !state.collectionUi[type].sort) {
@@ -1381,6 +1469,7 @@ function collectionUi(type) {
 
   state.collectionUi[type].filters = state.collectionUi[type].filters || {};
   state.collectionUi[type].filtersOpen = Boolean(state.collectionUi[type].filtersOpen);
+  state.collectionUi[type].sortExplicit = Boolean(state.collectionUi[type].sortExplicit);
   return state.collectionUi[type];
 }
 
@@ -1477,7 +1566,7 @@ function renderObjectItem(type, object) {
   const summary = objectSummary(type, object);
 
   return `
-    <article class="list-item object-item" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}">
+    <article class="list-item object-item ${canWrite ? 'is-clickable' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}">
       <div class="object-main">
         <div class="object-title-row">
           <div>
@@ -2477,6 +2566,7 @@ async function handleObjectClick(event) {
   if (sortDirectionButton) {
     const type = sortDirectionButton.dataset.collectionSortDirection;
     const ui = collectionUi(type);
+    ui.sortExplicit = true;
     ui.sortDirection = ui.sortDirection === 'desc' ? 'asc' : 'desc';
     renderCollectionControls();
     if (type === 'users') {
@@ -2484,6 +2574,7 @@ async function handleObjectClick(event) {
     } else {
       renderObjectCollection(type);
     }
+    writeUrlState({ view: type });
     return;
   }
 
@@ -2547,6 +2638,12 @@ async function handleObjectClick(event) {
     return;
   }
 
+  const clickedItem = clickableObjectItemFromEvent(event);
+  if (clickedItem) {
+    await focusObjectEditor(clickedItem);
+    return;
+  }
+
   const button = event.target.closest('[data-object-action]');
   if (!button) {
     return;
@@ -2571,6 +2668,7 @@ async function handleObjectClick(event) {
     await flushObjectEdit(item, true);
     state.editing[key] = false;
     delete state.relationshipEditing[key];
+    writeUrlState({ view: type, id: '' });
     renderObjectCollection(type);
     return;
   }
@@ -2594,6 +2692,18 @@ async function handleObjectClick(event) {
   }
 }
 
+function clickableObjectItemFromEvent(event) {
+  if (!hasPermission('write')) {
+    return null;
+  }
+
+  if (event.target.closest('a, button, input, select, textarea, label, [data-object-editor], [data-date-detail-popover]')) {
+    return null;
+  }
+
+  return event.target.closest('[data-object-type][data-object-id]');
+}
+
 async function focusObjectEditor(item) {
   const targetType = item.dataset.objectType;
   const targetId = item.dataset.objectId;
@@ -2614,6 +2724,7 @@ async function focusObjectEditor(item) {
 
   state.editing = {};
   state.editing[targetKey] = true;
+  writeUrlState({ view: targetType, id: targetId });
   renderObjectCollections();
   scrollObjectEditorIntoView(targetType, targetId, targetListId);
 }
@@ -3433,6 +3544,7 @@ function updateCollectionControl(control) {
   let shouldRenderControls = false;
   if (name === 'sort') {
     const nextSort = control.value || collectionDefaultSorts[type];
+    ui.sortExplicit = true;
     if (nextSort !== ui.sort) {
       ui.sort = nextSort;
       ui.sortDirection = collectionDefaultSortDirection(type, nextSort);
@@ -3453,6 +3565,7 @@ function updateCollectionControl(control) {
   } else {
     renderObjectCollection(type);
   }
+  writeUrlState({ view: type });
 }
 
 async function handleObjectInput(event) {

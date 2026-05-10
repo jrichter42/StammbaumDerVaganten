@@ -730,6 +730,15 @@ h3 {
   align-items: start;
 }
 
+.object-item.is-clickable {
+  cursor: pointer;
+}
+
+.object-item.is-clickable .object-editor,
+.object-item.is-clickable .object-actions {
+  cursor: default;
+}
+
 .list-section-heading {
   padding: 10px 4px 0;
   color: var(--brand-strong);
