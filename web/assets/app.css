@@ -50,6 +50,7 @@ textarea {
 }
 
 .topbar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -119,7 +120,7 @@ h3 {
 }
 
 .topbar-actions {
-  position: relative;
+  position: static;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -128,7 +129,11 @@ h3 {
 }
 
 .global-search {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
 }
 
 .global-search input {
@@ -150,9 +155,10 @@ h3 {
   position: absolute;
   z-index: 10;
   top: calc(100% + 6px);
-  right: 0;
+  left: 50%;
   display: grid;
   width: min(420px, 88vw);
+  transform: translateX(-50%);
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
@@ -1567,7 +1573,26 @@ button.object-title-row:focus-visible {
   }
 
   .topbar-actions {
+    position: relative;
     justify-content: start;
+    width: 100%;
+  }
+
+  .global-search {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+  }
+
+  .global-search input {
+    width: min(100%, 320px);
+  }
+
+  .global-search-results {
+    left: 0;
+    width: min(420px, calc(100vw - 32px));
+    transform: none;
   }
 
   .collection-heading,
