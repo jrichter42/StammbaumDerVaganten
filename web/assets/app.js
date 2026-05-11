@@ -416,7 +416,7 @@ function activeViewHasOpenEditor(viewName) {
   return Boolean(view?.querySelector('[data-object-editor], [data-create-form]'));
 }
 
-function handleGlobalSearchClick(event) {
+async function handleGlobalSearchClick(event) {
   const button = event.target.closest('[data-global-search-result]');
   if (!button) {
     if (!event.target.closest('#globalSearch')) {
@@ -434,10 +434,24 @@ function handleGlobalSearchClick(event) {
   activateView(type);
   hideGlobalSearchResults();
   globalSearchInput.value = '';
-  window.requestAnimationFrame(() => {
-    document.querySelector(`[data-object-type="${cssEscape(type)}"][data-object-id="${cssEscape(id)}"]`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
+
+  let item = objectListItem(type, id);
+  if (!item) {
+    const ui = collectionUi(type);
+    ui.search = '';
+    ui.filters = {};
+    renderCollectionControls();
+    renderObjectCollection(type);
+    item = objectListItem(type, id);
+  }
+
+  if (item) {
+    await focusObjectEditor(item);
+  }
+}
+
+function objectListItem(type, id) {
+  return document.querySelector(`[data-object-type="${cssEscape(type)}"][data-object-id="${cssEscape(id)}"]`);
 }
 
 function renderGlobalSearchResults() {
