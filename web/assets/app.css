@@ -265,6 +265,34 @@ h3 {
   background: var(--surface-muted);
 }
 
+.back-to-top {
+  position: fixed;
+  right: clamp(14px, 3vw, 32px);
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--brand-strong);
+  border-color: rgba(255, 255, 0, 0.38);
+  background: rgba(15, 20, 24, 0.9);
+  transform: translateY(-50%);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.back-to-top:hover,
+.back-to-top:focus-visible {
+  color: var(--brand-strong);
+  background: var(--surface-raised);
+}
+
 .button-danger {
   color: #2a0806;
   background: var(--danger);

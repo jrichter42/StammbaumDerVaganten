@@ -32,7 +32,7 @@ $configWarnings = array_map(
         </div>
         <div class="topbar-actions" aria-label="App-Status">
           <div class="global-search" id="globalSearch" hidden>
-            <input id="globalSearchInput" type="search" placeholder="Suchen (global)" autocomplete="off" aria-label="Alle Daten durchsuchen">
+            <input id="globalSearchInput" type="search" placeholder="Suche (Global)" autocomplete="off" aria-label="Alle Daten durchsuchen">
             <div class="global-search-results" id="globalSearchResults" hidden></div>
           </div>
           <span class="status-pill" id="connectionStatus">Lädt</span>
@@ -234,6 +234,7 @@ $configWarnings = array_map(
         </section>
       </main>
       </div>
+      <button class="button button-secondary back-to-top" id="backToTopButton" type="button" aria-label="Nach oben" hidden>∧</button>
     </div>
     <script type="module" src="assets/app.js"></script>
   </body>

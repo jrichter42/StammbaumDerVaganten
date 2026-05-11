@@ -228,6 +228,8 @@ const setupResult = document.querySelector('#setupResult');
 const exampleDataButton = document.querySelector('#exampleDataButton');
 const exampleDataState = document.querySelector('#exampleDataState');
 const userList = document.querySelector('#userList');
+const appContent = document.querySelector('.app-content');
+const backToTopButton = document.querySelector('#backToTopButton');
 
 const urlSetup = new URLSearchParams(window.location.search).get('setup');
 let isSetupPage = Boolean(urlSetup);
@@ -268,9 +270,24 @@ document.addEventListener('change', handleReferencePickerChange);
 document.addEventListener('change', handleObjectChange);
 document.addEventListener('focusout', handleObjectBlur);
 document.addEventListener('focusin', handleEditorFocus);
+appContent?.addEventListener('scroll', updateBackToTopButton, { passive: true });
+backToTopButton?.addEventListener('click', scrollBackToTop);
 
+updateBackToTopButton();
 refresh();
 window.setInterval(pollObjects, 12000);
+
+function updateBackToTopButton() {
+  if (!backToTopButton) {
+    return;
+  }
+
+  backToTopButton.hidden = appScrollRoot().scrollTop <= 4;
+}
+
+function scrollBackToTop() {
+  appScrollRoot().scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 function activateView(viewName, urlExtra = {}) {
   document.querySelectorAll('[data-view]').forEach((button) => {
