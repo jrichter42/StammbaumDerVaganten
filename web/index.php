@@ -42,6 +42,7 @@ $configWarnings = array_map(
         </div>
       </header>
 
+      <div class="app-content">
       <?php if ($configWarnings !== []): ?>
         <aside class="app-warning" role="alert">
           <strong>Config-Warnung</strong>
@@ -232,6 +233,7 @@ $configWarnings = array_map(
           </div>
         </section>
       </main>
+      </div>
     </div>
     <script type="module" src="assets/app.js"></script>
   </body>

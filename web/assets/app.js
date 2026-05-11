@@ -2829,26 +2829,28 @@ function scrollObjectEditorIntoView(type, id, listId = '') {
     }
 
     const margin = 16;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const scrollRoot = appScrollRoot();
+    const rootRect = scrollRoot === document.documentElement
+      ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight }
+      : scrollRoot.getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
-    const editorRect = editor.getBoundingClientRect();
-    const target = itemRect.height + margin * 2 <= viewportHeight ? item : editor;
-    const rect = target.getBoundingClientRect();
-    const fullyVisible = rect.top >= margin && rect.bottom <= viewportHeight - margin;
-    if (fullyVisible) {
+    const topOffset = itemRect.top - rootRect.top - margin;
+    if (Math.abs(topOffset) < 1) {
       return;
     }
 
-    const scrollTop = rect.height + margin * 2 <= viewportHeight
-      ? window.scrollY + rect.top - margin
-      : window.scrollY + rect.top;
-    window.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+    const scrollTop = scrollRoot.scrollTop + topOffset;
+    scrollRoot.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
   };
 
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(scrollWhenStable);
     window.setTimeout(scrollWhenStable, 120);
   });
+}
+
+function appScrollRoot() {
+  return document.querySelector('.app-content') || document.documentElement;
 }
 
 async function handlePeriodModeAction(button) {
