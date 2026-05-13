@@ -2043,7 +2043,7 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
   const picker = pickerContext.picker || '';
   const birthYear = birthYearFromDateValue(pickerContext.ownerObject?.birthdate);
   const optionConfig = referenceOptionConfigFromContext(pickerContext, storedValue);
-  const labelHtml = hideLabel ? '' : fieldLabelHtml(label, pickerContext.labelActionHtml || '');
+  const labelHtml = hideLabel ? '' : fieldLabelHtml(label, pickerContext.labelActionHtml || '', id);
   const labelAttr = hideLabel && label ? `aria-label="${escapeAttribute(label)}"` : '';
   const attrs = [
     objectFieldAttrs,
@@ -2067,11 +2067,14 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
   `;
 }
 
-function fieldLabelHtml(label, actionHtml = '') {
+function fieldLabelHtml(label, actionHtml = '', forId = '') {
   const action = actionHtml ? `<span class="field-label-action">${actionHtml}</span>` : '';
+  const main = forId
+    ? `<label class="field-label-main" for="${escapeAttribute(forId)}">${escapeHtml(label)}</label>`
+    : `<span class="field-label-main">${escapeHtml(label)}</span>`;
   return `
     <span class="field-label-row">
-      <span class="field-label-main">${escapeHtml(label)}</span>
+      ${main}
       ${action}
     </span>
   `;
