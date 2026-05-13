@@ -2189,22 +2189,29 @@ function referencePickerObjects(collection, config = {}) {
 }
 
 function referenceOptionLabel(object, collection, objects, showIds = false) {
-  const label = objectLabel(object, collection);
-  const duplicate = objects.filter((candidate) => objectLabel(candidate, collection) === label).length > 1;
   const id = objectId(object);
+  const label = referenceOptionMainLabel(object, collection, id);
+  const duplicate = objects.filter((candidate) => referenceOptionMainLabel(candidate, collection, objectId(candidate)) === label).length > 1;
   const detail = referenceOptionDetail(object, collection);
   const disambiguator = showIds || duplicate ? shortObjectId(id) : '';
-  return [
-    label && label !== id ? label : id,
-    detail,
-    disambiguator,
-  ].filter(Boolean).join(' · ');
+  const text = detail ? `${label} (${detail})` : label;
+  return [text, disambiguator].filter(Boolean).join(' · ');
+}
+
+function referenceOptionMainLabel(object, collection, id = objectId(object)) {
+  const label = objectLabel(object, collection);
+  const name = label && label !== id ? label : id;
+
+  if (collection === 'groups') {
+    return [groupTypeLabel(object, state.groupTypes || []), name].filter(Boolean).join(' ');
+  }
+
+  return name;
 }
 
 function referenceOptionDetail(object, collection) {
   if (collection === 'groups') {
-    const period = periodYearLabel(object.mainPhase?.period);
-    return [groupTypeLabel(object, state.groupTypes || []), period].filter(Boolean).join(', ');
+    return compactPeriodDisplayValue(object.mainPhase?.period);
   }
 
   if (collection === 'roles') {
@@ -2213,14 +2220,55 @@ function referenceOptionDetail(object, collection) {
   }
 
   if (collection === 'timepoints') {
-    return dateDisplayValue(object.date);
+    return compactDateDisplayValue(object.date);
   }
 
   if (collection === 'people' && object.birthdate) {
-    return `geboren ${dateDisplayValue(object.birthdate)}`;
+    return `geb. ${compactDateDisplayValue(object.birthdate)}`;
   }
 
   return '';
+}
+
+function compactDateDisplayValue(value) {
+  return dateYear(value) || dateDisplayValue(value);
+}
+
+function compactPeriodDisplayValue(period) {
+  if (!period || typeof period !== 'object') {
+    return '';
+  }
+
+  const start = referenceYear('timepoints', period.startTimepoint) || dateYear(period.customStart);
+  const end = referenceYear('timepoints', period.endTimepoint) || dateYear(period.customEnd);
+
+  if (start && end) {
+    if (start === end) {
+      return start;
+    }
+
+    return compactYearRange(start, end);
+  }
+
+  if (start) {
+    return `seit ${start}`;
+  }
+
+  if (end) {
+    return `bis ${end}`;
+  }
+
+  return '';
+}
+
+function compactYearRange(start, end) {
+  const startText = String(start || '');
+  const endText = String(end || '');
+  if (/^\d{4}$/.test(startText) && /^\d{4}$/.test(endText) && startText.slice(0, 2) === endText.slice(0, 2)) {
+    return `${startText}–${endText.slice(2)}`;
+  }
+
+  return `${startText}–${endText}`;
 }
 
 function shortObjectId(id) {
