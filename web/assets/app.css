@@ -50,6 +50,10 @@
   --brand-strong: var(--brand-primary);
   --brand-hover: var(--brand-primary-bright);
   --brand-ink: #1b1b03;
+  --edit-border: var(--brand-primary-dark);
+  --edit-border-strong: var(--brand-primary-bright);
+  --edit-surface: rgba(var(--brand-rgb), 0.055);
+  --edit-shadow: 0 0 0 1px rgba(var(--brand-rgb), 0.18);
   --accent: var(--brand-primary-dark);
   --accent-ink: #1d1806;
   --good: var(--brand-success);
@@ -970,6 +974,12 @@ h3 {
   border-radius: 8px;
 }
 
+.object-list .object-item.is-editing {
+  border-color: var(--edit-border);
+  background: linear-gradient(180deg, var(--edit-surface), var(--surface) 132px);
+  box-shadow: var(--edit-shadow);
+}
+
 .object-list .list-item:hover {
   background: var(--surface);
 }
@@ -1014,7 +1024,7 @@ button.object-title-row {
 
 button.object-title-row:hover,
 button.object-title-row:focus-visible {
-  border-color: rgba(var(--brand-rgb), 0.48);
+  border-color: var(--brand);
   outline: 0;
   background: rgba(var(--brand-rgb), 0.08);
 }
@@ -1184,16 +1194,6 @@ button.object-title-row:focus-visible {
 .object-field .composite-validation-list-item {
   color: var(--danger);
   font-size: 0.73rem;
-}
-
-.composite-inline-validation {
-  display: flex;
-  justify-content: flex-end;
-  grid-column: 1 / -1;
-}
-
-.composite-inline-validation .composite-validation-list {
-  max-width: 100%;
 }
 
 .object-summary {
@@ -1534,7 +1534,14 @@ button.object-title-row:focus-visible {
   background: rgba(21, 27, 32, 0.78);
 }
 
+.composite-item:not(.is-collapsed):not(.reference-list-item) {
+  border-color: var(--edit-border);
+  background: linear-gradient(180deg, var(--edit-surface), rgba(21, 27, 32, 0.82));
+  box-shadow: var(--edit-shadow);
+}
+
 .composite-summary {
+  position: relative;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1549,6 +1556,21 @@ button.object-title-row:focus-visible {
   background: transparent;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+
+.composite-summary::before {
+  content: "";
+  position: absolute;
+  inset: -5px -6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.composite-summary > * {
+  position: relative;
+  z-index: 1;
 }
 
 .composite-summary-text {
@@ -1592,8 +1614,14 @@ button.object-title-row:focus-visible {
 
 .composite-summary:hover,
 .composite-summary:focus-visible {
-  border-color: rgba(var(--brand-rgb), 0.48);
+  border-color: transparent;
   outline: 0;
+  background: transparent;
+}
+
+.composite-summary:hover::before,
+.composite-summary:focus-visible::before {
+  border-color: var(--brand);
   background: rgba(var(--brand-rgb), 0.08);
 }
 

@@ -2239,12 +2239,13 @@ function referenceOptionConfigFromContext(context = {}, currentValue = '') {
   }
 
   if (context.picker === 'period-start-timepoint') {
+    config.minYear = birthYear;
     config.maxYear = periodBoundaryYearFromValue(context.period?.endTimepoint, context.period?.customEnd);
     config.allowOutOfScopeCurrent = true;
   }
 
   if (context.picker === 'period-end-timepoint') {
-    config.minYear = periodBoundaryYearFromValue(context.period?.startTimepoint, context.period?.customStart);
+    config.minYear = Math.max(birthYear, periodBoundaryYearFromValue(context.period?.startTimepoint, context.period?.customStart));
     config.allowOutOfScopeCurrent = true;
   }
 
@@ -2297,18 +2298,47 @@ function referencePickerObjects(collection, config = {}) {
     objects = [currentObject, ...objects];
   }
 
-  return objects.slice().sort((left, right) => objectLabel(left, collection).localeCompare(objectLabel(right, collection), 'de'));
+  return objects.slice().sort((left, right) => referencePickerCompare(left, right, collection));
+}
+
+function referencePickerCompare(left, right, collection) {
+  if (collection === 'timepoints') {
+    const compared = compareSortValues(dateSortKey(left?.date), dateSortKey(right?.date));
+    if (compared) {
+      return compared;
+    }
+  }
+
+  return objectLabel(left, collection).localeCompare(objectLabel(right, collection), 'de');
 }
 
 function referenceOptionLabel(object, collection, objects, showIds = false) {
   const id = objectId(object);
   const label = referenceOptionMainLabel(object, collection, id);
-  const duplicate = objects.filter((candidate) => referenceOptionMainLabel(candidate, collection, objectId(candidate)) === label).length > 1;
   const detail = referenceOptionDetail(object, collection);
+  const text = referenceOptionText(label, detail, collection);
+  const duplicate = objects.filter((candidate) => (
+    referenceOptionText(
+      referenceOptionMainLabel(candidate, collection, objectId(candidate)),
+      referenceOptionDetail(candidate, collection),
+      collection,
+    ) === text
+  )).length > 1;
   const shortId = shortObjectId(id);
-  const disambiguator = (showIds || duplicate) && !label.includes(shortId) ? shortId : '';
-  const text = detail ? `${label} (${detail})` : label;
+  const disambiguator = ((collection === 'timepoints' ? duplicate : (showIds || duplicate)) && !text.includes(shortId)) ? shortId : '';
   return [text, disambiguator].filter(Boolean).join(' · ');
+}
+
+function referenceOptionText(label, detail, collection) {
+  if (!detail) {
+    return label;
+  }
+
+  if (collection === 'timepoints') {
+    return `${label} ${detail}`;
+  }
+
+  return `${label} (${detail})`;
 }
 
 function referenceOptionMainLabel(object, collection, id = objectId(object)) {
@@ -2414,14 +2444,14 @@ function renderReferenceListItem(collection, value = '', context = {}) {
 }
 
 function renderGroupPhaseField(field, value, context = {}) {
-  const warnings = complexItemValidationWarnings(field.kind, value || {}, context);
   return `
     <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
       <div class="composite-header">
         <span>${escapeHtml(field.label)}</span>
       </div>
-      ${renderGroupPhaseEditor(value || {}, false, context)}
-      ${warnings.length ? `<div class="composite-inline-validation">${compositeValidationListHtml(warnings)}</div>` : ''}
+      <div class="composite-list">
+        ${renderComplexListItem(field.kind, value || {}, { ...context, listField: field.name, disableRemove: true })}
+      </div>
     </section>
   `;
 }
@@ -2453,6 +2483,7 @@ function renderComplexListItem(kind, value = {}, context = {}) {
   const isRelationshipRow = Boolean(rowKey && ownerKey);
   const isCollapsed = isRelationshipRow ? !isOpenRelationshipRow : hasValue;
   const hasEditToggle = Boolean(summary);
+  const canRemove = !context.disableRemove;
   const deleteLabel = hasEditToggle ? `${summary} löschen` : '';
   return `
     <div class="composite-item ${summary ? 'has-summary' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
@@ -2463,11 +2494,13 @@ function renderComplexListItem(kind, value = {}, context = {}) {
       ` : ''}
       <div class="composite-editor" data-composite-editor>
         ${renderComplexEditor(kind, value, true, context)}
-        <div class="composite-editor-actions">
-          ${hasEditToggle
-            ? `<button class="button button-danger" type="button" data-list-action="remove">${escapeHtml(deleteLabel)}</button>`
-            : '<button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>'}
-        </div>
+        ${canRemove ? `
+          <div class="composite-editor-actions">
+            ${hasEditToggle
+              ? `<button class="button button-danger" type="button" data-list-action="remove">${escapeHtml(deleteLabel)}</button>`
+              : '<button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>'}
+          </div>
+        ` : ''}
       </div>
     </div>
   `;
@@ -2565,6 +2598,10 @@ function complexItemValidationWarnings(kind, value = {}, context = {}) {
 }
 
 function emptyComplexItemSummary(kind) {
+  if (kind === 'group-phase') {
+    return 'Neue Hauptphase';
+  }
+
   if (kind === 'membership-list') {
     return 'Neue Mitgliedschaft';
   }
@@ -2597,6 +2634,10 @@ function renderComplexEditor(kind, value = {}, compact = false, context = {}) {
 }
 
 function relationshipRowKey(context = {}) {
+  if (context.listField === 'mainPhase') {
+    return 'mainPhase';
+  }
+
   if (!['additionalPhases', 'memberships', 'activities'].includes(context.listField || '')) {
     return '';
   }
@@ -2618,7 +2659,7 @@ function renderGroupPhaseEditor(value = {}, compact = false, context = {}) {
   return `
     <div class="nested-editor ${compact ? 'is-compact' : ''}">
       ${renderReferenceControl({ id: `${idBase}-type`, label: 'Gruppenart', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject } })}
-      ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
+      ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, context)}
     </div>
   `;
 }
@@ -2628,7 +2669,7 @@ function renderMembershipEditor(value = {}, context = {}) {
   return `
     <div class="nested-editor" data-membership-editor>
       ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'membership-group', period: value.period } })}
-      ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
+      ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, context)}
       ${renderNestedCertaintyField(`${idBase}-certainty`, value._certainty || 'none')}
       ${renderNestedSourceDisplayField(`${idBase}-sources`, value._sources || '')}
     </div>
@@ -2641,7 +2682,7 @@ function renderActivityEditor(value = {}, context = {}) {
     <div class="nested-editor" data-activity-editor>
       ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-group', activity: value } })}
       ${renderReferenceControl({ id: `${idBase}-role`, label: 'Rolle', value: value.role || '', collection: 'roles', nestedField: 'role', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-role', activity: value } })}
-      ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
+      ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, context)}
       ${renderNestedCertaintyField(`${idBase}-certainty`, value._certainty || 'none')}
       ${renderNestedSourceDisplayField(`${idBase}-sources`, value._sources || '')}
     </div>
@@ -2668,18 +2709,18 @@ function renderNestedSourceDisplayField(id, value = '') {
   `;
 }
 
-function renderPeriodEditor(value = {}, idBase = `period-${Math.random().toString(36).slice(2)}`, compact = false) {
+function renderPeriodEditor(value = {}, idBase = `period-${Math.random().toString(36).slice(2)}`, compact = false, context = {}) {
   const showReferenceIds = !compact;
   return `
     <fieldset class="period-editor ${compact ? 'is-rough' : ''}" data-period-editor>
       <legend>Zeitraum</legend>
-      ${renderPeriodBoundary({ idBase: `${idBase}-start`, label: 'Start', timepointField: 'startTimepoint', dateField: 'customStart', timepointValue: value.startTimepoint || '', dateValue: value.customStart, showReferenceIds, picker: 'period-start-timepoint', period: value })}
-      ${renderPeriodBoundary({ idBase: `${idBase}-end`, label: 'Ende', timepointField: 'endTimepoint', dateField: 'customEnd', timepointValue: value.endTimepoint || '', dateValue: value.customEnd, showReferenceIds, picker: 'period-end-timepoint', period: value })}
+      ${renderPeriodBoundary({ idBase: `${idBase}-start`, label: 'Start', timepointField: 'startTimepoint', dateField: 'customStart', timepointValue: value.startTimepoint || '', dateValue: value.customStart, showReferenceIds, picker: 'period-start-timepoint', period: value, context })}
+      ${renderPeriodBoundary({ idBase: `${idBase}-end`, label: 'Ende', timepointField: 'endTimepoint', dateField: 'customEnd', timepointValue: value.endTimepoint || '', dateValue: value.customEnd, showReferenceIds, picker: 'period-end-timepoint', period: value, context })}
     </fieldset>
   `;
 }
 
-function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepointValue, dateValue, showReferenceIds = true, picker = '', period = {} }) {
+function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepointValue, dateValue, showReferenceIds = true, picker = '', period = {}, context = {} }) {
   const hasCustomDate = Boolean(dateInputValue(dateValue));
   const mode = !timepointValue && hasCustomDate ? 'custom' : 'timepoint';
   const timepointHidden = mode === 'custom' ? ' hidden' : '';
@@ -2694,7 +2735,7 @@ function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepo
   return `
     <div class="period-boundary" data-period-boundary="${escapeAttribute(timepointField)}" data-period-mode="${escapeAttribute(mode)}">
       <div data-period-timepoint${timepointHidden}>
-        ${renderReferenceControl({ id: `${idBase}-timepoint`, label, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds, pickerContext: { picker, period, labelActionHtml: actionHtml } })}
+        ${renderReferenceControl({ id: `${idBase}-timepoint`, label, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds, pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker, period, labelActionHtml: actionHtml } })}
       </div>
       <div data-period-custom${customHidden}>
         ${renderNestedDateControl(`${idBase}-custom`, label, dateValue, dateField, false, actionHtml)}
@@ -3551,7 +3592,7 @@ function resetDangerConfirmations(exceptButton = null) {
 }
 
 function isRelationshipListField(fieldRoot) {
-  return ['group-phase-list', 'membership-list', 'activity-list'].includes(fieldRoot?.dataset.fieldKind || '');
+  return ['group-phase', 'group-phase-list', 'membership-list', 'activity-list'].includes(fieldRoot?.dataset.fieldKind || '');
 }
 
 function relationshipPersonKeyFromFieldRoot(fieldRoot) {
@@ -3833,12 +3874,13 @@ function referenceOptionConfigForSelect(select, currentValue = '') {
   }
 
   if (picker === 'period-start-timepoint') {
+    config.minYear = pickerBirthYear(select);
     config.maxYear = periodBoundaryYear(oppositePeriodBoundary(select, 'endTimepoint'));
     config.allowOutOfScopeCurrent = true;
   }
 
   if (picker === 'period-end-timepoint') {
-    config.minYear = periodBoundaryYear(oppositePeriodBoundary(select, 'startTimepoint'));
+    config.minYear = Math.max(pickerBirthYear(select), periodBoundaryYear(oppositePeriodBoundary(select, 'startTimepoint')));
     config.allowOutOfScopeCurrent = true;
   }
 
@@ -5003,8 +5045,20 @@ function updateCompositeRowSummaries(item, type, object) {
   visibleFields(type).forEach((field) => {
     if (field.kind === 'group-phase') {
       const fieldRoot = item.querySelector(`[data-object-field="${cssEscape(field.name)}"]`);
-      const warnings = complexItemValidationWarnings(field.kind, object[field.name] || {}, { ownerType: type, ownerObject: object });
-      updateCompositeInlineValidation(fieldRoot, warnings);
+      const row = fieldRoot?.querySelector(':scope [data-list-item]');
+      const value = object[field.name] || {};
+      const hasValue = complexItemHasValue(field.kind, value);
+      const summary = hasValue ? complexItemSummary(field.kind, value) : emptyComplexItemSummary(field.kind);
+      const warnings = complexItemValidationWarnings(field.kind, value, { ownerType: type, ownerObject: object, listField: field.name, disableRemove: true });
+      const button = row?.querySelector(':scope > .composite-summary');
+      if (button) {
+        button.innerHTML = compositeSummaryHtml(summary, warnings);
+        button.setAttribute('aria-expanded', row.classList.contains('is-collapsed') ? 'false' : 'true');
+      }
+      if (row) {
+        row.classList.toggle('has-summary', Boolean(summary));
+        row.dataset.listCollapsible = '1';
+      }
       return;
     }
 
@@ -5051,26 +5105,6 @@ function updateCompositeRowSummaries(item, type, object) {
       }
     });
   });
-}
-
-function updateCompositeInlineValidation(fieldRoot, warnings) {
-  if (!fieldRoot) {
-    return;
-  }
-
-  let validation = fieldRoot.querySelector(':scope > .composite-inline-validation');
-  if (!warnings.length) {
-    validation?.remove();
-    return;
-  }
-
-  if (!validation) {
-    validation = document.createElement('div');
-    validation.className = 'composite-inline-validation';
-    fieldRoot.appendChild(validation);
-  }
-
-  validation.innerHTML = compositeValidationListHtml(warnings);
 }
 
 function handleObjectSaveError(item, error) {
