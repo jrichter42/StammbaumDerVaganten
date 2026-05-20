@@ -1108,7 +1108,7 @@ function periodYearLabel(period) {
   const end = referenceYear('timepoints', period.endTimepoint) || dateYear(period.customEnd);
 
   if (start && end) {
-    return start === end ? start : `${start} bis ${end}`;
+    return start === end ? start : `${start}-${end}`;
   }
 
   if (start) {
@@ -2390,7 +2390,7 @@ function compactPeriodDisplayValue(period) {
       return start;
     }
 
-    return compactYearRange(start, end);
+    return `${start}-${end}`;
   }
 
   if (start) {
@@ -5217,7 +5217,7 @@ function validationListHtml(warnings) {
 }
 
 function validationCountLabel(count) {
-  return `${count} ${count === 1 ? 'Problemo' : 'Problemos'}`;
+  return `${count} ${count === 1 ? 'Problem' : 'Probleme'}`;
 }
 
 function modifiedDateLine(value) {
@@ -5376,17 +5376,18 @@ function objectListMeta(type, object) {
 
 function personSubtitle(person) {
   const parts = [];
+  const relationshipSpan = personRelationshipSpan(person);
+  if (relationshipSpan) {
+    parts.push(relationshipSpan);
+  }
+
   if (person.birthdate) {
     const age = ageDisplayValue(person.birthdate);
     if (age) {
-      parts.push(`Alter ${age}`);
+      parts.push(age);
     }
   }
 
-  const span = personRelationshipSpan(person);
-  if (span) {
-    parts.push(span);
-  }
 
   return parts.join(' · ');
 }
@@ -5411,7 +5412,6 @@ function ageDisplayValue(value) {
   const month = Number(parts.month);
   const day = Number(parts.day);
   let age = today.getFullYear() - year;
-  let approximate = false;
 
   if (month > 0) {
     const currentMonth = today.getMonth() + 1;
@@ -5422,12 +5422,9 @@ function ageDisplayValue(value) {
     if (!birthdayPassed) {
       age -= 1;
     }
-    approximate = day === 0;
-  } else {
-    approximate = true;
   }
 
-  return `${approximate ? 'ca. ' : ''}${age} J.`;
+  return `${age} J`;
 }
 
 function personRelationshipSpan(person) {
