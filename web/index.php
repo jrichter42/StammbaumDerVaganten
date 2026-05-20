@@ -30,11 +30,21 @@ $configWarnings = array_map(
           <h1><a class="site-title" href="./" aria-label="Zur Startseite"><?= $appTitle ?></a></h1>
           <a class="version-chip" href="https://github.stammbaumdervaganten.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a>
         </div>
-        <div class="topbar-actions" aria-label="App-Status">
+        <div class="topbar-tools" aria-label="Datenwerkzeuge">
           <div class="global-search" id="globalSearch" hidden>
-            <input id="globalSearchInput" type="search" placeholder="Suche (Global)" autocomplete="off" aria-label="Alle Daten durchsuchen">
+            <label class="tool-label" for="globalSearchInput">Suche</label>
+            <input id="globalSearchInput" type="search" autocomplete="off" aria-label="Alle Daten durchsuchen">
             <div class="global-search-results" id="globalSearchResults" hidden></div>
           </div>
+          <div class="source-control" id="sourceControl" hidden>
+            <label class="tool-label" for="sourceInput">Quelle</label>
+            <div class="source-input-wrap">
+              <input id="sourceInput" type="text" autocomplete="off" aria-label="Quelle für Änderungen">
+              <button class="source-clear" id="sourceClearButton" type="button" aria-label="Quelle zurücksetzen" hidden>x</button>
+            </div>
+          </div>
+        </div>
+        <div class="topbar-actions" aria-label="App-Status">
           <span class="status-pill" id="connectionStatus">Lädt</span>
           <span class="status-pill" id="currentUserLabel" hidden></span>
           <button class="button button-secondary" id="loginButton" type="button" hidden>Login</button>

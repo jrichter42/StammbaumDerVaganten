@@ -177,12 +177,12 @@ final class Storage
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    public function createObject(string $type, array $payload, string $userId, string $access): array
+    public function createObject(string $type, array $payload, string $modifiedBy, string $access, string $source = ''): array
     {
         $this->assertCollection($type);
         $this->assertAccess($access);
 
-        return $this->withLock($type . '-collection', function () use ($type, $payload, $userId, $access): array {
+        return $this->withLock($type . '-collection', function () use ($type, $payload, $modifiedBy, $access, $source): array {
             $id = $this->uuid();
             $path = $this->objectPath($type, $id);
             while (is_file($path)) {
@@ -196,12 +196,14 @@ final class Storage
                 '_revision' => 1,
                 '_created' => $now,
                 '_modified' => $now,
-                '_modifiedBy' => $userId,
+                '_modifiedBy' => $modifiedBy,
             ] + $this->defaultObjectFields($type);
 
             foreach ($this->normalizePayload($type, $payload, $access) as $field => $value) {
                 $object[$field] = $value;
             }
+
+            [$object] = $this->appendSourcesForWrite($type, $object, $source, $modifiedBy);
 
             $this->writeJson($path, $object);
             return $this->objectForRead($type, $object, $access);
@@ -212,12 +214,12 @@ final class Storage
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    public function updateObject(string $type, string $id, int $baseRevision, array $payload, string $userId, string $access): array
+    public function updateObject(string $type, string $id, int $baseRevision, array $payload, string $modifiedBy, string $access, string $source = ''): array
     {
         $this->assertCollection($type);
         $this->assertAccess($access);
 
-        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $payload, $userId, $access): array {
+        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $payload, $modifiedBy, $access, $source): array {
             $path = $this->objectPath($type, $id);
             $current = $this->readCurrentObject($type, $id);
             if ($this->isDeletedObject($current)) {
@@ -235,6 +237,9 @@ final class Storage
                 }
             }
 
+            [$updated, $sourceChanged] = $this->appendSourcesForWrite($type, $updated, $source, $modifiedBy, $current);
+            $changed = $changed || $sourceChanged;
+
             if (!$changed) {
                 return $this->objectForRead($type, $current, $access);
             }
@@ -242,7 +247,7 @@ final class Storage
             $this->archiveRevision($type, $current);
             $updated['_revision'] = ((int) ($current['_revision'] ?? 0)) + 1;
             $updated['_modified'] = $this->now();
-            $updated['_modifiedBy'] = $userId;
+            $updated['_modifiedBy'] = $modifiedBy;
             $this->writeJson($path, $updated);
 
             return $this->objectForRead($type, $updated, $access);
@@ -252,12 +257,12 @@ final class Storage
     /**
      * @return array<string, mixed>
      */
-    public function deleteObject(string $type, string $id, int $baseRevision, string $userId, string $access): array
+    public function deleteObject(string $type, string $id, int $baseRevision, string $modifiedBy, string $access, string $source = ''): array
     {
         $this->assertCollection($type);
         $this->assertAccess($access);
 
-        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $userId, $access): array {
+        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $modifiedBy, $access, $source): array {
             $path = $this->objectPath($type, $id);
             $current = $this->readCurrentObject($type, $id);
             if ($this->isDeletedObject($current)) {
@@ -267,9 +272,10 @@ final class Storage
             $this->assertBaseRevision($type, $current, $baseRevision, $access);
             $this->archiveRevision($type, $current);
             $deleted = $current;
+            [$deleted] = $this->appendSourcesForWrite($type, $deleted, $source, $modifiedBy);
             $deleted['_revision'] = ((int) ($current['_revision'] ?? 0)) + 1;
             $deleted['_modified'] = $this->now();
-            $deleted['_modifiedBy'] = $userId;
+            $deleted['_modifiedBy'] = $modifiedBy;
             $deleted['_deleted'] = true;
             $this->writeJson($path, $deleted);
 
@@ -417,6 +423,8 @@ final class Storage
             foreach (self::PRIVATE_META_FIELDS as $field) {
                 unset($redacted[$field]);
             }
+
+            $redacted = $this->redactPrivateFieldsRecursive($redacted);
         }
 
         foreach (self::FIELD_SCHEMAS[$type] ?? [] as $field => $definition) {
@@ -427,6 +435,44 @@ final class Storage
         }
 
         return $redacted;
+    }
+
+    /**
+     * @param mixed $value
+     * @return mixed
+     */
+    private function redactPrivateFieldsRecursive($value)
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        foreach ($this->privateFieldNames() as $field) {
+            unset($value[$field]);
+        }
+
+        foreach ($value as $key => $nested) {
+            $value[$key] = $this->redactPrivateFieldsRecursive($nested);
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function privateFieldNames(): array
+    {
+        $fields = [];
+        foreach (self::FIELD_SCHEMAS as $schema) {
+            foreach ($schema as $field => $definition) {
+                if (($definition['visibility'] ?? 'public') === 'private') {
+                    $fields[] = $field;
+                }
+            }
+        }
+
+        return array_values(array_unique($fields));
     }
 
     /**
@@ -490,6 +536,14 @@ final class Storage
                     throw new InvalidArgumentException($field . ' must be an array.');
                 }
 
+                if ($field === 'memberships') {
+                    return $this->normalizeNestedDatapoints($value, ['group']);
+                }
+
+                if ($field === 'activities') {
+                    return $this->normalizeNestedDatapoints($value, ['role', 'group']);
+                }
+
                 return $value;
 
             case 'json':
@@ -498,6 +552,169 @@ final class Storage
             default:
                 throw new RuntimeException('Unknown field type.');
         }
+    }
+
+    /**
+     * @param array<int, mixed> $items
+     * @param array<int, string> $referenceFields
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeNestedDatapoints(array $items, array $referenceFields): array
+    {
+        $normalized = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                throw new InvalidArgumentException('Nested datapoints must be objects.');
+            }
+
+            foreach ($referenceFields as $field) {
+                $item[$field] = trim((string) ($item[$field] ?? ''));
+            }
+
+            $item['_certainty'] = trim((string) ($item['_certainty'] ?? 'none'));
+            $item['_sources'] = trim((string) ($item['_sources'] ?? ''));
+            $normalized[] = $item;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $object
+     * @return array{0: array<string, mixed>, 1: bool}
+     */
+    private function appendSourcesForWrite(string $type, array $object, string $source, string $fallbackSource, ?array $previous = null): array
+    {
+        $source = $this->normalizeSource($source, $fallbackSource);
+        if ($source === '') {
+            return [$object, false];
+        }
+
+        $changed = false;
+        if (array_key_exists('_sources', self::FIELD_SCHEMAS[$type] ?? [])) {
+            $updatedSources = $this->appendSource((string) ($object['_sources'] ?? ''), $source);
+            if (($object['_sources'] ?? '') !== $updatedSources) {
+                $object['_sources'] = $updatedSources;
+                $changed = true;
+            }
+        }
+
+        if ($type === 'people') {
+            foreach (['memberships', 'activities'] as $field) {
+                if (!isset($object[$field]) || !is_array($object[$field])) {
+                    continue;
+                }
+
+                $previousItems = isset($previous[$field]) && is_array($previous[$field]) ? $previous[$field] : null;
+                foreach ($object[$field] as $index => $item) {
+                    if (!is_array($item)) {
+                        continue;
+                    }
+                    if ($previousItems !== null && !$this->nestedDatapointTouched($item, $previousItems)) {
+                        continue;
+                    }
+
+                    $updatedSources = $this->appendSource((string) ($item['_sources'] ?? ''), $source);
+                    if (($item['_sources'] ?? '') !== $updatedSources) {
+                        $object[$field][$index]['_sources'] = $updatedSources;
+                        $changed = true;
+                    }
+                }
+            }
+        }
+
+        return [$object, $changed];
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @param array<int, mixed> $previousItems
+     */
+    private function nestedDatapointTouched(array $item, array &$previousItems): bool
+    {
+        $fingerprint = $this->nestedDatapointFingerprint($item);
+        foreach ($previousItems as $index => $previousItem) {
+            if (!is_array($previousItem)) {
+                continue;
+            }
+
+            if ($this->nestedDatapointFingerprint($previousItem) === $fingerprint) {
+                unset($previousItems[$index]);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     */
+    private function nestedDatapointFingerprint(array $item): string
+    {
+        unset($item['_sources']);
+        $item = $this->sortForFingerprint($item);
+
+        return json_encode($item, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '';
+    }
+
+    /**
+     * @param array<mixed> $value
+     * @return array<mixed>
+     */
+    private function sortForFingerprint(array $value): array
+    {
+        foreach ($value as $key => $nested) {
+            if (is_array($nested)) {
+                $value[$key] = $this->sortForFingerprint($nested);
+            }
+        }
+
+        ksort($value);
+        return $value;
+    }
+
+    private function appendSource(string $sources, string $source): string
+    {
+        $items = $this->sourceList($sources);
+        foreach ($items as $item) {
+            if (strcasecmp($item, $source) === 0) {
+                return implode(', ', $items);
+            }
+        }
+
+        $items[] = $source;
+        return implode(', ', $items);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function sourceList(string $sources): array
+    {
+        $items = preg_split('/[\r\n,;]+/', trim($sources)) ?: [];
+        return array_values(array_filter(array_map('trim', $items), static function (string $item): bool {
+            return $item !== '';
+        }));
+    }
+
+    private function normalizeSource(string $source, string $fallbackSource): string
+    {
+        $source = trim($source);
+        if ($source === '') {
+            $source = trim($fallbackSource);
+        }
+
+        $source = preg_replace('/\s+/u', ' ', $source) ?? $source;
+        if (strpos($source, ',') !== false) {
+            throw new InvalidArgumentException('Source must not contain commas.');
+        }
+
+        if (strlen($source) > 256) {
+            $source = substr($source, 0, 256);
+        }
+
+        return $source;
     }
 
     /**

@@ -60,10 +60,10 @@ textarea {
 .topbar {
   position: relative;
   z-index: 50;
-  display: flex;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  gap: 10px 16px;
   padding: 12px clamp(16px, 3vw, 36px);
   border-bottom: 1px solid var(--line);
   background: rgba(21, 27, 32, 0.98);
@@ -104,6 +104,7 @@ h1 {
   gap: 10px;
   min-width: 0;
   flex-wrap: nowrap;
+  justify-self: start;
 }
 
 .site-title {
@@ -144,18 +145,31 @@ h3 {
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+  min-width: 0;
+  justify-self: end;
+}
+
+.topbar-tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: clamp(18px, 4vw, 56px);
+  row-gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  justify-self: stretch;
 }
 
 .global-search {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   z-index: 2;
-  transform: translate(-50%, -50%);
 }
 
 .global-search input {
-  width: min(34vw, 280px);
+  width: clamp(180px, 22vw, 280px);
   min-height: 32px;
   padding: 5px 9px;
   border: 1px solid var(--line);
@@ -167,6 +181,66 @@ h3 {
 .global-search input:focus-visible {
   outline: 2px solid var(--brand-strong);
   outline-offset: 2px;
+}
+
+.source-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tool-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.source-input-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.source-control input {
+  width: clamp(150px, 18vw, 220px);
+  min-height: 32px;
+  padding: 5px 30px 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--brand-strong);
+  background: #0f1418;
+}
+
+.source-control input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.source-control input:focus-visible,
+.source-clear:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+.source-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.source-clear:hover {
+  color: var(--text);
+  background: var(--surface-muted);
 }
 
 .global-search-results {
@@ -985,6 +1059,14 @@ button.object-title-row:focus-visible {
   font-size: 0.78rem;
 }
 
+.source-display-text {
+  min-height: 1.45em;
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .field-label-row {
   display: flex;
   align-items: baseline;
@@ -1635,16 +1717,29 @@ button.object-title-row:focus-visible {
 }
 
 @media (max-width: 780px) {
-  .topbar,
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .topbar-tools {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: center;
+    width: 100%;
+  }
+
   .panel-header {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .topbar-actions {
+    grid-column: 2;
+    grid-row: 1;
     position: relative;
-    justify-content: start;
-    width: 100%;
+    justify-content: flex-end;
+    width: auto;
   }
 
   .global-search {
@@ -1656,6 +1751,10 @@ button.object-title-row:focus-visible {
 
   .global-search input {
     width: min(100%, 320px);
+  }
+
+  .source-control input {
+    width: min(100%, 220px);
   }
 
   .global-search-results {

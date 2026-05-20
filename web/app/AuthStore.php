@@ -752,6 +752,10 @@ final class AuthStore
             return '';
         }
 
+        if (strpos($username, ',') !== false) {
+            throw new InvalidArgumentException('Username must not contain commas.');
+        }
+
         if ($username === '' || strlen($username) > 64 || preg_match('/^[A-Za-z0-9_.@-]{2,64}$/', $username) !== 1) {
             throw new InvalidArgumentException('Username must be 2-64 characters and use only letters, numbers, dot, dash, underscore, or @.');
         }

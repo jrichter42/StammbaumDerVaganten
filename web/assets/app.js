@@ -86,7 +86,7 @@ const objectConfigs = {
       { name: 'contactInfo', label: 'Kontakt', kind: 'textarea', visibility: 'protected' },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
-      { name: '_sources', label: 'Quellen', kind: 'textarea' },
+      { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
       { name: 'memberships', label: 'Mitgliedschaften', kind: 'membership-list', defaultValue: [] },
       { name: 'activities', label: 'Aktivitäten', kind: 'activity-list', defaultValue: [] },
     ],
@@ -98,7 +98,7 @@ const objectConfigs = {
       { name: 'name', label: 'Name' },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
-      { name: '_sources', label: 'Quellen', kind: 'textarea' },
+      { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
       { name: 'mainPhase', label: 'Hauptphase', kind: 'group-phase', defaultValue: null },
       { name: 'additionalPhases', label: 'Weitere Phasen', kind: 'group-phase-list', defaultValue: [] },
     ],
@@ -119,7 +119,7 @@ const objectConfigs = {
       { name: 'groupTypes', label: 'Gruppenarten', kind: 'reference-list', collection: 'group-types', defaultValue: [] },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
-      { name: '_sources', label: 'Quellen', kind: 'textarea' },
+      { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
     ],
   },
   timepoints: {
@@ -130,7 +130,7 @@ const objectConfigs = {
       { name: 'date', label: 'Datum', kind: 'date' },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
-      { name: '_sources', label: 'Quellen', kind: 'textarea' },
+      { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
     ],
   },
 };
@@ -190,6 +190,8 @@ const collectionDefaultSortDirections = {
   },
 };
 
+const editSourceStorageKey = 'stammbaum.editSource';
+
 const state = {
   status: null,
   objects: Object.fromEntries(objectCollections.map((type) => [type, []])),
@@ -204,6 +206,7 @@ const state = {
   relationshipEditing: {},
   editTimers: {},
   exampleDataCreating: false,
+  sourceOverride: readStoredSourceOverride(),
 };
 
 const connectionStatus = document.querySelector('#connectionStatus');
@@ -218,6 +221,9 @@ const authMessage = document.querySelector('#authMessage');
 const globalSearch = document.querySelector('#globalSearch');
 const globalSearchInput = document.querySelector('#globalSearchInput');
 const globalSearchResults = document.querySelector('#globalSearchResults');
+const sourceControl = document.querySelector('#sourceControl');
+const sourceInput = document.querySelector('#sourceInput');
+const sourceClearButton = document.querySelector('#sourceClearButton');
 const setupForm = document.querySelector('#setupForm');
 const setupPanel = document.querySelector('#setupPanel');
 const setupInput = document.querySelector('#setupInput');
@@ -252,6 +258,9 @@ loginButton.addEventListener('click', beginLogin);
 passkeyLoginButton.addEventListener('click', beginLogin);
 logoutButton.addEventListener('click', logout);
 globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
+sourceInput?.addEventListener('input', handleSourceInput);
+sourceInput?.addEventListener('blur', () => updateSourceControl());
+sourceClearButton?.addEventListener('click', clearSourceOverride);
 setupForm.addEventListener('submit', beginSetup);
 createUserForm.addEventListener('submit', createUser);
 setupResult.addEventListener('click', copySetupValue);
@@ -542,6 +551,9 @@ function renderShell() {
   if (globalSearch) {
     globalSearch.hidden = !user;
   }
+  if (sourceControl) {
+    sourceControl.hidden = !user || !hasPermission('write');
+  }
   loginButton.hidden = Boolean(user);
   logoutButton.hidden = !user;
   currentUserLabel.hidden = !user;
@@ -551,6 +563,7 @@ function renderShell() {
   if (user) {
     currentUserLabel.textContent = user.display_name || user.username || 'Eingeloggt';
   }
+  updateSourceControl();
 
   const canManageUsers = hasPermission('manage_users');
   usersNavGroup.hidden = !canManageUsers;
@@ -563,6 +576,66 @@ function renderShell() {
     button.hidden = !hasPermission('write');
   });
   updateExampleDataVisibility();
+}
+
+function handleSourceInput() {
+  const value = (sourceInput?.value || '').replace(/,/g, '');
+  if (sourceInput && sourceInput.value !== value) {
+    sourceInput.value = value;
+  }
+  state.sourceOverride = value;
+  writeStoredSourceOverride(value);
+  if (sourceClearButton) {
+    sourceClearButton.hidden = state.sourceOverride.trim() === '';
+  }
+}
+
+function clearSourceOverride() {
+  state.sourceOverride = '';
+  writeStoredSourceOverride('');
+  updateSourceControl();
+  sourceInput?.focus();
+}
+
+function updateSourceControl() {
+  if (!sourceInput || !sourceClearButton) {
+    return;
+  }
+
+  const fallback = defaultEditSource();
+  sourceInput.value = state.sourceOverride;
+  sourceInput.placeholder = fallback;
+  sourceClearButton.hidden = state.sourceOverride.trim() === '';
+}
+
+function currentEditSource() {
+  return String(state.sourceOverride || defaultEditSource()).replace(/,/g, '').trim();
+}
+
+function defaultEditSource() {
+  const user = state.status?.auth?.user || {};
+  return String(user.username || user.display_name || '').trim();
+}
+
+function readStoredSourceOverride() {
+  try {
+    return (window.sessionStorage?.getItem(editSourceStorageKey) || '').replace(/,/g, '');
+  } catch (_error) {
+    return '';
+  }
+}
+
+function writeStoredSourceOverride(value) {
+  try {
+    const clean = String(value || '').replace(/,/g, '');
+    if (clean.trim()) {
+      window.sessionStorage?.setItem(editSourceStorageKey, clean);
+    } else {
+      window.sessionStorage?.removeItem(editSourceStorageKey);
+    }
+  } catch (_error) {
+    // Storage can be unavailable in strict privacy modes.
+  }
 }
 
 function showBootstrapHint() {
@@ -662,6 +735,8 @@ async function logout() {
     await postJson('auth-logout');
   } finally {
     state.users = [];
+    state.sourceOverride = '';
+    writeStoredSourceOverride('');
     clearObjects();
     await refresh();
   }
@@ -872,10 +947,14 @@ async function postJson(action, body = {}) {
     headers['X-CSRF-Token'] = csrf;
   }
 
+  const requestBody = action.startsWith('object-') && !Object.prototype.hasOwnProperty.call(body, 'source')
+    ? { ...body, source: currentEditSource() }
+    : body;
+
   const response = await fetch(`api.php?action=${encodeURIComponent(action)}`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(requestBody),
   });
 
   return readJsonResponse(response);
@@ -1974,6 +2053,19 @@ function renderFieldInput(field, value, isCreate, context = {}) {
     `;
   }
 
+  if (field.kind === 'source-display') {
+    if (isCreate && !renderedValue) {
+      return '';
+    }
+
+    return `
+      <div class="object-field source-display-field" ${fieldAttrs} id="${escapeAttribute(id)}">
+        <span>${escapeHtml(field.label)}</span>
+        <div class="source-display-text">${escapeHtml(renderedValue || '-')}</div>
+      </div>
+    `;
+  }
+
   if (field.kind === 'json') {
     return `
       <label class="object-field object-field-wide" for="${escapeAttribute(id)}">
@@ -2464,6 +2556,8 @@ function renderMembershipEditor(value = {}, context = {}) {
     <div class="nested-editor" data-membership-editor>
       ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'membership-group', period: value.period } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
+      ${renderNestedCertaintyField(`${idBase}-certainty`, value._certainty || 'none')}
+      ${renderNestedSourceDisplayField(`${idBase}-sources`, value._sources || '')}
     </div>
   `;
 }
@@ -2475,6 +2569,28 @@ function renderActivityEditor(value = {}, context = {}) {
       ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-group', activity: value } })}
       ${renderReferenceControl({ id: `${idBase}-role`, label: 'Rolle', value: value.role || '', collection: 'roles', nestedField: 'role', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-role', activity: value } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`)}
+      ${renderNestedCertaintyField(`${idBase}-certainty`, value._certainty || 'none')}
+      ${renderNestedSourceDisplayField(`${idBase}-sources`, value._sources || '')}
+    </div>
+  `;
+}
+
+function renderNestedCertaintyField(id, value = 'none') {
+  return `
+    <label class="object-field" for="${escapeAttribute(id)}">
+      <span>Gewissheit</span>
+      <select id="${escapeAttribute(id)}" data-nested-field="_certainty" data-certainty-input>
+        ${certaintyOptions.map(([optionValue, label]) => `<option value="${escapeAttribute(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+      </select>
+    </label>
+  `;
+}
+
+function renderNestedSourceDisplayField(id, value = '') {
+  return `
+    <div class="object-field source-display-field" id="${escapeAttribute(id)}">
+      <span>Quellen</span>
+      <div class="source-display-text" data-nested-field="_sources">${escapeHtml(value || '-')}</div>
     </div>
   `;
 }
@@ -4232,6 +4348,11 @@ function readFieldValue(input, field) {
     return readComplexList(input, readActivity, activityHasValue);
   }
 
+  if (field.kind === 'source-display') {
+    const value = input.querySelector('.source-display-text')?.textContent?.trim() || '';
+    return value === '-' ? '' : value;
+  }
+
   const raw = input.value;
   if (field.kind === 'json') {
     const trimmed = raw.trim();
@@ -4278,6 +4399,8 @@ function readMembership(root) {
   return {
     group: nestedValue(root, 'group'),
     period: readPeriod(root.querySelector('[data-period-editor]')),
+    _certainty: nestedValue(root, '_certainty') || 'none',
+    _sources: nestedValue(root, '_sources'),
   };
 }
 
@@ -4286,6 +4409,8 @@ function readActivity(root) {
     role: nestedValue(root, 'role'),
     group: nestedValue(root, 'group'),
     period: readPeriod(root.querySelector('[data-period-editor]')),
+    _certainty: nestedValue(root, '_certainty') || 'none',
+    _sources: nestedValue(root, '_sources'),
   };
 }
 
@@ -4335,6 +4460,10 @@ function nestedValue(root, field) {
     return readDateControlRaw(input);
   }
 
+  if (input.matches('.source-display-text')) {
+    return input.textContent.trim() === '-' ? '' : input.textContent.trim();
+  }
+
   return input.value.trim();
 }
 
@@ -4361,16 +4490,26 @@ function groupPhaseHasValue(value) {
 }
 
 function membershipHasValue(value) {
-  return Boolean(value?.group || periodHasValue(value?.period));
+  return Boolean(value?.group || periodHasValue(value?.period) || datapointFieldsHaveValue(value));
 }
 
 function activityHasValue(value) {
-  return Boolean(value?.role || value?.group || periodHasValue(value?.period));
+  return Boolean(value?.role || value?.group || periodHasValue(value?.period) || datapointFieldsHaveValue(value));
+}
+
+function datapointFieldsHaveValue(value) {
+  return Boolean((value?._sources || '').trim() || (value?._certainty && value._certainty !== 'none'));
 }
 
 function visibleFields(type) {
   const fields = objectConfigs[type]?.fields || [];
-  return fields.filter((field) => field.visibility !== 'protected' || hasPermission('sensitive'));
+  return fields.filter((field) => {
+    if (field.visibility === 'private' && !state.status?.auth?.user) {
+      return false;
+    }
+
+    return field.visibility !== 'protected' || hasPermission('sensitive');
+  });
 }
 
 function defaultFieldValue(field) {
@@ -4889,6 +5028,9 @@ function objectMeta(object) {
   }
   if (object._modified) {
     parts.push(`geändert ${object._modified}`);
+  }
+  if (object._modifiedBy) {
+    parts.push(`von ${object._modifiedBy}`);
   }
 
   return parts.join(' / ');

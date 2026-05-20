@@ -54,6 +54,30 @@ function object_access(AuthStore $auth): string
 }
 
 /**
+ * @param array<string, mixed> $user
+ */
+function data_username(array $user): string
+{
+    $username = trim((string) ($user['username'] ?? ''));
+    if ($username !== '') {
+        return $username;
+    }
+
+    $displayName = trim((string) ($user['display_name'] ?? ''));
+    return $displayName !== '' ? $displayName : (string) ($user['id'] ?? '');
+}
+
+/**
+ * @param array<string, mixed> $body
+ * @param array<string, mixed> $user
+ */
+function edit_source(array $body, array $user): string
+{
+    $source = trim((string) ($body['source'] ?? ''));
+    return $source !== '' ? $source : data_username($user);
+}
+
+/**
  * @param array<string, mixed> $body
  */
 function require_csrf(AuthStore $auth, array $body): void
@@ -129,7 +153,7 @@ try {
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->createObject($type, $payload, (string) $editor['id'], object_access($auth)),
+                'object' => $storage->createObject($type, $payload, data_username($editor), object_access($auth), edit_source($body, $editor)),
             ]);
             break;
 
@@ -145,7 +169,7 @@ try {
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, (string) $editor['id'], object_access($auth)),
+                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, data_username($editor), object_access($auth), edit_source($body, $editor)),
             ]);
             break;
 
@@ -160,7 +184,7 @@ try {
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->deleteObject($type, $id, $baseRevision, (string) $editor['id'], object_access($auth)),
+                'object' => $storage->deleteObject($type, $id, $baseRevision, data_username($editor), object_access($auth), edit_source($body, $editor)),
             ]);
             break;
 
