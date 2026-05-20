@@ -994,7 +994,10 @@ button.object-title-row:focus-visible {
 
 .object-subtitle[hidden],
 .object-property-tags[hidden],
-.object-modified[hidden] {
+.object-status-meta[hidden],
+.object-modified[hidden],
+.object-validation-meta[hidden],
+.composite-validation-meta[hidden] {
   display: none;
 }
 
@@ -1018,21 +1021,44 @@ button.object-title-row:focus-visible {
   white-space: nowrap;
 }
 
-.object-modified {
+.object-status-meta {
   flex: 1 1 18ch;
   min-width: 0;
   max-width: min(52%, 46ch);
   margin-left: auto;
+  display: grid;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.object-modified,
+.object-validation-meta,
+.composite-validation-meta {
   display: flex;
   align-items: baseline;
   justify-content: flex-end;
   gap: 4px;
+  min-width: 0;
   color: var(--muted);
   font-size: 0.73rem;
   line-height: 1.25;
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.list-item .object-validation-meta,
+.list-item .composite-validation-meta,
+.list-item .object-validation-meta .validation-meta-text,
+.list-item .object-validation-meta .validation-meta-separator,
+.list-item .composite-validation-meta .validation-meta-text,
+.list-item .composite-validation-meta .validation-meta-separator {
+  color: var(--muted);
+}
+
+.list-item .object-validation-meta .validation-meta-count,
+.list-item .composite-validation-meta .validation-meta-count {
+  color: var(--brand-strong);
 }
 
 .object-modified-user {
@@ -1052,6 +1078,22 @@ button.object-title-row:focus-visible {
 
 .object-modified-separator {
   flex: 0 0 auto;
+}
+
+.validation-meta-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.validation-meta-separator,
+.validation-meta-count {
+  flex: 0 0 auto;
+}
+
+.validation-meta-count {
+  font-variant-numeric: tabular-nums;
 }
 
 .object-summary {
@@ -1086,18 +1128,6 @@ button.object-title-row:focus-visible {
 
 .reverse-column small {
   color: var(--muted);
-}
-
-.object-validation {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  padding: 8px 10px 8px 28px;
-  border: 1px solid rgba(209, 180, 80, 0.42);
-  border-radius: 6px;
-  color: #f1dda0;
-  background: rgba(53, 43, 12, 0.44);
-  font-size: 0.84rem;
 }
 
 .object-create {
@@ -1405,7 +1435,10 @@ button.object-title-row:focus-visible {
 }
 
 .composite-summary {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   min-width: 0;
   min-height: 34px;
   padding: 6px 8px;
@@ -1416,6 +1449,17 @@ button.object-title-row:focus-visible {
   background: transparent;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+
+.composite-summary-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.composite-validation-meta {
+  flex: 1 1 18ch;
+  max-width: min(52%, 42ch);
+  margin-left: auto;
 }
 
 .composite-item.has-summary {
@@ -1922,5 +1966,10 @@ button.object-title-row:focus-visible {
   .object-editor-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .object-status-meta {
+    width: 100%;
+    max-width: 100%;
   }
 }

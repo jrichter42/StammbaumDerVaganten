@@ -1787,6 +1787,7 @@ function renderObjectItem(type, object) {
     ? `type="button" data-object-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}"`
     : '';
   const warnings = objectValidationWarnings(type, object);
+  const hasStatusMeta = Boolean(modified || warnings.length);
 
   return `
     <article class="list-item object-item ${canWrite ? 'is-clickable' : ''} ${isEditing ? 'is-editing' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}">
@@ -1797,10 +1798,12 @@ function renderObjectItem(type, object) {
             <small class="object-subtitle" data-object-meta ${meta ? '' : 'hidden'}>${escapeHtml(meta)}</small>
             <span class="object-property-tags" data-object-tags ${propertyTagsHtml ? '' : 'hidden'}>${propertyTagsHtml}</span>
           </span>
-          <small class="object-modified" data-object-modified ${modified ? '' : 'hidden'}>${objectModifiedHtml(object)}</small>
+          <span class="object-status-meta" data-object-status ${hasStatusMeta ? '' : 'hidden'}>
+            <small class="object-modified" data-object-modified ${modified ? '' : 'hidden'}>${objectModifiedHtml(object)}</small>
+            <small class="object-validation-meta" data-object-validation ${warnings.length ? '' : 'hidden'}>${validationMetaHtml(warnings)}</small>
+          </span>
         </${titleTag}>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
-        ${warnings.length ? renderObjectValidationWarnings(warnings) : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
         ${type === 'groups' ? renderGroupReverseView(object) : ''}
         ${type === 'timepoints' ? renderTimepointReverseView(object) : ''}
@@ -1988,14 +1991,6 @@ function periodBoundaryMatchesTimepoint(timepoint, period, boundary) {
     (timepointId && period[referenceField] === timepointId)
     || (timepointRaw && dateRawString(period[dateField]) === timepointRaw)
   );
-}
-
-function renderObjectValidationWarnings(warnings) {
-  return `
-    <ul class="object-validation" aria-label="Datenwarnungen">
-      ${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}
-    </ul>
-  `;
 }
 
 function renderObjectEditor(type, object) {
@@ -2445,6 +2440,7 @@ function renderComplexListItem(kind, value = {}, context = {}) {
   const hasValue = complexItemHasValue(kind, value);
   const rowKey = relationshipRowKey(context);
   const summary = hasValue ? complexItemSummary(kind, value) : emptyComplexItemSummary(kind);
+  const warnings = complexItemValidationWarnings(kind, value, context);
   const ownerKey = relationshipOwnerKey(context);
   const isOpenRelationshipRow = Boolean(rowKey && ownerKey && state.relationshipEditing[ownerKey] === rowKey);
   const isRelationshipRow = Boolean(rowKey && ownerKey);
@@ -2455,7 +2451,7 @@ function renderComplexListItem(kind, value = {}, context = {}) {
     <div class="composite-item ${summary ? 'has-summary' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
       ${summary ? `
         <button class="composite-summary" type="button" data-list-action="toggle" aria-expanded="${isCollapsed ? 'false' : 'true'}">
-          ${escapeHtml(summary)}
+          ${compositeSummaryHtml(summary, warnings)}
         </button>
       ` : ''}
       <div class="composite-editor" data-composite-editor>
@@ -2468,6 +2464,13 @@ function renderComplexListItem(kind, value = {}, context = {}) {
       </div>
     </div>
   `;
+}
+
+function compositeSummaryHtml(summary, warnings = []) {
+  return [
+    `<span class="composite-summary-text">${escapeHtml(summary)}</span>`,
+    warnings.length ? `<small class="composite-validation-meta">${validationMetaHtml(warnings)}</small>` : '',
+  ].filter(Boolean).join('');
 }
 
 function complexItemHasValue(kind, value) {
@@ -2510,6 +2513,26 @@ function complexItemSummary(kind, value = {}) {
   }
 
   return '';
+}
+
+function complexItemValidationWarnings(kind, value = {}, context = {}) {
+  if (context.ownerType !== 'people') {
+    return [];
+  }
+
+  const person = context.ownerObject || {};
+  const birthYear = birthYearFromDateValue(person.birthdate);
+  const warnings = [];
+
+  if (kind === 'membership-list') {
+    collectMembershipWarnings(warnings, value, birthYear, '');
+  }
+
+  if (kind === 'activity-list') {
+    collectActivityWarnings(warnings, value, birthYear, '');
+  }
+
+  return [...new Set(warnings)];
 }
 
 function emptyComplexItemSummary(kind) {
@@ -4932,7 +4955,10 @@ function updateObjectChrome(item, type, object) {
   const title = item.querySelector('[data-object-title]');
   const meta = item.querySelector('[data-object-meta]');
   const tags = item.querySelector('[data-object-tags]');
+  const status = item.querySelector('[data-object-status]');
   const modified = item.querySelector('[data-object-modified]');
+  const validation = item.querySelector('[data-object-validation]');
+  const warnings = objectValidationWarnings(type, object);
   if (title) {
     title.textContent = objectListTitle(type, object);
   }
@@ -4950,6 +4976,13 @@ function updateObjectChrome(item, type, object) {
     const text = objectMeta(object);
     modified.innerHTML = objectModifiedHtml(object);
     modified.hidden = text === '';
+  }
+  if (validation) {
+    validation.innerHTML = validationMetaHtml(warnings);
+    validation.hidden = warnings.length === 0;
+  }
+  if (status) {
+    status.hidden = objectMeta(object) === '' && warnings.length === 0;
   }
   updateCompositeRowSummaries(item, type, object);
 }
@@ -4971,6 +5004,7 @@ function updateCompositeRowSummaries(item, type, object) {
       const value = values[index] || {};
       const hasValue = complexItemHasValue(field.kind, value);
       const summary = hasValue ? complexItemSummary(field.kind, value) : emptyComplexItemSummary(field.kind);
+      const warnings = complexItemValidationWarnings(field.kind, value, { ownerType: type, ownerObject: object, listField: field.name, listIndex: index });
       let button = row.querySelector(':scope > .composite-summary');
 
       if (summary && !button) {
@@ -4983,7 +5017,7 @@ function updateCompositeRowSummaries(item, type, object) {
 
       if (button) {
         if (summary) {
-          button.textContent = summary;
+          button.innerHTML = compositeSummaryHtml(summary, warnings);
           button.setAttribute('aria-expanded', row.classList.contains('is-collapsed') ? 'false' : 'true');
         } else {
           button.remove();
@@ -5088,6 +5122,23 @@ function objectModifiedHtml(object) {
     user && date ? '<span class="object-modified-separator" aria-hidden="true">·</span>' : '',
     date ? `<span class="object-modified-date">${escapeHtml(date)}</span>` : '',
   ].filter(Boolean).join('');
+}
+
+function validationMetaHtml(warnings) {
+  const list = [...new Set(warnings)].filter(Boolean);
+  if (!list.length) {
+    return '';
+  }
+
+  return [
+    `<span class="validation-meta-text" title="${escapeAttribute(list.join(' | '))}">${escapeHtml(list[0])}</span>`,
+    '<span class="validation-meta-separator" aria-hidden="true">·</span>',
+    `<span class="validation-meta-count">${escapeHtml(validationCountLabel(list.length))}</span>`,
+  ].join('');
+}
+
+function validationCountLabel(count) {
+  return `${count} ${count === 1 ? 'Problemo' : 'Problemos'}`;
 }
 
 function modifiedDateLine(value) {
@@ -5337,36 +5388,46 @@ function objectValidationWarnings(type, object) {
   if (type === 'people') {
     const birthYear = birthYearFromDateValue(object.birthdate);
     (Array.isArray(object.memberships) ? object.memberships : []).forEach((membership, index) => {
-      const label = `Mitgliedschaft ${index + 1}`;
-      collectPeriodWarnings(warnings, membership?.period, label);
-      collectBirthPeriodWarning(warnings, birthYear, membership?.period, label);
-      collectGroupPeriodWarning(warnings, membership?.group, membership?.period, label);
+      collectMembershipWarnings(warnings, membership, birthYear, `Mitgliedschaft ${index + 1}`);
     });
 
     (Array.isArray(object.activities) ? object.activities : []).forEach((activity, index) => {
-      const label = `Aktivität ${index + 1}`;
-      collectPeriodWarnings(warnings, activity?.period, label);
-      collectBirthPeriodWarning(warnings, birthYear, activity?.period, label);
-      collectGroupPeriodWarning(warnings, activity?.group, activity?.period, label);
-      collectActivityRoleWarning(warnings, activity);
+      collectActivityWarnings(warnings, activity, birthYear, `Aktivität ${index + 1}`);
     });
   }
 
   return [...new Set(warnings)];
 }
 
+function collectMembershipWarnings(warnings, membership, birthYear, label) {
+  collectPeriodWarnings(warnings, membership?.period, label);
+  collectBirthPeriodWarning(warnings, birthYear, membership?.period, label);
+  collectGroupPeriodWarning(warnings, membership?.group, membership?.period, label);
+}
+
+function collectActivityWarnings(warnings, activity, birthYear, label) {
+  collectPeriodWarnings(warnings, activity?.period, label);
+  collectBirthPeriodWarning(warnings, birthYear, activity?.period, label);
+  collectGroupPeriodWarning(warnings, activity?.group, activity?.period, label);
+  collectActivityRoleWarning(warnings, activity, label);
+}
+
+function labeledWarning(label, text) {
+  return label ? `${label}: ${text}` : text;
+}
+
 function collectPeriodWarnings(warnings, period, label) {
   const start = periodStartYear(period);
   const end = periodEndYear(period);
   if (start && end && start > end) {
-    warnings.push(`${label}: Ende liegt vor Start.`);
+    warnings.push(labeledWarning(label, 'Ende liegt vor Start.'));
   }
 }
 
 function collectBirthPeriodWarning(warnings, birthYear, period, label) {
   const start = periodStartYear(period);
   if (birthYear && start && start < birthYear) {
-    warnings.push(`${label}: Start liegt vor Geburtsjahr.`);
+    warnings.push(labeledWarning(label, 'Start liegt vor Geburtsjahr.'));
   }
 }
 
@@ -5377,15 +5438,15 @@ function collectGroupPeriodWarning(warnings, groupId, period, label) {
   }
 
   if (!groupCouldOverlapPeriod(group, period)) {
-    warnings.push(`${label}: Zeitraum passt nicht zur Gruppenlaufzeit.`);
+    warnings.push(labeledWarning(label, 'Zeitraum passt nicht zur Gruppenlaufzeit.'));
   }
 }
 
-function collectActivityRoleWarning(warnings, activity) {
+function collectActivityRoleWarning(warnings, activity, label = 'Aktivität') {
   const role = findReferenceObject('roles', activity?.role);
   const group = findReferenceObject('groups', activity?.group);
   if (role && group && !roleUsableForGroup(role, group)) {
-    warnings.push('Aktivität: Rolle passt nicht zur Gruppenart.');
+    warnings.push(labeledWarning(label, 'Rolle passt nicht zur Gruppenart.'));
   }
 }
 
