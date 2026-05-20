@@ -5198,15 +5198,23 @@ function fallbackObjectTitle(type, id = '') {
   return shortId ? `${base} ${shortId}` : base;
 }
 
+function personDisplayName(person, fallbackId = '') {
+  const forename = String(person?.forename || '').trim();
+  const lastname = String(person?.lastname || '').trim();
+  const scoutname = String(person?.scoutname || '').trim();
+  const civilName = [forename, lastname].filter(Boolean).join(' ');
+
+  if (scoutname && civilName) {
+    return [forename, `"${scoutname}"`, lastname].filter(Boolean).join(' ');
+  }
+
+  return scoutname || civilName || fallbackObjectTitle('people', fallbackId);
+}
+
 function objectListTitle(type, object) {
   const id = objectId(object);
   if (type === 'people') {
-    const name = [object.forename, object.lastname].filter(Boolean).join(' ');
-    if (object.scoutname && name) {
-      return `${object.scoutname} (${name})`;
-    }
-
-    return object.scoutname || name || fallbackObjectTitle(type, id);
+    return personDisplayName(object, id);
   }
 
   if (type === 'groups') {
@@ -6339,8 +6347,7 @@ function objectLabel(object, type = '') {
   }
 
   if (type === 'people') {
-    const parts = [object.forename, object.lastname].filter(Boolean).join(' ');
-    return object.scoutname || parts || fallbackObjectTitle(type, objectId(object));
+    return personDisplayName(object, objectId(object));
   }
 
   if (type === 'roles') {
