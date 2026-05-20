@@ -500,7 +500,7 @@ function renderGlobalSearchResults() {
   globalSearchResults.innerHTML = matches.map(({ type, object }) => `
     <button type="button" data-global-search-result data-global-search-type="${escapeAttribute(type)}" data-global-search-id="${escapeAttribute(objectId(object))}">
       <strong>${escapeHtml(objectListTitle(type, object))}</strong>
-      <span>${escapeHtml([labels[type] || type, objectListMeta(type, object)].filter(Boolean).join(' · '))}</span>
+      <span>${escapeHtml([objectTypeLabels[type] || type, objectListMeta(type, object)].filter(Boolean).join(' · '))}</span>
     </button>
   `).join('') || '<div class="global-search-empty">Keine Treffer</div>';
 }
@@ -1216,15 +1216,18 @@ function renderReferenceData() {
     ...(state.objects.roles || []).slice(0, 6).map((object) => ({ ...object, objectType: 'roles', tag: 'Rolle' })),
   ];
 
-  list.innerHTML = items.map((object) => `
+  list.innerHTML = items.map((object) => {
+    const detail = objectListMeta(object.objectType, object) || objectMeta(object);
+    return `
     <article class="list-item">
       <div>
         <h3>${escapeHtml(objectLabel(object, object.objectType))}</h3>
-        <small>${escapeHtml(objectId(object))}</small>
+        ${detail ? `<small>${escapeHtml(detail)}</small>` : ''}
       </div>
       <span class="tag">${escapeHtml(object.tag)}</span>
     </article>
-  `).join('') || '<div class="empty-state">Keine Referenzdaten verfügbar.</div>';
+  `;
+  }).join('') || '<div class="empty-state">Keine Referenzdaten verfügbar.</div>';
 }
 
 function renderSystem() {
@@ -1504,6 +1507,8 @@ function collectionSearchText(type, object) {
   return [
     objectListTitle(type, object),
     objectListMeta(type, object),
+    objectPropertyTags(type, object).join(' '),
+    objectMeta(object),
     objectSummary(type, object),
     objectId(object),
     object.name,
@@ -1773,6 +1778,10 @@ function renderObjectItem(type, object) {
   const isEditing = Boolean(state.editing[key]);
   const canWrite = hasPermission('write');
   const summary = objectSummary(type, object);
+  const meta = objectListMeta(type, object);
+  const propertyTags = objectPropertyTags(type, object);
+  const propertyTagsHtml = objectPropertyTagsHtml(propertyTags);
+  const modified = objectMeta(object);
   const titleTag = canWrite ? 'button' : 'div';
   const titleAttrs = canWrite
     ? `type="button" data-object-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}"`
@@ -1784,9 +1793,10 @@ function renderObjectItem(type, object) {
         <${titleTag} class="object-title-row" ${titleAttrs}>
           <span class="object-title-text">
             <span class="object-title-heading" data-object-title>${escapeHtml(objectListTitle(type, object))}</span>
-            <small data-object-meta>${escapeHtml(objectListMeta(type, object))}</small>
+            <small class="object-subtitle" data-object-meta ${meta ? '' : 'hidden'}>${escapeHtml(meta)}</small>
+            <span class="object-property-tags" data-object-tags ${propertyTagsHtml ? '' : 'hidden'}>${propertyTagsHtml}</span>
           </span>
-          <span class="tag">${escapeHtml(objectTypeLabels[type] || labels[type] || type)}</span>
+          <small class="object-modified" data-object-modified ${modified ? '' : 'hidden'}>${objectModifiedHtml(object)}</small>
         </${titleTag}>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
@@ -2285,7 +2295,8 @@ function referenceOptionLabel(object, collection, objects, showIds = false) {
   const label = referenceOptionMainLabel(object, collection, id);
   const duplicate = objects.filter((candidate) => referenceOptionMainLabel(candidate, collection, objectId(candidate)) === label).length > 1;
   const detail = referenceOptionDetail(object, collection);
-  const disambiguator = showIds || duplicate ? shortObjectId(id) : '';
+  const shortId = shortObjectId(id);
+  const disambiguator = (showIds || duplicate) && !label.includes(shortId) ? shortId : '';
   const text = detail ? `${label} (${detail})` : label;
   return [text, disambiguator].filter(Boolean).join(' · ');
 }
@@ -4834,10 +4845,18 @@ function referenceInputValue(value, collection, showIds = true) {
   return showIds ? referenceDisplayValue(object, collection) : objectLabel(object, collection);
 }
 
-function referenceDisplayValue(object, collection) {
+function referenceDisplayValue(object, collection, fullId = false) {
   const label = objectLabel(object, collection);
   const id = objectId(object);
-  return label && label !== id ? `${label} (${id})` : id;
+  const displayId = fullId ? id : shortObjectId(id);
+  if (!id) {
+    return label || fallbackObjectTitle(collection, id);
+  }
+  if (label && label !== id && displayId && !label.includes(displayId)) {
+    return `${label} (${displayId})`;
+  }
+
+  return label || fallbackObjectTitle(collection, id);
 }
 
 function normalizeReferenceValue(value, collection = '', previousValue = '') {
@@ -4858,7 +4877,11 @@ function normalizeReferenceValue(value, collection = '', previousValue = '') {
   const objects = state.objects[collection] || [];
   if (previousValue) {
     const previous = findReferenceObject(collection, previousValue);
-    if (previous && (trimmed === objectLabel(previous, collection) || trimmed === referenceDisplayValue(previous, collection))) {
+    if (previous && (
+      trimmed === objectLabel(previous, collection)
+      || trimmed === referenceDisplayValue(previous, collection)
+      || trimmed === referenceDisplayValue(previous, collection, true)
+    )) {
       return objectId(previous);
     }
   }
@@ -4868,7 +4891,7 @@ function normalizeReferenceValue(value, collection = '', previousValue = '') {
     return objectId(labelMatches[0]);
   }
 
-  const displayMatch = objects.find((object) => referenceDisplayValue(object, collection) === trimmed);
+  const displayMatch = objects.find((object) => referenceDisplayValue(object, collection) === trimmed || referenceDisplayValue(object, collection, true) === trimmed);
   return displayMatch ? objectId(displayMatch) : trimmed;
 }
 
@@ -4898,11 +4921,25 @@ function updateObjectInState(type, object) {
 function updateObjectChrome(item, type, object) {
   const title = item.querySelector('[data-object-title]');
   const meta = item.querySelector('[data-object-meta]');
+  const tags = item.querySelector('[data-object-tags]');
+  const modified = item.querySelector('[data-object-modified]');
   if (title) {
     title.textContent = objectListTitle(type, object);
   }
   if (meta) {
-    meta.textContent = objectListMeta(type, object);
+    const text = objectListMeta(type, object);
+    meta.textContent = text;
+    meta.hidden = text === '';
+  }
+  if (tags) {
+    const html = objectPropertyTagsHtml(objectPropertyTags(type, object));
+    tags.innerHTML = html;
+    tags.hidden = html === '';
+  }
+  if (modified) {
+    const text = objectMeta(object);
+    modified.innerHTML = objectModifiedHtml(object);
+    modified.hidden = text === '';
   }
   updateCompositeRowSummaries(item, type, object);
 }
@@ -5022,37 +5059,157 @@ function clearCreateState(form) {
 }
 
 function objectMeta(object) {
-  const parts = [objectId(object)];
-  if (object._revision) {
-    parts.push(`rev ${Number(object._revision)}`);
-  }
+  return objectModifiedMeta(object);
+}
+
+function objectModifiedMeta(object) {
   if (object._modified) {
-    parts.push(`geändert ${object._modified}`);
-  }
-  if (object._modifiedBy) {
-    parts.push(`von ${object._modifiedBy}`);
+    return [modifiedDateLine(object._modified), object._modifiedBy].filter(Boolean).join(' ');
   }
 
-  return parts.join(' / ');
+  if (object._modifiedBy) {
+    return object._modifiedBy;
+  }
+
+  return '';
+}
+
+function objectModifiedHtml(object) {
+  const date = object._modified ? modifiedDateLine(object._modified) : '';
+  const user = object._modifiedBy || '';
+  if (!date && !user) {
+    return '';
+  }
+
+  return [
+    date ? `<span>${escapeHtml(date)}</span>` : '',
+    user ? `<span>${escapeHtml(user)}</span>` : '',
+  ].filter(Boolean).join('');
+}
+
+function modifiedDateLine(value) {
+  return [
+    relativeModifiedDisplay(value),
+    modifiedDateDisplay(value),
+  ].filter(Boolean).join(' · ');
+}
+
+function relativeModifiedDisplay(value) {
+  const date = modifiedDateValue(value);
+  if (!date) {
+    return '';
+  }
+
+  const diffMs = Math.max(0, Date.now() - date.getTime());
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const month = 30 * day;
+  const year = 365 * day;
+  let valueLabel = 'jetzt';
+
+  if (diffMs >= year) {
+    valueLabel = `${Math.floor(diffMs / year)}y`;
+  } else if (diffMs >= month) {
+    valueLabel = `${Math.floor(diffMs / month)}mo`;
+  } else if (diffMs >= day) {
+    valueLabel = `${Math.floor(diffMs / day)}d`;
+  } else if (diffMs >= hour) {
+    valueLabel = `${Math.floor(diffMs / hour)}h`;
+  } else if (diffMs >= minute) {
+    valueLabel = `${Math.floor(diffMs / minute)}m`;
+  }
+
+  return valueLabel;
+}
+
+function modifiedDateValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return null;
+  }
+
+  const time = Date.parse(raw);
+  return Number.isNaN(time) ? null : new Date(time);
+}
+
+function modifiedDateDisplay(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (!match) {
+    return raw;
+  }
+
+  const date = `${match[3]}.${match[2]}.${match[1]}`;
+  return match[4] && match[5] ? `${date} ${match[4]}:${match[5]}` : date;
+}
+
+function fallbackObjectTitle(type, id = '') {
+  const base = objectTypeLabels[type] || 'Datensatz';
+  const shortId = shortObjectId(id);
+  return shortId ? `${base} ${shortId}` : base;
 }
 
 function objectListTitle(type, object) {
+  const id = objectId(object);
   if (type === 'people') {
     const name = [object.forename, object.lastname].filter(Boolean).join(' ');
     if (object.scoutname && name) {
       return `${object.scoutname} (${name})`;
     }
 
-    return object.scoutname || name || objectId(object);
+    return object.scoutname || name || fallbackObjectTitle(type, id);
   }
 
   if (type === 'groups') {
     const groupType = groupTypeLabel(object, state.groupTypes || []) || 'Gruppe';
-    const name = object.name || object.label || object.description || objectId(object);
-    return [groupType, name].filter(Boolean).join(' ');
+    const name = object.name || object.label || object.description;
+    return name ? [groupType, name].filter(Boolean).join(' ') : fallbackObjectTitle(type, id);
   }
 
   return objectLabel(object, type);
+}
+
+function objectPropertyTags(type, object) {
+  if (type === 'people') {
+    const roleIds = uniqueStrings((Array.isArray(object.activities) ? object.activities : [])
+      .map((activity) => activityRoleId(activity))
+      .filter(Boolean));
+    return roleIds
+      .map((id) => referenceLabelForSubtitle('roles', id, 'Rolle'))
+      .filter(Boolean);
+  }
+
+  if (type === 'groups') {
+    return groupTypeIds(object)
+      .map((id) => referenceLabelForSubtitle('group-types', id, 'Gruppenart'))
+      .filter(Boolean);
+  }
+
+  if (type === 'roles') {
+    return roleGroupTypeLabels(object);
+  }
+
+  return [];
+}
+
+function objectPropertyTagsHtml(tags) {
+  return uniqueStrings(tags).map((tag) => `<span class="object-property-tag">${escapeHtml(tag)}</span>`).join('');
+}
+
+function uniqueStrings(values) {
+  const seen = new Set();
+  const result = [];
+  values.forEach((value) => {
+    const text = String(value || '').trim();
+    const key = text.toLocaleLowerCase('de-DE');
+    if (!text || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    result.push(text);
+  });
+  return result;
 }
 
 function objectListMeta(type, object) {
@@ -5062,7 +5219,7 @@ function objectListMeta(type, object) {
   }
 
   if (type === 'timepoints') {
-    return timepointValue(object) || objectMeta(object);
+    return timepointValue(object);
   }
 
   if (type === 'roles') {
@@ -5070,11 +5227,94 @@ function objectListMeta(type, object) {
     return labels.length ? `für ${labels.join(', ')}` : 'für alle Gruppenarten';
   }
 
-  if (type === 'people' && object.birthdate) {
-    return `geboren ${dateDisplayValue(object.birthdate)}`;
+  if (type === 'people') {
+    return personSubtitle(object);
   }
 
-  return objectMeta(object);
+  return '';
+}
+
+function personSubtitle(person) {
+  const parts = [];
+  if (person.birthdate) {
+    const age = ageDisplayValue(person.birthdate);
+    if (age) {
+      parts.push(`Alter ${age}`);
+    }
+  }
+
+  const span = personRelationshipSpan(person);
+  if (span) {
+    parts.push(span);
+  }
+
+  return parts.join(' · ');
+}
+
+function referenceLabelForSubtitle(collection, id, fallbackLabel) {
+  if (!id) {
+    return '';
+  }
+
+  const object = findReferenceObject(collection, id);
+  return object ? objectLabel(object, collection) : `${fallbackLabel} ${shortObjectId(id)}`;
+}
+
+function ageDisplayValue(value) {
+  const parts = datePartsFromRaw(dateRawString(value));
+  if (!parts || parts.year === '0000') {
+    return '';
+  }
+
+  const today = new Date();
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  let age = today.getFullYear() - year;
+  let approximate = false;
+
+  if (month > 0) {
+    const currentMonth = today.getMonth() + 1;
+    const currentDay = today.getDate();
+    const birthdayPassed = day > 0
+      ? currentMonth > month || (currentMonth === month && currentDay >= day)
+      : currentMonth >= month;
+    if (!birthdayPassed) {
+      age -= 1;
+    }
+    approximate = day === 0;
+  } else {
+    approximate = true;
+  }
+
+  return `${approximate ? 'ca. ' : ''}${age} J.`;
+}
+
+function personRelationshipSpan(person) {
+  const periods = [
+    ...(Array.isArray(person.memberships) ? person.memberships : []),
+    ...(Array.isArray(person.activities) ? person.activities : []),
+  ].map((entry) => entry?.period)
+    .filter((period) => period && typeof period === 'object' && periodHasValue(period));
+
+  if (!periods.length) {
+    return '';
+  }
+
+  const starts = periods.map(periodStartYear).filter(Boolean);
+  const ends = periods.map(periodEndYear).filter(Boolean);
+  const start = starts.length ? Math.min(...starts) : 0;
+  const end = ends.length === periods.length && ends.length ? Math.max(...ends) : 0;
+
+  if (start && end) {
+    return start === end ? String(start) : `${start}-${end}`;
+  }
+
+  if (start) {
+    return `seit ${start}`;
+  }
+
+  return end ? `bis ${end}` : '';
 }
 
 function objectSummary(type, object) {
@@ -5968,14 +6208,14 @@ function objectLabel(object, type = '') {
 
   if (type === 'people') {
     const parts = [object.forename, object.lastname].filter(Boolean).join(' ');
-    return object.scoutname || parts || objectId(object);
+    return object.scoutname || parts || fallbackObjectTitle(type, objectId(object));
   }
 
   if (type === 'roles') {
-    return object.label || objectId(object);
+    return object.label || fallbackObjectTitle(type, objectId(object));
   }
 
-  return object.label || object.name || object.description || object.data?.label || objectId(object);
+  return object.label || object.name || object.description || object.data?.label || fallbackObjectTitle(type, objectId(object));
 }
 
 function objectId(object) {

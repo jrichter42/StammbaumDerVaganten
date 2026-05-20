@@ -976,8 +976,9 @@ button.object-title-row:focus-visible {
 }
 
 .object-title-text {
+  flex: 1 1 auto;
   display: grid;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -985,6 +986,55 @@ button.object-title-row:focus-visible {
   font-size: 0.98rem;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.object-subtitle {
+  line-height: 1.25;
+}
+
+.object-subtitle[hidden],
+.object-property-tags[hidden],
+.object-modified[hidden] {
+  display: none;
+}
+
+.object-property-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.object-property-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid rgba(124, 135, 145, 0.36);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.object-modified {
+  flex: 0 0 auto;
+  max-width: 28ch;
+  margin-left: auto;
+  display: grid;
+  justify-items: end;
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.25;
+  text-align: right;
+}
+
+.object-modified span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .object-summary {
