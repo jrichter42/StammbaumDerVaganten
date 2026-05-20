@@ -5271,8 +5271,7 @@ function objectListMeta(type, object) {
   }
 
   if (type === 'roles') {
-    const labels = roleGroupTypeLabels(object);
-    return labels.length ? `für ${labels.join(', ')}` : 'für alle Gruppenarten';
+    return '';
   }
 
   if (type === 'people') {
