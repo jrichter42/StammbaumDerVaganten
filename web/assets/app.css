@@ -6,15 +6,40 @@
   --text: #edf4f2;
   --muted: #a9b2a2;
   --line: #323a35;
-  --logo-yellow: #ffff00;
-  --brand: #d8d85a;
-  --brand-strong: var(--logo-yellow);
+  --pfadiblau: #0e4278;
+  --woelflingsgelb: #ffd208;
+  --rr-rot: #971b2f;
+  --woelflingsgelb-rgb: 255, 210, 8;
+  --rr-rot-rgb: 151, 27, 47;
+  --pfadiblau-bright: #a9bbce;
+  --woelflingsgelb-bright: #ffe984;
+  --rr-rot-bright: #d5a4ac;
+  --pfadiblau-dark: #0b2341;
+  --woelflingsgelb-dark: #8b7417;
+  --rr-rot-dark: #52111b;
+  --brand-primary: var(--woelflingsgelb);
+  --brand-primary-rgb: var(--woelflingsgelb-rgb);
+  --brand-primary-bright: var(--woelflingsgelb-bright);
+  --brand-primary-dark: var(--woelflingsgelb-dark);
+  --brand-danger: var(--rr-rot);
+  --brand-danger-rgb: var(--rr-rot-rgb);
+  --brand-danger-bright: var(--rr-rot-bright);
+  --brand-danger-dark: var(--rr-rot-dark);
+  --brand-logo: var(--brand-primary);
+  --logo-yellow: var(--brand-logo);
+  --brand: var(--brand-primary);
+  --brand-rgb: var(--brand-primary-rgb);
+  --brand-strong: var(--brand-primary);
+  --brand-hover: var(--brand-primary-bright);
   --brand-ink: #1b1b03;
-  --accent: #b8a04a;
+  --accent: var(--brand-primary-dark);
   --accent-ink: #1d1806;
   --good: #68a86d;
-  --warn: #d1b450;
-  --danger: #d66a62;
+  --warn: var(--brand-primary);
+  --danger: var(--brand-danger);
+  --danger-rgb: var(--brand-danger-rgb);
+  --danger-strong: var(--brand-danger-bright);
+  --danger-dark: var(--brand-danger-dark);
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
   --workspace-pad: clamp(14px, 2.5vw, 28px);
 }
@@ -125,7 +150,7 @@ h1 {
 }
 
 .logo-word {
-  color: var(--logo-yellow);
+  color: var(--brand-logo);
 }
 
 h2 {
@@ -305,7 +330,7 @@ h3 {
 }
 
 .button:hover {
-  background: var(--brand-strong);
+  background: var(--brand-hover);
 }
 
 .button:disabled {
@@ -317,8 +342,8 @@ h3 {
 
 .button-secondary {
   color: var(--brand-strong);
-  background: #2a2d19;
-  border-color: #4a4d21;
+  background: rgba(var(--brand-rgb), 0.12);
+  border-color: rgba(var(--brand-rgb), 0.28);
 }
 
 .button-secondary:hover {
@@ -353,7 +378,7 @@ h3 {
   padding: 0;
   border-radius: 50%;
   color: var(--brand-strong);
-  border-color: rgba(255, 255, 0, 0.38);
+  border-color: rgba(var(--brand-rgb), 0.38);
   background: rgba(15, 20, 24, 0.9);
   transform: translateY(-50%);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
@@ -368,21 +393,21 @@ h3 {
 }
 
 .button-danger {
-  color: #2a0806;
+  color: var(--danger-strong);
   background: var(--danger);
-  border-color: rgba(214, 106, 98, 0.35);
+  border-color: rgba(var(--danger-rgb), 0.72);
 }
 
 .button-danger:hover {
-  color: #190403;
-  background: #ef8178;
+  color: var(--danger-strong);
+  background: var(--danger-dark);
 }
 
 .button-danger.is-confirming,
 .icon-button-danger.is-confirming {
-  color: #190403;
-  background: #ef8178;
-  border-color: rgba(255, 213, 209, 0.72);
+  color: var(--danger-strong);
+  background: var(--danger-dark);
+  border-color: var(--danger-strong);
   font-weight: 800;
 }
 
@@ -431,12 +456,12 @@ h3 {
 }
 
 .status-pill.is-warning {
-  color: #211604;
+  color: var(--brand-ink);
   background: var(--warn);
 }
 
 .status-pill.is-offline {
-  color: #210807;
+  color: var(--danger-strong);
   background: var(--danger);
 }
 
@@ -448,16 +473,16 @@ h3 {
   justify-self: center;
   margin: 10px auto 0;
   padding: 7px 12px;
-  border: 1px solid rgba(209, 180, 80, 0.38);
+  border: 1px solid rgba(var(--brand-rgb), 0.38);
   border-radius: 8px;
-  color: #fff3bd;
-  background: #322907;
+  color: var(--brand-strong);
+  background: rgba(var(--brand-rgb), 0.12);
   line-height: 1.25;
 }
 
 .app-warning strong {
   flex: 0 0 auto;
-  color: var(--logo-yellow);
+  color: var(--brand-strong);
 }
 
 .app-warning span {
@@ -546,8 +571,8 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
-    linear-gradient(90deg, rgba(255, 255, 0, 0.07) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 255, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--brand-rgb), 0.07) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.05) 1px, transparent 1px),
     rgba(21, 27, 32, 0.78);
   background-size: 42px 42px;
 }
@@ -710,7 +735,7 @@ h3 {
 
 .nav-item.is-active {
   color: var(--brand-strong);
-  border-color: rgba(255, 255, 0, 0.42);
+  border-color: rgba(var(--brand-rgb), 0.42);
 }
 
 .content-area {
@@ -970,9 +995,9 @@ button.object-title-row {
 
 button.object-title-row:hover,
 button.object-title-row:focus-visible {
-  border-color: rgba(255, 255, 0, 0.48);
+  border-color: rgba(var(--brand-rgb), 0.48);
   outline: 0;
-  background: #242717;
+  background: rgba(var(--brand-rgb), 0.08);
 }
 
 .object-title-text {
@@ -1064,7 +1089,7 @@ button.object-title-row:focus-visible {
 
 .list-item .object-validation-meta .validation-meta-count,
 .list-item .composite-validation-meta .validation-meta-count {
-  color: var(--brand-strong);
+  color: var(--danger);
 }
 
 .object-modified-user {
@@ -1097,6 +1122,7 @@ button.object-title-row:focus-visible {
 .validation-meta-count {
   justify-self: end;
   min-width: 9ch;
+  color: var(--danger);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1105,7 +1131,7 @@ button.object-title-row:focus-visible {
   gap: 2px;
   margin: 2px 0 0;
   padding: 0;
-  color: var(--brand-strong);
+  color: var(--danger);
   font-size: 0.73rem;
   line-height: 1.25;
   list-style: none;
@@ -1308,8 +1334,8 @@ button.object-title-row:focus-visible {
 
 .date-detail-button.is-included {
   color: var(--brand-strong);
-  border-color: rgba(255, 255, 0, 0.36);
-  background: #242717;
+  border-color: rgba(var(--brand-rgb), 0.36);
+  background: rgba(var(--brand-rgb), 0.08);
 }
 
 .date-detail-button.is-preview-added {
@@ -1319,8 +1345,8 @@ button.object-title-row:focus-visible {
 
 .date-detail-button.is-preview-removed {
   color: var(--muted);
-  background: rgba(214, 106, 98, 0.24);
-  border-color: rgba(214, 106, 98, 0.72);
+  background: rgba(var(--danger-rgb), 0.24);
+  border-color: rgba(var(--danger-rgb), 0.72);
 }
 
 .date-detail-button.is-preview-added::before,
@@ -1348,7 +1374,7 @@ button.object-title-row:focus-visible {
   inset: 0;
   display: grid;
   place-items: center;
-  color: #ffd5d1;
+  color: var(--danger-strong);
   opacity: 0.48;
   font-size: 2.08rem;
   font-weight: 800;
@@ -1362,10 +1388,10 @@ button.object-title-row:focus-visible {
 }
 
 .date-detail-button.is-confirming {
-  color: #ffd5d1;
-  border-color: rgba(214, 106, 98, 0.42);
-  background: #2b1514;
-  box-shadow: inset 0 0 0 1px rgba(214, 106, 98, 0.72);
+  color: var(--danger-strong);
+  border-color: rgba(var(--danger-rgb), 0.42);
+  background: var(--danger-dark);
+  box-shadow: inset 0 0 0 1px rgba(var(--danger-rgb), 0.72);
 }
 
 .date-detail-button.is-confirming::before {
@@ -1415,7 +1441,7 @@ button.object-title-row:focus-visible {
 }
 
 .object-save-state.is-error {
-  color: #ffd5d1;
+  color: var(--danger-strong);
 }
 
 .nav-feedback {
@@ -1508,9 +1534,9 @@ button.object-title-row:focus-visible {
 
 .composite-summary:hover,
 .composite-summary:focus-visible {
-  border-color: rgba(255, 255, 0, 0.48);
+  border-color: rgba(var(--brand-rgb), 0.48);
   outline: 0;
-  background: #242717;
+  background: rgba(var(--brand-rgb), 0.08);
 }
 
 .composite-item.is-collapsed .composite-editor {
@@ -1591,27 +1617,27 @@ button.object-title-row:focus-visible {
   width: 32px;
   min-width: 32px;
   height: 32px;
-  border: 1px solid rgba(255, 255, 0, 0.26);
+  border: 1px solid rgba(var(--brand-rgb), 0.26);
   border-radius: 8px;
   color: var(--brand-strong);
-  background: #242717;
+  background: rgba(var(--brand-rgb), 0.08);
   cursor: pointer;
   line-height: 1;
 }
 
 .icon-button:hover {
   color: var(--brand-ink);
-  background: var(--brand-strong);
+  background: var(--brand-hover);
 }
 
 .icon-button-danger {
-  color: #ffd5d1;
-  border-color: rgba(214, 106, 98, 0.42);
-  background: #2b1514;
+  color: var(--danger-strong);
+  border-color: rgba(var(--danger-rgb), 0.42);
+  background: var(--danger-dark);
 }
 
 .icon-button-danger:hover {
-  color: #210807;
+  color: var(--danger-strong);
   background: var(--danger);
 }
 
@@ -1625,11 +1651,11 @@ button.object-title-row:focus-visible {
   transform: translate(-50%, -100%);
   pointer-events: none;
   padding: 5px 8px;
-  border: 1px solid rgba(214, 106, 98, 0.58);
+  border: 1px solid rgba(var(--danger-rgb), 0.58);
   border-radius: 6px;
   max-width: min(34ch, 100%);
-  color: #ffd5d1;
-  background: rgba(43, 21, 20, 0.96);
+  color: var(--danger-strong);
+  background: rgba(var(--danger-rgb), 0.32);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
   font-size: 0.78rem;
   line-height: 1.25;
@@ -1643,7 +1669,7 @@ button.object-title-row:focus-visible {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  color: #ffd5d1;
+  color: var(--danger-strong);
   font-size: 0.86rem;
 }
 
@@ -1770,9 +1796,9 @@ button.object-title-row:focus-visible {
 }
 
 .message.is-error {
-  border-color: rgba(214, 106, 98, 0.5);
-  color: #ffd5d1;
-  background: #311817;
+  border-color: rgba(var(--danger-rgb), 0.5);
+  color: var(--danger-strong);
+  background: var(--danger-dark);
 }
 
 .message.is-good {
