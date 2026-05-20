@@ -1042,6 +1042,7 @@ button.object-title-row:focus-visible {
 .object-modified[hidden],
 .object-validation-meta[hidden],
 .object-validation-list[hidden],
+.composite-validation-list[hidden],
 .composite-validation-meta[hidden] {
   display: none;
 }
@@ -1147,7 +1148,8 @@ button.object-title-row:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.object-validation-list {
+.object-validation-list,
+.composite-validation-list {
   display: grid;
   gap: 2px;
   margin: 2px 0 0;
@@ -1159,7 +1161,15 @@ button.object-title-row:focus-visible {
   text-align: right;
 }
 
-.object-validation-list li {
+.composite-validation-list {
+  flex: 0 1 auto;
+  max-width: calc(100% - 14ch);
+  margin-left: auto;
+}
+
+.object-validation-list li,
+.composite-validation-list-item {
+  display: block;
   width: 100%;
   max-width: 100%;
   justify-self: end;
@@ -1168,6 +1178,22 @@ button.object-title-row:focus-visible {
   text-overflow: ellipsis;
   text-align: right;
   white-space: nowrap;
+}
+
+.object-field .composite-validation-list,
+.object-field .composite-validation-list-item {
+  color: var(--danger);
+  font-size: 0.73rem;
+}
+
+.composite-inline-validation {
+  display: flex;
+  justify-content: flex-end;
+  grid-column: 1 / -1;
+}
+
+.composite-inline-validation .composite-validation-list {
+  max-width: 100%;
 }
 
 .object-summary {
@@ -1534,6 +1560,15 @@ button.object-title-row:focus-visible {
   flex: 0 1 auto;
   max-width: calc(100% - 14ch);
   margin-left: auto;
+}
+
+.composite-item.is-collapsed .composite-validation-list,
+.composite-item:not(.is-collapsed) .composite-validation-meta {
+  display: none;
+}
+
+.composite-item:not(.is-collapsed) .composite-summary {
+  align-items: flex-start;
 }
 
 .composite-item.has-summary {

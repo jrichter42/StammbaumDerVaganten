@@ -2414,12 +2414,14 @@ function renderReferenceListItem(collection, value = '', context = {}) {
 }
 
 function renderGroupPhaseField(field, value, context = {}) {
+  const warnings = complexItemValidationWarnings(field.kind, value || {}, context);
   return `
     <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
       <div class="composite-header">
         <span>${escapeHtml(field.label)}</span>
       </div>
       ${renderGroupPhaseEditor(value || {}, false, context)}
+      ${warnings.length ? `<div class="composite-inline-validation">${compositeValidationListHtml(warnings)}</div>` : ''}
     </section>
   `;
 }
@@ -2475,7 +2477,19 @@ function compositeSummaryHtml(summary, warnings = []) {
   return [
     `<span class="composite-summary-text">${escapeHtml(summary)}</span>`,
     warnings.length ? `<small class="composite-validation-meta">${validationMetaHtml(warnings)}</small>` : '',
+    warnings.length ? compositeValidationListHtml(warnings) : '',
   ].filter(Boolean).join('');
+}
+
+function compositeValidationListHtml(warnings) {
+  return `
+    <span class="composite-validation-list" role="list">
+      ${[...new Set(warnings)]
+        .filter(Boolean)
+        .map((warning) => `<span class="composite-validation-list-item" role="listitem" title="${escapeAttribute(warning)}">${escapeHtml(warning)}</span>`)
+        .join('')}
+    </span>
+  `;
 }
 
 function complexItemHasValue(kind, value) {
@@ -2521,13 +2535,23 @@ function complexItemSummary(kind, value = {}) {
 }
 
 function complexItemValidationWarnings(kind, value = {}, context = {}) {
+  if (!complexItemHasValue(kind, value)) {
+    return [];
+  }
+
+  const warnings = [];
+
+  if (kind === 'group-phase-list' || kind === 'group-phase') {
+    collectGroupPhaseWarnings(warnings, value, '', true);
+    return [...new Set(warnings)];
+  }
+
   if (context.ownerType !== 'people') {
     return [];
   }
 
   const person = context.ownerObject || {};
   const birthYear = birthYearFromDateValue(person.birthdate);
-  const warnings = [];
 
   if (kind === 'membership-list') {
     collectMembershipWarnings(warnings, value, birthYear, '');
@@ -4977,6 +5001,13 @@ function updateObjectChrome(item, type, object) {
 
 function updateCompositeRowSummaries(item, type, object) {
   visibleFields(type).forEach((field) => {
+    if (field.kind === 'group-phase') {
+      const fieldRoot = item.querySelector(`[data-object-field="${cssEscape(field.name)}"]`);
+      const warnings = complexItemValidationWarnings(field.kind, object[field.name] || {}, { ownerType: type, ownerObject: object });
+      updateCompositeInlineValidation(fieldRoot, warnings);
+      return;
+    }
+
     if (!['group-phase-list', 'membership-list', 'activity-list'].includes(field.kind)) {
       return;
     }
@@ -5020,6 +5051,26 @@ function updateCompositeRowSummaries(item, type, object) {
       }
     });
   });
+}
+
+function updateCompositeInlineValidation(fieldRoot, warnings) {
+  if (!fieldRoot) {
+    return;
+  }
+
+  let validation = fieldRoot.querySelector(':scope > .composite-inline-validation');
+  if (!warnings.length) {
+    validation?.remove();
+    return;
+  }
+
+  if (!validation) {
+    validation = document.createElement('div');
+    validation.className = 'composite-inline-validation';
+    fieldRoot.appendChild(validation);
+  }
+
+  validation.innerHTML = compositeValidationListHtml(warnings);
 }
 
 function handleObjectSaveError(item, error) {
@@ -5379,48 +5430,163 @@ function objectSummary(type, object) {
 function objectValidationWarnings(type, object) {
   const warnings = [];
 
-  if (type === 'groups') {
-    collectPeriodWarnings(warnings, object.mainPhase?.period, 'Hauptphase');
-    (Array.isArray(object.additionalPhases) ? object.additionalPhases : []).forEach((phase, index) => {
-      collectPeriodWarnings(warnings, phase?.period, `Weitere Phase ${index + 1}`);
-    });
+  if (type === 'people') {
+    collectPersonWarnings(warnings, object);
   }
 
-  if (type === 'people') {
-    const birthYear = birthYearFromDateValue(object.birthdate);
-    (Array.isArray(object.memberships) ? object.memberships : []).forEach((membership) => {
-      collectMembershipWarnings(warnings, membership, birthYear, membershipValidationLabel(membership));
-    });
+  if (type === 'groups') {
+    collectGroupWarnings(warnings, object);
+  }
 
-    (Array.isArray(object.activities) ? object.activities : []).forEach((activity) => {
-      collectActivityWarnings(warnings, activity, birthYear, activityValidationLabel(activity));
-    });
+  if (type === 'group-types') {
+    collectGroupTypeWarnings(warnings, object);
+  }
+
+  if (type === 'roles') {
+    collectRoleWarnings(warnings, object);
+  }
+
+  if (type === 'timepoints') {
+    collectTimepointWarnings(warnings, object);
   }
 
   return [...new Set(warnings)];
 }
 
+function collectPersonWarnings(warnings, person) {
+  if (!hasTrimmedText(person?.forename) || !hasTrimmedText(person?.lastname)) {
+    warnings.push('Vorname oder Nachname fehlt.');
+  }
+  collectDateFieldWarning(warnings, person?.birthdate, 'Geburtsdatum');
+
+  const memberships = Array.isArray(person?.memberships) ? person.memberships : [];
+  const activities = Array.isArray(person?.activities) ? person.activities : [];
+  if (!memberships.length && !activities.length) {
+    warnings.push('Keine Mitgliedschaft oder Aktivität.');
+  }
+
+  const birthYear = birthYearFromDateValue(person?.birthdate);
+  memberships.forEach((membership) => {
+    collectMembershipWarnings(warnings, membership, birthYear, membershipValidationLabel(membership));
+  });
+
+  activities.forEach((activity) => {
+    collectActivityWarnings(warnings, activity, birthYear, activityValidationLabel(activity));
+  });
+}
+
+function collectGroupWarnings(warnings, group) {
+  if (!hasTrimmedText(group?.name)) {
+    warnings.push('Name fehlt.');
+  }
+
+  if (!groupPhaseHasValue(group?.mainPhase)) {
+    warnings.push('Hauptphase fehlt.');
+  } else {
+    collectGroupPhaseWarnings(warnings, group.mainPhase, 'Hauptphase', true);
+  }
+
+  (Array.isArray(group?.additionalPhases) ? group.additionalPhases : []).forEach((phase) => {
+    collectGroupPhaseWarnings(warnings, phase, groupPhaseValidationLabel(phase), true);
+  });
+}
+
+function collectGroupTypeWarnings(warnings, groupType) {
+  if (!hasTrimmedText(groupType?.label)) {
+    warnings.push('Name fehlt.');
+  }
+  collectDuplicateLabelWarning(warnings, 'group-types', groupType, groupType?.label);
+}
+
+function collectRoleWarnings(warnings, role) {
+  if (!hasTrimmedText(role?.label)) {
+    warnings.push('Name fehlt.');
+  }
+  collectDuplicateLabelWarning(warnings, 'roles', role, role?.label);
+  collectReferenceListWarnings(warnings, 'group-types', role?.groupTypes, '', 'Gruppenart nicht gefunden.');
+}
+
+function collectTimepointWarnings(warnings, timepoint) {
+  if (!hasTrimmedText(timepoint?.name)) {
+    warnings.push('Name fehlt.');
+  }
+  collectDateFieldWarning(warnings, timepoint?.date, 'Datum', true);
+  collectDuplicateTimepointWarning(warnings, timepoint);
+}
+
 function membershipValidationLabel(membership) {
   const group = findReferenceObject('groups', membership?.group);
-  return group ? (group.name || group.label || group.description || 'Mitgliedschaft') : 'Mitgliedschaft';
+  const name = group ? objectListTitle('groups', group) : '';
+  return name ? `Mitgliedschaft ${name}` : 'Mitgliedschaft';
 }
 
 function activityValidationLabel(activity) {
   const role = findReferenceObject('roles', activityRoleId(activity));
-  return role ? (role.label || role.name || role.description || 'Aktivität') : 'Aktivität';
+  const name = role ? String(role.label || role.name || role.description || '').trim() : '';
+  return name ? `Aktivität ${name}` : 'Aktivität';
+}
+
+function groupPhaseValidationLabel(phase) {
+  const groupType = findReferenceObject('group-types', groupPhaseTypeId(phase));
+  const name = groupType ? objectLabel(groupType, 'group-types') : '';
+  return name ? `Phase ${name}` : 'Phase';
 }
 
 function collectMembershipWarnings(warnings, membership, birthYear, label) {
+  const groupId = periodEntryGroupId(membership);
+  if (!groupId) {
+    warnings.push(labeledWarning(label, 'Gruppe fehlt.'));
+  } else {
+    collectReferenceWarning(warnings, 'groups', groupId, label, 'Gruppe nicht gefunden.');
+  }
+
+  if (!periodHasValue(membership?.period)) {
+    warnings.push(labeledWarning(label, 'Zeitraum fehlt.'));
+  }
+
   collectPeriodWarnings(warnings, membership?.period, label);
   collectBirthPeriodWarning(warnings, birthYear, membership?.period, label);
-  collectGroupPeriodWarning(warnings, membership?.group, membership?.period, label);
+  collectGroupPeriodWarning(warnings, groupId, membership?.period, label);
 }
 
 function collectActivityWarnings(warnings, activity, birthYear, label) {
+  const groupId = periodEntryGroupId(activity);
+  const roleId = activityRoleId(activity);
+  if (!groupId) {
+    warnings.push(labeledWarning(label, 'Gruppe fehlt.'));
+  } else {
+    collectReferenceWarning(warnings, 'groups', groupId, label, 'Gruppe nicht gefunden.');
+  }
+
+  if (!roleId) {
+    warnings.push(labeledWarning(label, 'Rolle fehlt.'));
+  } else {
+    collectReferenceWarning(warnings, 'roles', roleId, label, 'Rolle nicht gefunden.');
+  }
+
+  if (!periodHasValue(activity?.period)) {
+    warnings.push(labeledWarning(label, 'Zeitraum fehlt.'));
+  }
+
   collectPeriodWarnings(warnings, activity?.period, label);
   collectBirthPeriodWarning(warnings, birthYear, activity?.period, label);
-  collectGroupPeriodWarning(warnings, activity?.group, activity?.period, label);
+  collectGroupPeriodWarning(warnings, groupId, activity?.period, label);
   collectActivityRoleWarning(warnings, activity, label);
+}
+
+function collectGroupPhaseWarnings(warnings, phase, label, requirePeriod = false) {
+  const groupTypeId = groupPhaseTypeId(phase);
+  if (!groupTypeId) {
+    warnings.push(labeledWarning(label, 'Gruppenart fehlt.'));
+  } else {
+    collectReferenceWarning(warnings, 'group-types', groupTypeId, label, 'Gruppenart nicht gefunden.');
+  }
+
+  if (requirePeriod && !periodHasValue(phase?.period)) {
+    warnings.push(labeledWarning(label, 'Zeitraum fehlt.'));
+  }
+
+  collectPeriodWarnings(warnings, phase?.period, label);
 }
 
 function labeledWarning(label, text) {
@@ -5428,8 +5594,17 @@ function labeledWarning(label, text) {
 }
 
 function collectPeriodWarnings(warnings, period, label) {
-  const start = periodStartYear(period);
-  const end = periodEndYear(period);
+  if (!period || typeof period !== 'object') {
+    return;
+  }
+
+  collectReferenceWarning(warnings, 'timepoints', period.startTimepoint, label, 'Startzeitpunkt nicht gefunden.');
+  collectReferenceWarning(warnings, 'timepoints', period.endTimepoint, label, 'Endzeitpunkt nicht gefunden.');
+  collectDateFieldWarning(warnings, period.customStart, 'Startdatum', false, label);
+  collectDateFieldWarning(warnings, period.customEnd, 'Enddatum', false, label);
+
+  const start = periodBoundaryValidationSortKey(period.startTimepoint, period.customStart);
+  const end = periodBoundaryValidationSortKey(period.endTimepoint, period.customEnd);
   if (start && end && start > end) {
     warnings.push(labeledWarning(label, 'Ende liegt vor Start.'));
   }
@@ -5454,11 +5629,121 @@ function collectGroupPeriodWarning(warnings, groupId, period, label) {
 }
 
 function collectActivityRoleWarning(warnings, activity, label = 'Aktivität') {
-  const role = findReferenceObject('roles', activity?.role);
-  const group = findReferenceObject('groups', activity?.group);
+  const role = findReferenceObject('roles', activityRoleId(activity));
+  const group = findReferenceObject('groups', periodEntryGroupId(activity));
   if (role && group && !roleUsableForGroup(role, group)) {
     warnings.push(labeledWarning(label, 'Rolle passt nicht zur Gruppenart.'));
   }
+}
+
+function collectReferenceWarning(warnings, collection, id, label, text) {
+  if (id && !findReferenceObject(collection, id)) {
+    warnings.push(labeledWarning(label, text));
+  }
+}
+
+function collectReferenceListWarnings(warnings, collection, ids, label, text) {
+  const missing = uniqueStrings(Array.isArray(ids) ? ids : [])
+    .filter((id) => id && !findReferenceObject(collection, id));
+  if (missing.length) {
+    warnings.push(labeledWarning(label, text));
+  }
+}
+
+function collectDateFieldWarning(warnings, value, fieldLabel, required = false, label = '') {
+  const raw = dateRawString(value);
+  if (required && !raw) {
+    warnings.push(labeledWarning(label, `${fieldLabel} fehlt.`));
+    return;
+  }
+
+  if (raw && dateValueIsInvalid(value)) {
+    warnings.push(labeledWarning(label, `${fieldLabel} ist ungültig.`));
+  }
+}
+
+function collectDuplicateLabelWarning(warnings, type, object, value) {
+  const label = normalizedText(value);
+  if (!label) {
+    return;
+  }
+
+  const id = objectId(object || {});
+  const duplicate = (state.objects[type] || []).some((candidate) => (
+    objectId(candidate) !== id
+    && normalizedText(candidate?.label) === label
+  ));
+  if (duplicate) {
+    warnings.push('Name ist doppelt vergeben.');
+  }
+}
+
+function collectDuplicateTimepointWarning(warnings, timepoint) {
+  const name = normalizedText(timepoint?.name);
+  const date = dateRawString(timepoint?.date);
+  if (!name || !date || dateValueIsInvalid(timepoint?.date)) {
+    return;
+  }
+
+  const id = objectId(timepoint || {});
+  const duplicate = (state.objects.timepoints || []).some((candidate) => (
+    objectId(candidate) !== id
+    && normalizedText(candidate?.name) === name
+    && dateRawString(candidate?.date) === date
+  ));
+  if (duplicate) {
+    warnings.push('Zeitpunkt ist doppelt angelegt.');
+  }
+}
+
+function periodBoundaryValidationSortKey(timepointId, customDate) {
+  if (timepointId) {
+    const timepoint = findReferenceObject('timepoints', timepointId);
+    return timepoint && !dateValueIsInvalid(timepoint.date) ? dateSortKey(timepoint.date) : null;
+  }
+
+  if (dateValueIsInvalid(customDate)) {
+    return null;
+  }
+
+  return dateSortKey(customDate);
+}
+
+function dateValueIsInvalid(value) {
+  const raw = dateRawString(value);
+  if (!raw) {
+    return false;
+  }
+
+  const parts = datePartsFromRaw(raw);
+  return !parts || !datePartsAreValid(parts);
+}
+
+function datePartsAreValid(parts) {
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  if (!year || month < 0 || month > 12 || day < 0 || day > 31) {
+    return false;
+  }
+
+  if (month === 0) {
+    return day === 0;
+  }
+
+  if (day === 0) {
+    return true;
+  }
+
+  return day <= new Date(year, month, 0).getDate();
+}
+
+function hasTrimmedText(value) {
+  return String(value || '').trim() !== '';
+}
+
+function normalizedText(value) {
+  return String(value || '').trim().toLocaleLowerCase('de-DE');
 }
 
 function roleGroupTypeLabels(role) {
