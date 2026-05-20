@@ -17,6 +17,22 @@
   --pfadiblau-dark: #0b2341;
   --woelflingsgelb-dark: #8b7417;
   --rr-rot-dark: #52111b;
+  --lagerplatzgruen: #00b74f;
+  --waldgruen: #006c55;
+  --kohte: #222423;
+  --glut: #e84e1b;
+  --lagerfeuerorange: #ef7d00;
+  --morgenkreis: #ef859d;
+  --internationalerabend: #653279;
+  --singekreislila: #8e7fae;
+  --lagerplatzgruen-rgb: 0, 183, 79;
+  --waldgruen-rgb: 0, 108, 85;
+  --kohte-rgb: 34, 36, 35;
+  --glut-rgb: 232, 78, 27;
+  --lagerfeuerorange-rgb: 239, 125, 0;
+  --morgenkreis-rgb: 239, 133, 157;
+  --internationalerabend-rgb: 101, 50, 121;
+  --singekreislila-rgb: 142, 127, 174;
   --brand-primary: var(--woelflingsgelb);
   --brand-primary-rgb: var(--woelflingsgelb-rgb);
   --brand-primary-bright: var(--woelflingsgelb-bright);
@@ -25,6 +41,8 @@
   --brand-danger-rgb: var(--rr-rot-rgb);
   --brand-danger-bright: var(--rr-rot-bright);
   --brand-danger-dark: var(--rr-rot-dark);
+  --brand-success: var(--lagerplatzgruen);
+  --brand-success-rgb: var(--lagerplatzgruen-rgb);
   --brand-logo: var(--brand-primary);
   --logo-yellow: var(--brand-logo);
   --brand: var(--brand-primary);
@@ -34,7 +52,8 @@
   --brand-ink: #1b1b03;
   --accent: var(--brand-primary-dark);
   --accent-ink: #1d1806;
-  --good: #68a86d;
+  --good: var(--brand-success);
+  --good-rgb: var(--brand-success-rgb);
   --warn: var(--brand-primary);
   --danger: var(--brand-danger);
   --danger-rgb: var(--brand-danger-rgb);
@@ -1343,8 +1362,8 @@ button.object-title-row:focus-visible {
 }
 
 .date-detail-button.is-preview-added {
-  background: rgba(71, 179, 116, 0.26);
-  border-color: rgba(71, 179, 116, 0.75);
+  background: rgba(var(--good-rgb), 0.26);
+  border-color: rgba(var(--good-rgb), 0.75);
 }
 
 .date-detail-button.is-preview-removed {
@@ -1364,7 +1383,7 @@ button.object-title-row:focus-visible {
   inset: 0;
   display: grid;
   place-items: center;
-  color: #a9f0c0;
+  color: var(--good);
   opacity: 0.48;
   font-size: 2.25rem;
   font-weight: 800;
@@ -1806,9 +1825,9 @@ button.object-title-row:focus-visible {
 }
 
 .message.is-good {
-  border-color: rgba(104, 168, 109, 0.5);
-  color: #dff7df;
-  background: #132717;
+  border-color: rgba(var(--good-rgb), 0.5);
+  color: var(--good);
+  background: rgba(var(--good-rgb), 0.14);
 }
 
 .setup-result {
