@@ -1050,9 +1050,7 @@ button.object-title-row:focus-visible {
 .list-item .object-validation-meta,
 .list-item .composite-validation-meta,
 .list-item .object-validation-meta .validation-meta-text,
-.list-item .object-validation-meta .validation-meta-separator,
-.list-item .composite-validation-meta .validation-meta-text,
-.list-item .composite-validation-meta .validation-meta-separator {
+.list-item .composite-validation-meta .validation-meta-text {
   color: var(--muted);
 }
 
@@ -1087,7 +1085,6 @@ button.object-title-row:focus-visible {
   white-space: nowrap;
 }
 
-.validation-meta-separator,
 .validation-meta-count {
   flex: 0 0 auto;
 }

@@ -2237,10 +2237,12 @@ function referenceOptionConfigFromContext(context = {}, currentValue = '') {
 
   if (context.picker === 'period-start-timepoint') {
     config.maxYear = periodBoundaryYearFromValue(context.period?.endTimepoint, context.period?.customEnd);
+    config.allowOutOfScopeCurrent = true;
   }
 
   if (context.picker === 'period-end-timepoint') {
     config.minYear = periodBoundaryYearFromValue(context.period?.startTimepoint, context.period?.customStart);
+    config.allowOutOfScopeCurrent = true;
   }
 
   return config;
@@ -3668,7 +3670,7 @@ function refreshReferencePickers(root) {
 }
 
 function refreshPeriodDependentPickers(periodEditor, changedControl = null) {
-  refreshPeriodTimepointPair(periodEditor, changedControl);
+  refreshPeriodTimepointPair(periodEditor);
 
   const membershipEditor = periodEditor?.closest('[data-membership-editor]');
   if (membershipEditor) {
@@ -3684,38 +3686,14 @@ function refreshPeriodDependentPickers(periodEditor, changedControl = null) {
   }
 }
 
-function refreshPeriodTimepointPair(editor, changedControl = null) {
+function refreshPeriodTimepointPair(editor) {
   if (!editor) {
     return;
-  }
-
-  const startBoundary = editor.querySelector('[data-period-boundary="startTimepoint"]');
-  const endBoundary = editor.querySelector('[data-period-boundary="endTimepoint"]');
-  const startYear = periodBoundaryYear(startBoundary);
-  const endYear = periodBoundaryYear(endBoundary);
-  if (startYear && endYear && startYear > endYear) {
-    if (changedControl && startBoundary?.contains(changedControl)) {
-      clearPeriodBoundary(endBoundary);
-    } else {
-      clearPeriodBoundary(startBoundary);
-    }
   }
 
   editor.querySelectorAll('[data-reference-picker="period-start-timepoint"], [data-reference-picker="period-end-timepoint"]').forEach((select) => {
     updateReferenceSelectOptions(select);
   });
-}
-
-function clearPeriodBoundary(boundary) {
-  const select = boundary?.querySelector('[data-reference-input]');
-  if (select) {
-    select.value = '';
-  }
-
-  const dateInput = boundary?.querySelector('[data-date-control]');
-  if (dateInput) {
-    clearDateControl(dateInput);
-  }
 }
 
 function refreshActivityPickerPair(editor, changedSelect = null) {
@@ -3766,7 +3744,7 @@ function updateReferenceSelectOptions(select) {
   const collection = select.dataset.referenceCollection || '';
   const showIds = select.dataset.referenceShowIds === '1';
   const config = referenceOptionConfigForSelect(select, current);
-  const nextValue = referenceValueInScope(collection, current, config) ? current : '';
+  const nextValue = config.allowOutOfScopeCurrent || referenceValueInScope(collection, current, config) ? current : '';
   select.innerHTML = referenceOptions(collection, showIds, { ...config, currentValue: nextValue });
   select.value = Array.from(select.options).some((option) => option.value === nextValue) ? nextValue : '';
   filterReferenceOptions(select, select.closest('[data-reference-field]')?.querySelector('[data-reference-filter]')?.value || '');
@@ -3829,10 +3807,12 @@ function referenceOptionConfigForSelect(select, currentValue = '') {
 
   if (picker === 'period-start-timepoint') {
     config.maxYear = periodBoundaryYear(oppositePeriodBoundary(select, 'endTimepoint'));
+    config.allowOutOfScopeCurrent = true;
   }
 
   if (picker === 'period-end-timepoint') {
     config.minYear = periodBoundaryYear(oppositePeriodBoundary(select, 'startTimepoint'));
+    config.allowOutOfScopeCurrent = true;
   }
 
   return config;
@@ -5132,7 +5112,6 @@ function validationMetaHtml(warnings) {
 
   return [
     `<span class="validation-meta-text" title="${escapeAttribute(list.join(' | '))}">${escapeHtml(list[0])}</span>`,
-    '<span class="validation-meta-separator" aria-hidden="true">·</span>',
     `<span class="validation-meta-count">${escapeHtml(validationCountLabel(list.length))}</span>`,
   ].join('');
 }
@@ -5387,16 +5366,26 @@ function objectValidationWarnings(type, object) {
 
   if (type === 'people') {
     const birthYear = birthYearFromDateValue(object.birthdate);
-    (Array.isArray(object.memberships) ? object.memberships : []).forEach((membership, index) => {
-      collectMembershipWarnings(warnings, membership, birthYear, `Mitgliedschaft ${index + 1}`);
+    (Array.isArray(object.memberships) ? object.memberships : []).forEach((membership) => {
+      collectMembershipWarnings(warnings, membership, birthYear, membershipValidationLabel(membership));
     });
 
-    (Array.isArray(object.activities) ? object.activities : []).forEach((activity, index) => {
-      collectActivityWarnings(warnings, activity, birthYear, `Aktivität ${index + 1}`);
+    (Array.isArray(object.activities) ? object.activities : []).forEach((activity) => {
+      collectActivityWarnings(warnings, activity, birthYear, activityValidationLabel(activity));
     });
   }
 
   return [...new Set(warnings)];
+}
+
+function membershipValidationLabel(membership) {
+  const group = findReferenceObject('groups', membership?.group);
+  return group ? (group.name || group.label || group.description || 'Mitgliedschaft') : 'Mitgliedschaft';
+}
+
+function activityValidationLabel(activity) {
+  const role = findReferenceObject('roles', activityRoleId(activity));
+  return role ? (role.label || role.name || role.description || 'Aktivität') : 'Aktivität';
 }
 
 function collectMembershipWarnings(warnings, membership, birthYear, label) {
