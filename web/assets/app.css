@@ -1048,9 +1048,9 @@ button.object-title-row:focus-visible {
 }
 
 .object-status-meta {
-  flex: 1 1 18ch;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: min(52%, 46ch);
+  max-width: calc(100% - 14ch);
   margin-left: auto;
   display: grid;
   gap: 2px;
@@ -1112,10 +1112,12 @@ button.object-title-row:focus-visible {
 }
 
 .validation-meta-text {
-  justify-self: end;
+  justify-self: stretch;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -1139,11 +1141,13 @@ button.object-title-row:focus-visible {
 }
 
 .object-validation-list li {
+  width: 100%;
   max-width: 100%;
   justify-self: end;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -1508,8 +1512,8 @@ button.object-title-row:focus-visible {
 }
 
 .composite-validation-meta {
-  flex: 1 1 18ch;
-  max-width: min(52%, 42ch);
+  flex: 0 1 auto;
+  max-width: calc(100% - 14ch);
   margin-left: auto;
 }
 
