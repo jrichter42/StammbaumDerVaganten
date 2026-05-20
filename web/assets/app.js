@@ -5063,15 +5063,7 @@ function objectMeta(object) {
 }
 
 function objectModifiedMeta(object) {
-  if (object._modified) {
-    return [modifiedDateLine(object._modified), object._modifiedBy].filter(Boolean).join(' ');
-  }
-
-  if (object._modifiedBy) {
-    return object._modifiedBy;
-  }
-
-  return '';
+  return [object._modifiedBy, object._modified ? modifiedDateLine(object._modified) : ''].filter(Boolean).join(' · ');
 }
 
 function objectModifiedHtml(object) {
@@ -5082,8 +5074,9 @@ function objectModifiedHtml(object) {
   }
 
   return [
-    date ? `<span>${escapeHtml(date)}</span>` : '',
-    user ? `<span>${escapeHtml(user)}</span>` : '',
+    user ? `<span class="object-modified-user">${escapeHtml(user)}</span>` : '',
+    user && date ? '<span class="object-modified-separator" aria-hidden="true">·</span>' : '',
+    date ? `<span class="object-modified-date">${escapeHtml(date)}</span>` : '',
   ].filter(Boolean).join('');
 }
 

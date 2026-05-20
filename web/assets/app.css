@@ -1019,22 +1019,39 @@ button.object-title-row:focus-visible {
 }
 
 .object-modified {
-  flex: 0 0 auto;
-  max-width: 28ch;
+  flex: 1 1 18ch;
+  min-width: 0;
+  max-width: min(52%, 46ch);
   margin-left: auto;
-  display: grid;
-  justify-items: end;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
   color: var(--muted);
   font-size: 0.73rem;
   line-height: 1.25;
   text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.object-modified span {
+.object-modified-user {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.object-modified-date {
+  flex: 0 0 auto;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.object-modified-separator {
+  flex: 0 0 auto;
 }
 
 .object-summary {
