@@ -1800,7 +1800,10 @@ function renderObjectItem(type, object) {
           </span>
           <span class="object-status-meta" data-object-status ${hasStatusMeta ? '' : 'hidden'}>
             <small class="object-modified" data-object-modified ${modified ? '' : 'hidden'}>${objectModifiedHtml(object)}</small>
-            <small class="object-validation-meta" data-object-validation ${warnings.length ? '' : 'hidden'}>${validationMetaHtml(warnings)}</small>
+            <small class="object-validation-meta" data-object-validation ${warnings.length && !isEditing ? '' : 'hidden'}>${validationMetaHtml(warnings)}</small>
+            <ul class="object-validation-list" data-object-validation-list ${isEditing && warnings.length ? '' : 'hidden'}>
+              ${validationListHtml(warnings)}
+            </ul>
           </span>
         </${titleTag}>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
@@ -4938,6 +4941,7 @@ function updateObjectChrome(item, type, object) {
   const status = item.querySelector('[data-object-status]');
   const modified = item.querySelector('[data-object-modified]');
   const validation = item.querySelector('[data-object-validation]');
+  const validationList = item.querySelector('[data-object-validation-list]');
   const warnings = objectValidationWarnings(type, object);
   if (title) {
     title.textContent = objectListTitle(type, object);
@@ -4959,7 +4963,11 @@ function updateObjectChrome(item, type, object) {
   }
   if (validation) {
     validation.innerHTML = validationMetaHtml(warnings);
-    validation.hidden = warnings.length === 0;
+    validation.hidden = item.classList.contains('is-editing') || warnings.length === 0;
+  }
+  if (validationList) {
+    validationList.innerHTML = validationListHtml(warnings);
+    validationList.hidden = !item.classList.contains('is-editing') || warnings.length === 0;
   }
   if (status) {
     status.hidden = objectMeta(object) === '' && warnings.length === 0;
@@ -5112,8 +5120,15 @@ function validationMetaHtml(warnings) {
 
   return [
     `<span class="validation-meta-text" title="${escapeAttribute(list.join(' | '))}">${escapeHtml(list[0])}</span>`,
-    `<span class="validation-meta-count">${escapeHtml(validationCountLabel(list.length))}</span>`,
-  ].join('');
+    `<span class="validation-meta-count" title="${escapeAttribute(list.join(' | '))}">${escapeHtml(validationCountLabel(list.length))}</span>`,
+  ].filter(Boolean).join('');
+}
+
+function validationListHtml(warnings) {
+  return [...new Set(warnings)]
+    .filter(Boolean)
+    .map((warning) => `<li>${escapeHtml(warning)}</li>`)
+    .join('');
 }
 
 function validationCountLabel(count) {

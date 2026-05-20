@@ -997,6 +997,7 @@ button.object-title-row:focus-visible {
 .object-status-meta[hidden],
 .object-modified[hidden],
 .object-validation-meta[hidden],
+.object-validation-list[hidden],
 .composite-validation-meta[hidden] {
   display: none;
 }
@@ -1047,6 +1048,13 @@ button.object-title-row:focus-visible {
   overflow: hidden;
 }
 
+.object-validation-meta,
+.composite-validation-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9ch, auto);
+  column-gap: 8px;
+}
+
 .list-item .object-validation-meta,
 .list-item .composite-validation-meta,
 .list-item .object-validation-meta .validation-meta-text,
@@ -1079,6 +1087,7 @@ button.object-title-row:focus-visible {
 }
 
 .validation-meta-text {
+  justify-self: end;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1086,11 +1095,30 @@ button.object-title-row:focus-visible {
 }
 
 .validation-meta-count {
-  flex: 0 0 auto;
+  justify-self: end;
+  min-width: 9ch;
+  font-variant-numeric: tabular-nums;
 }
 
-.validation-meta-count {
-  font-variant-numeric: tabular-nums;
+.object-validation-list {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  color: var(--brand-strong);
+  font-size: 0.73rem;
+  line-height: 1.25;
+  list-style: none;
+  text-align: right;
+}
+
+.object-validation-list li {
+  max-width: 100%;
+  justify-self: end;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .object-summary {
