@@ -1042,14 +1042,16 @@ button.object-title-row:focus-visible::before {
 .object-title-text {
   flex: 1 1 auto;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
 .object-title-heading {
-  font-size: 0.98rem;
-  font-weight: 700;
-  line-height: 1.2;
+  font-family: "Aptos Display", "Aptos", "Segoe UI Variable Display", "Segoe UI Variable", "Inter", system-ui, sans-serif;
+  font-size: 1.32rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.14;
 }
 
 .object-subtitle {
