@@ -80,15 +80,15 @@ const objectConfigs = {
   people: {
     list: '#peopleList',
     fields: [
-      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'forename', label: 'Vorname', visibility: 'private' },
-      { name: 'lastname', label: 'Nachname', visibility: 'private' },
       { name: 'scoutname', label: 'Pfadiname', visibility: 'private' },
+      { name: 'lastname', label: 'Nachname', visibility: 'private' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'birthdate', label: 'Geburtsdatum', kind: 'date', visibility: 'protected' },
       { name: 'contactInfo', label: 'Kontakt', kind: 'textarea', visibility: 'protected' },
-      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
       { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: 'memberships', label: 'Mitgliedschaften', kind: 'membership-list', defaultValue: [] },
       { name: 'activities', label: 'Aktivitäten', kind: 'activity-list', defaultValue: [] },
     ],
@@ -96,43 +96,43 @@ const objectConfigs = {
   groups: {
     list: '#groupsList',
     fields: [
-      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'name', label: 'Name' },
-      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
+      { name: 'mainPhase', label: 'Hauptphase', kind: 'group-phase', defaultValue: null },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
       { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
-      { name: 'mainPhase', label: 'Hauptphase', kind: 'group-phase', defaultValue: null },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: 'additionalPhases', label: 'Weitere Phasen', kind: 'group-phase-list', defaultValue: [] },
     ],
   },
   'group-types': {
     list: '#groupTypesList',
     fields: [
-      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'label', label: 'Name' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
     ],
   },
   roles: {
     list: '#rolesList',
     fields: [
-      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'label', label: 'Name' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'groupTypes', label: 'Gruppenarten', kind: 'reference-list', collection: 'group-types', defaultValue: [] },
-      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
       { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
     ],
   },
   timepoints: {
     list: '#timepointsList',
     fields: [
-      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'name', label: 'Name' },
       { name: 'date', label: 'Datum', kind: 'date' },
-      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
+      { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
       { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
+      { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
     ],
   },
 };
@@ -1218,9 +1218,10 @@ function renderTreeBoard({ treeSelector, subtitleSelector, groups, people, group
 }
 
 function renderCreateForm(type, fields) {
+  const hasSide = editorFieldSections(fields).internal.length > 0;
   return `
-    <form class="object-editor object-create-form" data-create-form="${escapeAttribute(type)}">
-      ${fields.map((field) => renderFieldInput(field, defaultFieldValue(field), true, { ownerType: type, ownerObject: {} })).join('')}
+    <form class="object-editor object-editor-layout object-create-form ${hasSide ? 'has-side' : 'no-side'}" data-create-form="${escapeAttribute(type)}">
+      ${renderEditorFields(type, fields, {}, true)}
       <div class="form-actions">
         <button class="button button-secondary" type="button" data-create-cancel="${escapeAttribute(type)}">Abbrechen</button>
         <button class="button" type="submit">Erstellen</button>
@@ -2183,14 +2184,49 @@ function periodBoundaryMatchesTimepoint(timepoint, period, boundary) {
 
 function renderObjectEditor(type, object) {
   const deleteLabel = `${objectListTitle(type, object)} löschen`;
+  const fields = visibleFields(type);
+  const hasSide = editorFieldSections(fields).internal.length > 0;
   return `
-    <form class="object-editor" data-object-editor>
-      ${visibleFields(type).map((field) => renderFieldInput(field, object[field.name], false, { ownerType: type, ownerObject: object })).join('')}
+    <form class="object-editor object-editor-layout ${hasSide ? 'has-side' : 'no-side'}" data-object-editor>
+      ${renderEditorFields(type, fields, object, false)}
       <div class="object-editor-actions">
         <button class="button button-danger" type="button" data-object-action="delete">${escapeHtml(deleteLabel)}</button>
       </div>
     </form>
   `;
+}
+
+function renderEditorFields(type, fields, object, isCreate) {
+  const sections = editorFieldSections(fields);
+  const context = { ownerType: type, ownerObject: object };
+  const renderFields = (sectionFields) => sectionFields.map((field) => (
+    renderFieldInput(field, isCreate ? defaultFieldValue(field) : object[field.name], isCreate, context)
+  )).join('');
+
+  return [
+    sections.main.length ? `<div class="object-editor-main">${renderFields(sections.main)}</div>` : '',
+    sections.internal.length ? `<aside class="object-editor-side">${renderFields(sections.internal)}</aside>` : '',
+    sections.relations.length ? `<div class="object-editor-relations">${renderFields(sections.relations)}</div>` : '',
+  ].join('');
+}
+
+function editorFieldSections(fields) {
+  return fields.reduce((sections, field) => {
+    sections[editorFieldSection(field)].push(field);
+    return sections;
+  }, { main: [], internal: [], relations: [] });
+}
+
+function editorFieldSection(field) {
+  if (['notes', '_certainty', '_sources'].includes(field.name)) {
+    return 'internal';
+  }
+
+  if (['membership-list', 'activity-list', 'group-phase-list'].includes(field.kind || '')) {
+    return 'relations';
+  }
+
+  return 'main';
 }
 
 function renderCreatePanel(type) {

@@ -1283,11 +1283,57 @@ button.object-title-row:focus-visible::before {
   padding: 12px 0 0;
 }
 
+.object-editor-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  align-items: start;
+}
+
+.object-editor-layout.no-side {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.object-editor-main,
+.object-editor-relations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.object-editor-main {
+  grid-column: 1;
+}
+
+.object-editor-layout.no-side .object-editor-main {
+  grid-column: 1 / -1;
+}
+
+.object-editor-side {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+
+.object-editor-side .object-field-wide {
+  grid-column: auto;
+}
+
+.object-editor-relations {
+  grid-column: 1 / -1;
+}
+
 .object-editor-actions {
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
   padding-top: 4px;
+}
+
+.object-editor-layout > .form-actions,
+.object-editor-layout > .object-save-state {
+  grid-column: 1 / -1;
 }
 
 .object-create-form {
@@ -2145,6 +2191,24 @@ button.object-title-row:focus-visible::before {
   .sidebar {
     margin-inline: -6px;
     padding-inline: 6px;
+  }
+
+  .object-editor-layout,
+  .object-editor-layout.no-side {
+    grid-template-columns: 1fr;
+  }
+
+  .object-editor-main,
+  .object-editor-side,
+  .object-editor-relations {
+    grid-column: 1 / -1;
+  }
+
+  .object-editor-side {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
   }
 
   .list-item,
