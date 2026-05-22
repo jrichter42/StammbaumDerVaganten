@@ -990,6 +990,7 @@ h3 {
 }
 
 .object-title-row {
+  position: relative;
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -1006,14 +1007,35 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+.object-title-row::before {
+  content: "";
+  position: absolute;
+  inset: -7px -8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.object-title-row > * {
+  position: relative;
+  z-index: 1;
+}
+
 button.object-title-row {
   cursor: pointer;
 }
 
 button.object-title-row:hover,
 button.object-title-row:focus-visible {
-  border-color: var(--brand);
+  border-color: transparent;
   outline: 0;
+  background: transparent;
+}
+
+button.object-title-row:hover::before,
+button.object-title-row:focus-visible::before {
+  border-color: var(--brand);
   background: rgba(var(--brand-rgb), 0.08);
 }
 
