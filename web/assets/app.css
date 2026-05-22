@@ -977,10 +977,13 @@ h3 {
 }
 
 .list-section-heading {
-  padding: 10px 4px 0;
+  padding: 16px 4px 2px;
   color: var(--brand-strong);
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-family: "Aptos Display", "Aptos", "Segoe UI Variable Display", "Segoe UI Variable", "Inter", system-ui, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.1;
 }
 
 .object-main {
@@ -1055,6 +1058,8 @@ button.object-title-row:focus-visible::before {
 }
 
 .object-subtitle {
+  font-size: 0.94rem;
+  font-weight: 500;
   line-height: 1.25;
 }
 
