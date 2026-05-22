@@ -231,7 +231,6 @@ const setupPanel = document.querySelector('#setupPanel');
 const setupInput = document.querySelector('#setupInput');
 const usersNav = document.querySelector('#usersNav');
 const usersNavGroup = document.querySelector('#usersNavGroup');
-const createUserForm = document.querySelector('#createUserForm');
 const setupResult = document.querySelector('#setupResult');
 const exampleDataButton = document.querySelector('#exampleDataButton');
 const exampleDataState = document.querySelector('#exampleDataState');
@@ -264,7 +263,6 @@ sourceInput?.addEventListener('input', handleSourceInput);
 sourceInput?.addEventListener('blur', () => updateSourceControl());
 sourceClearButton?.addEventListener('click', clearSourceOverride);
 setupForm.addEventListener('submit', beginSetup);
-createUserForm.addEventListener('submit', createUser);
 setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
 document.addEventListener('click', handleNavigationJump);
@@ -417,8 +415,7 @@ async function handleNavigationJump(event) {
 async function refreshActivatedView(viewName) {
   if (viewName === 'users') {
     await loadManagedUsers();
-    renderNavigationCounts();
-    renderUserList();
+    renderUsersManagement();
     return;
   }
 
@@ -442,7 +439,7 @@ async function refreshActivatedView(viewName) {
 
 function activeViewHasOpenEditor(viewName) {
   const view = document.querySelector(`#view-${cssEscape(viewName)}`);
-  return Boolean(view?.querySelector('[data-object-editor], [data-create-form]'));
+  return Boolean(view?.querySelector('[data-object-editor], [data-create-form], [data-user-create-form]'));
 }
 
 async function handleGlobalSearchClick(event) {
@@ -576,7 +573,8 @@ function renderShell() {
   }
 
   document.querySelectorAll('[data-create-type]').forEach((button) => {
-    button.hidden = !hasPermission('write');
+    const type = button.dataset.createType || '';
+    button.hidden = type === 'users' ? !canManageUsers : !hasPermission('write');
   });
   updateExampleDataVisibility();
 }
@@ -805,17 +803,17 @@ async function loadManagedUsers() {
   renderNavigationCounts();
 }
 
-async function createUser(event) {
-  event.preventDefault();
-  const formData = new FormData(createUserForm);
+async function createUser(form) {
+  const formData = new FormData(form);
   const username = String(formData.get('username') || '').trim();
   const permissions = formData.getAll('permissions');
   if (!username) {
     showAuthMessage('Benutzername ist erforderlich.', true);
-    createUserForm.querySelector('input[name="username"]')?.focus();
+    form.querySelector('input[name="username"]')?.focus();
     return;
   }
 
+  setCreateState(form, 'Wird erstellt', false);
   try {
     const response = await postJson('admin-create-user', {
       username,
@@ -824,12 +822,11 @@ async function createUser(event) {
     });
 
     state.setupResult = response.setup;
-    createUserForm.reset();
-    createUserForm.querySelector('input[value="read"]').checked = true;
+    state.createOpen.users = false;
     renderSetupResult();
     await loadManagedUsers();
   } catch (error) {
-    showAuthMessage(localizeErrorMessage(error.message || 'Benutzer konnte nicht erstellt werden.'), true);
+    setCreateState(form, localizeErrorMessage(error.message || 'Benutzer konnte nicht erstellt werden.'), true);
   }
 }
 
@@ -2073,6 +2070,11 @@ function renderCreatePanel(type) {
     return;
   }
 
+  if (type === 'users') {
+    renderUserCreatePanel(panel);
+    return;
+  }
+
   if (!state.createOpen[type] || !hasPermission('write')) {
     panel.hidden = true;
     panel.innerHTML = '';
@@ -2081,6 +2083,40 @@ function renderCreatePanel(type) {
 
   panel.hidden = false;
   panel.innerHTML = renderCreateForm(type, visibleFields(type));
+}
+
+function renderUserCreatePanel(panel) {
+  if (!state.createOpen.users || !hasPermission('manage_users')) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    return;
+  }
+
+  panel.hidden = false;
+  panel.innerHTML = `
+    <form class="object-editor object-create-form users-create" data-user-create-form>
+      <label class="object-field">
+        <span>Benutzername</span>
+        <input name="username" autocomplete="off" required>
+      </label>
+      <label class="object-field">
+        <span>Anzeigename</span>
+        <input name="display_name" autocomplete="off">
+      </label>
+      <fieldset class="object-field users-permissions-field">
+        <legend>Berechtigungen</legend>
+        <label><input type="checkbox" name="permissions" value="read" checked> Lesen</label>
+        <label><input type="checkbox" name="permissions" value="write"> Schreiben</label>
+        <label><input type="checkbox" name="permissions" value="sensitive"> Sensible Daten</label>
+        <label><input type="checkbox" name="permissions" value="manage_users"> Benutzer verwalten</label>
+      </fieldset>
+      <div class="form-actions">
+        <button class="button button-secondary" type="button" data-create-cancel="users">Abbrechen</button>
+        <button class="button" type="submit">Setup-Link erstellen</button>
+      </div>
+      <p class="object-save-state" data-create-state hidden></p>
+    </form>
+  `;
 }
 
 function renderFieldInput(field, value, isCreate, context = {}) {
@@ -3128,14 +3164,23 @@ async function handleObjectClick(event) {
       state.createOpen[type] = false;
     });
     state.createOpen[createType] = true;
-    renderObjectCollection(createType);
+    if (createType === 'users') {
+      renderUsersManagement();
+    } else {
+      renderObjectCollection(createType);
+    }
     return;
   }
 
   const createCancel = event.target.closest('[data-create-cancel]');
   if (createCancel) {
-    state.createOpen[createCancel.dataset.createCancel] = false;
-    renderObjectCollection(createCancel.dataset.createCancel);
+    const createType = createCancel.dataset.createCancel;
+    state.createOpen[createType] = false;
+    if (createType === 'users') {
+      renderUsersManagement();
+    } else {
+      renderObjectCollection(createType);
+    }
     return;
   }
 
@@ -3557,14 +3602,14 @@ function handleListAction(button) {
 }
 
 function focusExistingCreateForm(triggerButton) {
-  const form = document.querySelector('[data-create-form]');
+  const form = document.querySelector('[data-create-form], [data-user-create-form]');
   if (!form) {
     return false;
   }
 
   showInlineActionFeedback(triggerButton, 'Offenen Eintrag erst speichern oder abbrechen.');
   scrollElementIntoView(form);
-  form.querySelector('[data-object-field] input, [data-object-field] textarea, [data-object-field] select')?.focus();
+  form.querySelector('[data-object-field] input, [data-object-field] textarea, [data-object-field] select, input, textarea, select')?.focus();
   return true;
 }
 
@@ -4145,6 +4190,13 @@ function handleEditorFocus(event) {
 }
 
 document.addEventListener('submit', async (event) => {
+  const userCreateForm = event.target.closest('[data-user-create-form]');
+  if (userCreateForm) {
+    event.preventDefault();
+    await createUser(userCreateForm);
+    return;
+  }
+
   const form = event.target.closest('[data-create-form]');
   if (!form) {
     return;
@@ -5996,7 +6048,7 @@ function timepointValue(timepoint) {
 }
 
 function hasPendingObjectEdits() {
-  return Boolean(document.querySelector('[data-create-form], [data-object-editor], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
+  return Boolean(document.querySelector('[data-create-form], [data-user-create-form], [data-object-editor], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
 }
 
 function objectKey(type, id) {
@@ -6016,6 +6068,7 @@ function renderUsersManagement() {
     return;
   }
 
+  renderCreatePanel('users');
   renderCollectionControls();
   renderNavigationCounts();
   renderSetupResult();

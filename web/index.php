@@ -142,7 +142,6 @@ $configWarnings = array_map(
             <section class="panel">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
-                  <h2>Personen</h2>
                   <div class="collection-controls" data-collection-controls="people"></div>
                 </div>
                 <button class="button" type="button" data-create-type="people">Person hinzufügen</button>
@@ -156,7 +155,6 @@ $configWarnings = array_map(
             <section class="panel">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
-                  <h2>Gruppen</h2>
                   <div class="collection-controls" data-collection-controls="groups"></div>
                 </div>
                 <button class="button" type="button" data-create-type="groups">Gruppe hinzufügen</button>
@@ -170,7 +168,6 @@ $configWarnings = array_map(
             <section class="panel">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
-                  <h2>Gruppenarten</h2>
                   <div class="collection-controls" data-collection-controls="group-types"></div>
                 </div>
                 <button class="button" type="button" data-create-type="group-types">Gruppenart hinzufügen</button>
@@ -184,7 +181,6 @@ $configWarnings = array_map(
             <section class="panel">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
-                  <h2>Rollen</h2>
                   <div class="collection-controls" data-collection-controls="roles"></div>
                 </div>
                 <button class="button" type="button" data-create-type="roles">Rolle hinzufügen</button>
@@ -198,7 +194,6 @@ $configWarnings = array_map(
             <section class="panel">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
-                  <h2>Zeitpunkte</h2>
                   <div class="collection-controls" data-collection-controls="timepoints"></div>
                 </div>
                 <button class="button" type="button" data-create-type="timepoints">Zeitpunkt hinzufügen</button>
@@ -212,30 +207,11 @@ $configWarnings = array_map(
             <section class="panel">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
-                  <h2>Benutzer</h2>
                   <div class="collection-controls" data-collection-controls="users"></div>
                 </div>
+                <button class="button" type="button" data-create-type="users">Benutzer hinzufügen</button>
               </div>
-              <form class="form-grid users-create" id="createUserForm">
-                <label>
-                  <span>Benutzername</span>
-                  <input name="username" autocomplete="off" required>
-                </label>
-                <label>
-                  <span>Anzeigename</span>
-                  <input name="display_name" autocomplete="off">
-                </label>
-                <fieldset>
-                  <legend>Berechtigungen</legend>
-                  <label><input type="checkbox" name="permissions" value="read" checked> Lesen</label>
-                  <label><input type="checkbox" name="permissions" value="write"> Schreiben</label>
-                  <label><input type="checkbox" name="permissions" value="sensitive"> Sensible Daten</label>
-                  <label><input type="checkbox" name="permissions" value="manage_users"> Benutzer verwalten</label>
-                </fieldset>
-                <div class="form-actions">
-                  <button class="button" type="submit">Setup-Link erstellen</button>
-                </div>
-              </form>
+              <div class="object-create" data-create-panel="users" hidden></div>
               <div class="setup-result" id="setupResult" hidden></div>
               <div class="list user-list" id="userList"></div>
             </section>

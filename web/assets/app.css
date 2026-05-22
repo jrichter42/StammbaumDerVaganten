@@ -763,7 +763,8 @@ h3 {
 #view-groups .panel,
 #view-group-types .panel,
 #view-roles .panel,
-#view-timepoints .panel {
+#view-timepoints .panel,
+#view-users .panel {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -784,7 +785,8 @@ h3 {
 #view-groups .panel-header,
 #view-group-types .panel-header,
 #view-roles .panel-header,
-#view-timepoints .panel-header {
+#view-timepoints .panel-header,
+#view-users .panel-header {
   padding-inline: 0;
   border-bottom: 0;
 }
@@ -796,7 +798,7 @@ h3 {
 
 .collection-heading {
   display: grid;
-  grid-template-columns: auto minmax(260px, 1fr);
+  grid-template-columns: minmax(260px, 1fr);
   align-items: start;
   gap: 14px;
   min-width: min(100%, 620px);
@@ -947,6 +949,11 @@ h3 {
 }
 
 .object-list {
+  gap: 12px;
+  background: transparent;
+}
+
+.user-list {
   gap: 12px;
   background: transparent;
 }
@@ -1873,7 +1880,28 @@ button.object-title-row:focus-visible::before {
 }
 
 .users-create {
-  border-bottom: 1px solid var(--line);
+  align-items: start;
+}
+
+.users-permissions-field {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.users-permissions-field legend {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.users-permissions-field label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
 }
 
 .message,
@@ -1941,6 +1969,9 @@ button.object-title-row:focus-visible::before {
 
 .user-list .list-item {
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 
 .user-actions {
