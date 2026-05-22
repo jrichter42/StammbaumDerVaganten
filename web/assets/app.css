@@ -980,8 +980,12 @@ h3 {
   box-shadow: var(--edit-shadow);
 }
 
-.object-list .list-item:hover {
+.object-list .list-item:not(.is-editing):hover {
   background: var(--surface);
+}
+
+.object-list .object-item.is-editing:hover {
+  background: linear-gradient(180deg, var(--edit-surface), var(--surface) 132px);
 }
 
 .object-item.is-clickable .object-editor {
