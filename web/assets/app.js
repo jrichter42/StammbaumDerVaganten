@@ -834,20 +834,20 @@ async function handleUserAction(event) {
     return;
   }
 
-  const item = button.closest('[data-user-id]');
-  const userId = item?.dataset.userId;
-  if (!userId) {
+  const item = button.closest('[data-username]');
+  const username = item?.dataset.username;
+  if (!username) {
     return;
   }
 
-  const user = state.users.find((candidate) => candidate.id === userId);
+  const user = state.users.find((candidate) => candidate.username === username);
   if (!user) {
     return;
   }
 
   try {
     if (button.dataset.action === 'setup') {
-      const response = await postJson('admin-create-setup-token', { user_id: userId });
+      const response = await postJson('admin-create-setup-token', { username });
       state.setupResult = response.setup;
       await loadManagedUsers();
       renderSetupResult();
@@ -872,7 +872,7 @@ async function handleUserAction(event) {
         return;
       }
 
-      const response = await postJson('admin-delete-user', { user_id: userId });
+      const response = await postJson('admin-delete-user', { username });
       state.users = response.users || [];
       state.setupTokens = response.setup_tokens || [];
       resetDangerConfirmations();
@@ -883,10 +883,10 @@ async function handleUserAction(event) {
 
     if (button.dataset.action === 'toggle') {
       await postJson('admin-update-user', {
-        user_id: userId,
+        username,
         enabled: !user.enabled,
       });
-      await reloadAfterUserChange(userId);
+      await reloadAfterUserChange(username);
       return;
     }
 
@@ -895,19 +895,19 @@ async function handleUserAction(event) {
         .map((input) => input.value);
       const displayName = item.querySelector('input[data-display-name]')?.value.trim() || '';
       await postJson('admin-update-user', {
-        user_id: userId,
+        username,
         display_name: displayName,
         permissions,
       });
-      await reloadAfterUserChange(userId);
+      await reloadAfterUserChange(username);
     }
   } catch (error) {
     showAuthMessage(localizeErrorMessage(error.message || 'Benutzer konnte nicht aktualisiert werden.'), true);
   }
 }
 
-async function reloadAfterUserChange(userId) {
-  if (state.status?.auth?.user?.id === userId) {
+async function reloadAfterUserChange(username) {
+  if (state.status?.auth?.user?.username === username) {
     await refresh();
     return;
   }
@@ -5957,7 +5957,7 @@ function renderUsersManagement() {
 function renderUserList() {
   const users = collectionUsers();
   userList.innerHTML = users.map((user) => `
-    <article class="list-item" data-user-id="${escapeHtml(user.id)}">
+    <article class="list-item" data-username="${escapeAttribute(user.username)}">
       <div>
         <h3>${escapeHtml(userTitle(user))}</h3>
         <small>${escapeHtml(user.username || 'Benutzername offen')} / ${formatCount(user.credential_count, 'passkey')} / ${user.enabled ? 'aktiv' : 'inaktiv'}</small>
@@ -5974,14 +5974,14 @@ function renderUserList() {
         <button class="button button-secondary" type="button" data-action="save">Speichern</button>
         <button class="button button-secondary" type="button" data-action="setup">Setup-Link</button>
         <button class="button button-secondary" type="button" data-action="toggle">${user.enabled ? 'Deaktivieren' : 'Aktivieren'}</button>
-        ${state.status?.auth?.user?.id === user.id ? '' : '<button class="button button-danger" type="button" data-action="delete-user" data-danger-confirm>Löschen</button>'}
+        ${state.status?.auth?.user?.username === user.username ? '' : '<button class="button button-danger" type="button" data-action="delete-user" data-danger-confirm>Löschen</button>'}
       </div>
     </article>
   `).join('') || `<div class="empty-state">${state.users.length ? 'Keine Treffer.' : 'Keine Benutzer.'}</div>`;
 }
 
 function renderUserSetupTokens(user) {
-  const tokens = (state.setupTokens || []).filter((token) => token.user_id === user.id);
+  const tokens = (state.setupTokens || []).filter((token) => token.username === user.username);
   if (!tokens.length) {
     return '<div class="setup-token-list"><small>Keine aktiven Setup-Links.</small></div>';
   }

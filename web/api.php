@@ -64,7 +64,7 @@ function data_username(array $user): string
     }
 
     $displayName = trim((string) ($user['display_name'] ?? ''));
-    return $displayName !== '' ? $displayName : (string) ($user['id'] ?? '');
+    return $displayName;
 }
 
 /**
@@ -215,8 +215,8 @@ try {
             }
 
             $verified = $webauthn->verifyAuthentication($credential, (string) $challenge['challenge'], $stored['credential']);
-            $auth->updateCredentialAfterLogin((string) $stored['user']['id'], (string) $verified['credential_id'], (int) $verified['sign_count']);
-            $user = $auth->loginUser((string) $stored['user']['id']);
+            $auth->updateCredentialAfterLogin((string) $stored['user']['username'], (string) $verified['credential_id'], (int) $verified['sign_count']);
+            $user = $auth->loginUser((string) $stored['user']['username']);
             Http::json(['ok' => true, 'user' => $user, 'csrf' => $auth->csrfToken()]);
             break;
 
@@ -227,20 +227,9 @@ try {
             $resolved = $auth->resolveSetupToken($setupInput);
             $user = $resolved['user'];
 
-            if ((string) ($user['username'] ?? '') === '') {
-                $username = trim((string) ($body['username'] ?? ''));
-                if ($username === '') {
-                    Http::json(['ok' => false, 'error' => 'Username is required for this setup link', 'username_required' => true], 422);
-                }
-
-                $auth->setUsernameIfEmpty((string) $user['id'], $username);
-                $resolved = $auth->resolveSetupToken($setupInput);
-                $user = $resolved['user'];
-            }
-
             $challenge = $auth->createChallenge('register', [
                 'setup_token_id' => (string) $resolved['token']['id'],
-                'user_id' => (string) $user['id'],
+                'username' => (string) $user['username'],
             ], 300);
 
             Http::json([
@@ -264,14 +253,14 @@ try {
             $challenge = $auth->consumeChallengeById('register', $challengeId);
             $context = is_array($challenge['context'] ?? null) ? $challenge['context'] : [];
             if (($context['setup_token_id'] ?? '') !== ($resolved['token']['id'] ?? '')
-                || ($context['user_id'] ?? '') !== ($resolved['user']['id'] ?? '')) {
+                || ($context['username'] ?? '') !== ($resolved['user']['username'] ?? '')) {
                 Http::json(['ok' => false, 'error' => 'Registration challenge did not match setup token'], 400);
             }
 
             $storedCredential = $webauthn->verifyRegistration($credential, (string) $challenge['challenge']);
-            $auth->addCredential((string) $resolved['user']['id'], $storedCredential);
+            $auth->addCredential((string) $resolved['user']['username'], $storedCredential);
             $auth->consumeSetupToken((string) $resolved['token']['id']);
-            $user = $auth->loginUser((string) $resolved['user']['id']);
+            $user = $auth->loginUser((string) $resolved['user']['username']);
             Http::json(['ok' => true, 'user' => $user, 'csrf' => $auth->csrfToken()]);
             break;
 
@@ -309,9 +298,9 @@ try {
                 $username,
                 (string) ($body['display_name'] ?? ''),
                 $permissions,
-                (string) $admin['id']
+                (string) $admin['username']
             );
-            $setup = $auth->createSetupToken((string) $user['id'], (string) $admin['id']);
+            $setup = $auth->createSetupToken((string) $user['username'], (string) $admin['username']);
             Http::json(['ok' => true, 'user' => $user, 'setup' => $setup]);
             break;
 
@@ -320,12 +309,12 @@ try {
             $admin = require_permission($auth, 'manage_users');
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
-            $userId = (string) ($body['user_id'] ?? '');
-            if ($userId === '') {
-                Http::json(['ok' => false, 'error' => 'User ID is required'], 400);
+            $username = (string) ($body['username'] ?? '');
+            if ($username === '') {
+                Http::json(['ok' => false, 'error' => 'Username is required'], 400);
             }
 
-            $user = $auth->updateUser($userId, $body, (string) $admin['id']);
+            $user = $auth->updateUser($username, $body, (string) $admin['username']);
             Http::json(['ok' => true, 'user' => $user]);
             break;
 
@@ -334,12 +323,12 @@ try {
             $admin = require_permission($auth, 'manage_users');
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
-            $userId = (string) ($body['user_id'] ?? '');
-            if ($userId === '') {
-                Http::json(['ok' => false, 'error' => 'User ID is required'], 400);
+            $username = (string) ($body['username'] ?? '');
+            if ($username === '') {
+                Http::json(['ok' => false, 'error' => 'Username is required'], 400);
             }
 
-            $auth->deleteUser($userId, (string) $admin['id']);
+            $auth->deleteUser($username, (string) $admin['username']);
             Http::json([
                 'ok' => true,
                 'users' => $auth->listUsers(),
@@ -352,12 +341,12 @@ try {
             $admin = require_permission($auth, 'manage_users');
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
-            $userId = (string) ($body['user_id'] ?? '');
-            if ($userId === '') {
-                Http::json(['ok' => false, 'error' => 'User ID is required'], 400);
+            $username = (string) ($body['username'] ?? '');
+            if ($username === '') {
+                Http::json(['ok' => false, 'error' => 'Username is required'], 400);
             }
 
-            $setup = $auth->createSetupToken($userId, (string) $admin['id']);
+            $setup = $auth->createSetupToken($username, (string) $admin['username']);
             Http::json(['ok' => true, 'setup' => $setup]);
             break;
 
@@ -371,7 +360,7 @@ try {
                 Http::json(['ok' => false, 'error' => 'Setup token ID is required'], 400);
             }
 
-            $auth->deleteSetupToken($tokenId, (string) $admin['id']);
+            $auth->deleteSetupToken($tokenId, (string) $admin['username']);
             Http::json(['ok' => true, 'setup_tokens' => $auth->listSetupTokens()]);
             break;
 
