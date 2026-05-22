@@ -1974,6 +1974,14 @@ button.object-title-row:focus-visible::before {
   border-radius: 8px;
 }
 
+.user-list h3 {
+  font-family: "Aptos Display", "Aptos", "Segoe UI Variable Display", "Segoe UI Variable", "Inter", system-ui, sans-serif;
+  font-size: 1.32rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.14;
+}
+
 .user-actions {
   display: flex;
   align-items: center;

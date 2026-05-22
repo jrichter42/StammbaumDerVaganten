@@ -6144,8 +6144,10 @@ function renderSetupResult() {
 
   setupResult.hidden = false;
   const setupUrl = state.setupResult.setup_url || '';
+  const username = String(state.setupResult.username || '').trim();
+  const title = username ? `${username} Setup-Link` : 'Setup-Link';
   setupResult.innerHTML = `
-    <h3>Setup-Link</h3>
+    <h3>${escapeHtml(title)}</h3>
     <div class="qr-code" aria-label="Setup-QR-Code">${qrSvg(setupUrl)}</div>
     <label>
       <span>URL</span>
