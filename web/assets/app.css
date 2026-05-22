@@ -958,28 +958,33 @@ h3 {
   background: transparent;
 }
 
-.object-list .list-item {
+.object-list .list-item,
+.user-list .list-item {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
 
-.object-list .object-item.is-editing {
+.object-list .object-item.is-editing,
+.user-list .user-item.is-editing {
   border-color: var(--edit-border);
   background: linear-gradient(180deg, var(--edit-surface), var(--surface) 132px);
   box-shadow: var(--edit-shadow);
 }
 
-.object-list .list-item:not(.is-editing):hover {
+.object-list .list-item:not(.is-editing):hover,
+.user-list .list-item:not(.is-editing):hover {
   background: var(--surface);
 }
 
-.object-list .object-item.is-editing:hover {
+.object-list .object-item.is-editing:hover,
+.user-list .user-item.is-editing:hover {
   background: linear-gradient(180deg, var(--edit-surface), var(--surface) 132px);
 }
 
-.object-item.is-clickable .object-editor {
+.object-item.is-clickable .object-editor,
+.user-item.is-clickable .user-editor {
   cursor: default;
 }
 
@@ -1904,6 +1909,13 @@ button.object-title-row:focus-visible::before {
   gap: 7px;
 }
 
+.users-permissions-field input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  accent-color: var(--brand-strong);
+}
+
 .message,
 .setup-result {
   margin: 12px 0 0;
@@ -1967,19 +1979,8 @@ button.object-title-row:focus-visible::before {
   background: #0f1418;
 }
 
-.user-list .list-item {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-.user-list h3 {
-  font-family: "Aptos Display", "Aptos", "Segoe UI Variable Display", "Segoe UI Variable", "Inter", system-ui, sans-serif;
-  font-size: 1.32rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  line-height: 1.14;
+.user-editor-side {
+  grid-column: 1 / -1;
 }
 
 .user-actions {
@@ -1988,13 +1989,6 @@ button.object-title-row:focus-visible::before {
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.permission-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 8px;
 }
 
 .setup-token-list {
@@ -2008,28 +2002,6 @@ button.object-title-row:focus-visible::before {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.inline-field {
-  display: grid;
-  gap: 6px;
-  max-width: 320px;
-  margin-top: 10px;
-}
-
-.inline-field span {
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-
-.inline-field input {
-  width: 100%;
-  min-height: 36px;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--text);
-  background: #0f1418;
 }
 
 @media (max-width: 780px) {

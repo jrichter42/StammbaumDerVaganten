@@ -248,8 +248,12 @@ if (urlSetup) {
 restoreUrlState();
 
 document.querySelectorAll('[data-view]').forEach((button) => {
-  button.addEventListener('click', async () => {
+  button.addEventListener('click', async (event) => {
+    event.preventDefault();
     const viewName = button.dataset.view;
+    if (!(await canSwitchToView(viewName))) {
+      return;
+    }
     activateView(viewName);
     await refreshActivatedView(viewName);
   });
@@ -282,6 +286,7 @@ document.addEventListener('focusout', handleObjectBlur);
 document.addEventListener('focusin', handleEditorFocus);
 appContent?.addEventListener('scroll', updateBackToTopButton, { passive: true });
 backToTopButton?.addEventListener('click', scrollBackToTop);
+window.addEventListener('beforeunload', handleBeforeUnload);
 
 updateBackToTopButton();
 refresh();
@@ -297,6 +302,16 @@ function updateBackToTopButton() {
 
 function scrollBackToTop() {
   appScrollRoot().scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function handleBeforeUnload(event) {
+  const form = openCreateForm();
+  if (!form || isPristineCreateForm(form)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.returnValue = '';
 }
 
 function activateView(viewName, urlExtra = {}) {
@@ -408,8 +423,82 @@ async function handleNavigationJump(event) {
 
   event.preventDefault();
   const viewName = button.dataset.jumpView;
+  if (!(await canSwitchToView(viewName))) {
+    return;
+  }
   activateView(viewName);
   await refreshActivatedView(viewName);
+}
+
+async function canSwitchToView(viewName) {
+  if (!viewName || viewName === currentViewName()) {
+    return true;
+  }
+
+  if (!resolveOpenCreateFormBeforeSwitch()) {
+    return false;
+  }
+
+  await closeOpenEditorsBeforeSwitch();
+  return true;
+}
+
+function currentViewName() {
+  return document.querySelector('[data-view].is-active')?.dataset.view || 'people';
+}
+
+function resolveOpenCreateFormBeforeSwitch() {
+  const form = openCreateForm();
+  if (!form) {
+    return true;
+  }
+
+  if (isPristineCreateForm(form)) {
+    closeCreateForm(form);
+    return true;
+  }
+
+  if (window.confirm('Der neue Eintrag ist noch nicht erstellt. Wechseln und Eingaben verwerfen?')) {
+    closeCreateForm(form);
+    return true;
+  }
+
+  return false;
+}
+
+async function closeOpenEditorsBeforeSwitch() {
+  const objectItems = Array.from(document.querySelectorAll('[data-object-editor]'))
+    .map((editor) => editor.closest('[data-object-type][data-object-id]'))
+    .filter(Boolean);
+  const hasUserEditor = Boolean(document.querySelector('[data-user-editor]'));
+  if (!objectItems.length && !hasUserEditor) {
+    return;
+  }
+
+  const renderTypes = new Set();
+  for (const item of objectItems) {
+    const type = item.dataset.objectType;
+    const id = item.dataset.objectId;
+    const key = objectKey(type, id);
+    window.clearTimeout(state.editTimers[key]);
+    await flushObjectEdit(item, true);
+    state.editing[key] = false;
+    delete state.relationshipEditing[key];
+    renderTypes.add(type);
+  }
+
+  if (hasUserEditor) {
+    Object.keys(state.editing)
+      .filter((key) => key.startsWith('users:'))
+      .forEach((key) => {
+        state.editing[key] = false;
+      });
+    renderUserList();
+  }
+
+  renderTypes.forEach((type) => {
+    renderObjectCollection(type);
+  });
 }
 
 async function refreshActivatedView(viewName) {
@@ -439,7 +528,7 @@ async function refreshActivatedView(viewName) {
 
 function activeViewHasOpenEditor(viewName) {
   const view = document.querySelector(`#view-${cssEscape(viewName)}`);
-  return Boolean(view?.querySelector('[data-object-editor], [data-create-form], [data-user-create-form]'));
+  return Boolean(view?.querySelector('[data-object-editor], [data-create-form], [data-user-create-form], [data-user-editor]'));
 }
 
 async function handleGlobalSearchClick(event) {
@@ -456,7 +545,11 @@ async function handleGlobalSearchClick(event) {
   if (!type || !id) {
     return;
   }
+  if (openCreateForm() && !resolveOpenCreateFormBeforeSwitch()) {
+    return;
+  }
 
+  await closeOpenEditorsBeforeSwitch();
   activateView(type);
   hideGlobalSearchResults();
   globalSearchInput.value = '';
@@ -831,6 +924,24 @@ async function createUser(form) {
 }
 
 async function handleUserAction(event) {
+  const userButton = event.target.closest('button[data-user-action]');
+  if (userButton) {
+    const item = userButton.closest('[data-username]');
+    const username = item?.dataset.username;
+    if (!username) {
+      return;
+    }
+
+    if (userButton.dataset.userAction === 'toggle-editor') {
+      if (state.editing[objectKey('users', username)]) {
+        closeUserEditor(username);
+      } else {
+        focusUserEditor(username);
+      }
+    }
+    return;
+  }
+
   const button = event.target.closest('button[data-action]');
   if (!button) {
     return;
@@ -906,6 +1017,23 @@ async function handleUserAction(event) {
   } catch (error) {
     showAuthMessage(localizeErrorMessage(error.message || 'Benutzer konnte nicht aktualisiert werden.'), true);
   }
+}
+
+function closeUserEditor(username) {
+  state.editing[objectKey('users', username)] = false;
+  renderUserList();
+}
+
+function focusUserEditor(username) {
+  state.editing = { [objectKey('users', username)]: true };
+  renderUserList();
+  window.requestAnimationFrame(() => {
+    const item = document.querySelector(`[data-username="${cssEscape(username)}"]`);
+    const editor = item?.querySelector('[data-user-editor]');
+    if (editor) {
+      scrollElementIntoView(item);
+    }
+  });
 }
 
 async function reloadAfterUserChange(username) {
@@ -3201,6 +3329,9 @@ async function handleObjectClick(event) {
     if (state.editing[objectKey(item.dataset.objectType, item.dataset.objectId)]) {
       await closeObjectEditor(item);
     } else {
+      if (focusExistingCreateForm(button)) {
+        return;
+      }
       await focusObjectEditor(item);
     }
     return;
@@ -3602,8 +3733,13 @@ function handleListAction(button) {
 }
 
 function focusExistingCreateForm(triggerButton) {
-  const form = document.querySelector('[data-create-form], [data-user-create-form]');
+  const form = openCreateForm();
   if (!form) {
+    return false;
+  }
+
+  if (isPristineCreateForm(form)) {
+    closeCreateForm(form);
     return false;
   }
 
@@ -3611,6 +3747,66 @@ function focusExistingCreateForm(triggerButton) {
   scrollElementIntoView(form);
   form.querySelector('[data-object-field] input, [data-object-field] textarea, [data-object-field] select, input, textarea, select')?.focus();
   return true;
+}
+
+function openCreateForm() {
+  return document.querySelector('[data-create-form], [data-user-create-form]');
+}
+
+function closeCreateForm(form) {
+  const type = form.dataset.createForm || (form.matches('[data-user-create-form]') ? 'users' : '');
+  if (!type) {
+    return;
+  }
+
+  state.createOpen[type] = false;
+  if (type === 'users') {
+    renderUsersManagement();
+  } else {
+    renderObjectCollection(type);
+  }
+}
+
+function isPristineCreateForm(form) {
+  if (form.matches('[data-user-create-form]')) {
+    return isPristineUserCreateForm(form);
+  }
+
+  return isPristineObjectCreateForm(form);
+}
+
+function isPristineUserCreateForm(form) {
+  const username = String(form.querySelector('input[name="username"]')?.value || '');
+  const displayName = String(form.querySelector('input[name="display_name"]')?.value || '');
+  const permissions = Array.from(form.querySelectorAll('input[name="permissions"]:checked')).map((input) => input.value);
+  return username === '' && displayName === '' && payloadsEqual(permissions, ['read']);
+}
+
+function isPristineObjectCreateForm(form) {
+  const type = form.dataset.createForm;
+  if (!type) {
+    return false;
+  }
+
+  try {
+    return payloadsEqual(collectObjectFields(form), defaultCreatePayload(form, type));
+  } catch (_error) {
+    return false;
+  }
+}
+
+function defaultCreatePayload(form, type) {
+  const payload = {};
+  visibleFields(type).forEach((field) => {
+    if (form.querySelector(`[data-object-field="${cssEscape(field.name)}"]`)) {
+      payload[field.name] = defaultFieldValue(field);
+    }
+  });
+  return payload;
+}
+
+function payloadsEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function focusUnsavedRelationshipRow(fieldRoot, triggerButton) {
@@ -6048,7 +6244,7 @@ function timepointValue(timepoint) {
 }
 
 function hasPendingObjectEdits() {
-  return Boolean(document.querySelector('[data-create-form], [data-user-create-form], [data-object-editor], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
+  return Boolean(document.querySelector('[data-create-form], [data-user-create-form], [data-user-editor], [data-object-editor], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
 }
 
 function objectKey(type, id) {
@@ -6077,28 +6273,60 @@ function renderUsersManagement() {
 
 function renderUserList() {
   const users = collectionUsers();
-  userList.innerHTML = users.map((user) => `
-    <article class="list-item" data-username="${escapeAttribute(user.username)}">
-      <div>
-        <h3>${escapeHtml(userTitle(user))}</h3>
-        <small>${escapeHtml(user.username || 'Benutzername offen')} / ${formatCount(user.credential_count, 'passkey')} / ${user.enabled ? 'aktiv' : 'inaktiv'}</small>
-        <label class="inline-field">
-          <span>Anzeigename</span>
-          <input data-display-name value="${escapeAttribute(user.display_name || '')}" placeholder="${escapeAttribute(user.username || '')}">
-        </label>
-        <div class="permission-row">
-          ${renderPermissionCheckboxes(user.permissions)}
-        </div>
+  userList.innerHTML = users.map((user) => renderUserItem(user)).join('')
+    || `<div class="empty-state">${state.users.length ? 'Keine Treffer.' : 'Keine Benutzer.'}</div>`;
+}
+
+function renderUserItem(user) {
+  const username = user.username || '';
+  const isEditing = Boolean(state.editing[objectKey('users', username)]);
+  const meta = userMeta(user);
+
+  return `
+    <article class="list-item user-item is-clickable ${isEditing ? 'is-editing' : ''}" data-username="${escapeAttribute(username)}">
+      <div class="object-main">
+        <button class="object-title-row" type="button" data-user-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}">
+          <span class="object-title-text">
+            <span class="object-title-heading">${escapeHtml(userTitle(user))}</span>
+            <small class="object-subtitle">${escapeHtml(meta)}</small>
+          </span>
+        </button>
+        ${isEditing ? renderUserEditor(user) : ''}
+      </div>
+    </article>
+  `;
+}
+
+function renderUserEditor(user) {
+  return `
+    <div class="object-editor user-editor" data-user-editor>
+      <label class="object-field">
+        <span>Anzeigename</span>
+        <input data-display-name value="${escapeAttribute(user.display_name || '')}" placeholder="${escapeAttribute(user.username || '')}">
+      </label>
+      <fieldset class="object-field users-permissions-field">
+        <legend>Berechtigungen</legend>
+        ${renderPermissionCheckboxes(user.permissions)}
+      </fieldset>
+      <div class="user-editor-side">
         ${renderUserSetupTokens(user)}
       </div>
-      <div class="user-actions">
+      <div class="object-editor-actions user-actions">
         <button class="button button-secondary" type="button" data-action="save">Speichern</button>
         <button class="button button-secondary" type="button" data-action="setup">Setup-Link</button>
         <button class="button button-secondary" type="button" data-action="toggle">${user.enabled ? 'Deaktivieren' : 'Aktivieren'}</button>
         ${state.status?.auth?.user?.username === user.username ? '' : '<button class="button button-danger" type="button" data-action="delete-user" data-danger-confirm>Löschen</button>'}
       </div>
-    </article>
-  `).join('') || `<div class="empty-state">${state.users.length ? 'Keine Treffer.' : 'Keine Benutzer.'}</div>`;
+    </div>
+  `;
+}
+
+function userMeta(user) {
+  return [
+    user.username || 'Benutzername offen',
+    formatCount(user.credential_count, 'passkey'),
+    user.enabled ? 'aktiv' : 'inaktiv',
+  ].join(' / ');
 }
 
 function renderUserSetupTokens(user) {
