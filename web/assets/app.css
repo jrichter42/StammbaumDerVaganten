@@ -186,6 +186,18 @@ h3 {
   font-size: 0.98rem;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .topbar-actions {
   position: static;
   display: flex;
@@ -1563,7 +1575,7 @@ button.object-title-row:focus-visible::before {
   background: rgba(21, 27, 32, 0.78);
 }
 
-.composite-item:not(.is-collapsed):not(.reference-list-item) {
+.composite-item:not(.is-collapsed):not(.reference-list-item):not(.group-type-fixed-item) {
   border-color: var(--edit-border);
   background: linear-gradient(180deg, var(--edit-surface), rgba(21, 27, 32, 0.82));
   box-shadow: var(--edit-shadow);
@@ -1660,6 +1672,20 @@ button.object-title-row:focus-visible::before {
 
 .reference-list-item {
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.group-type-fixed-item {
+  align-items: center;
+  padding-block: 8px;
+}
+
+.group-type-fixed-item > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.group-type-add-field {
+  max-width: 360px;
 }
 
 .nested-editor {

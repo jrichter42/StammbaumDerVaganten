@@ -37,6 +37,7 @@ const emptyCollectionLabels = {
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
 const collectionTypes = [...objectCollections, 'users'];
 const collectionVisibleStep = 100;
+const groupTypeReferenceFilterMinOptions = 25;
 const sortCollator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const pickerActionShowAllGroups = '__picker_show_all_groups__';
 const pickerActionShowAllRoles = '__picker_show_all_roles__';
@@ -2376,6 +2377,7 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
   const picker = pickerContext.picker || '';
   const birthYear = birthYearFromDateValue(pickerContext.ownerObject?.birthdate);
   const optionConfig = referenceOptionConfigFromContext(pickerContext, storedValue);
+  const showFilter = referenceFilterVisible(collection);
   const labelHtml = hideLabel ? '' : fieldLabelHtml(label, pickerContext.labelActionHtml || '', id);
   const labelAttr = hideLabel && label ? `aria-label="${escapeAttribute(label)}"` : '';
   const attrs = [
@@ -2392,12 +2394,17 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
   return `
     <div class="object-field reference-field" data-reference-field>
       ${labelHtml}
-      <input class="reference-filter" type="search" data-reference-filter placeholder="Auswahl filtern" aria-label="${escapeAttribute(label ? `${label} filtern` : 'Auswahl filtern')}" autocomplete="off">
+      ${showFilter ? `<input class="reference-filter" type="search" data-reference-filter placeholder="Auswahl filtern" aria-label="${escapeAttribute(label ? `${label} filtern` : 'Auswahl filtern')}" autocomplete="off">` : ''}
       <select id="${escapeAttribute(id)}" ${attrs} ${labelAttr}>
         ${referenceOptions(collection, showIds, { ...optionConfig, currentValue: storedValue })}
       </select>
     </div>
   `;
+}
+
+function referenceFilterVisible(collection) {
+  return collection !== 'group-types'
+    || (state.objects['group-types'] || []).filter((object) => !object._deleted).length > groupTypeReferenceFilterMinOptions;
 }
 
 function fieldLabelHtml(label, actionHtml = '', forId = '') {
@@ -2642,6 +2649,10 @@ function shortObjectId(id) {
 }
 
 function renderReferenceListField(field, value, context = {}) {
+  if (field.collection === 'group-types') {
+    return renderGroupTypeReferenceListField(field, value);
+  }
+
   const values = Array.isArray(value) && value.length ? value : [''];
   return `
     <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}" data-reference-collection="${escapeAttribute(field.collection)}">
@@ -2649,20 +2660,73 @@ function renderReferenceListField(field, value, context = {}) {
         <span>${escapeHtml(field.label)}</span>
       </div>
       <div class="composite-list" data-list-items>
-        ${values.map((itemValue) => renderReferenceListItem(field.collection, itemValue, context)).join('')}
+        ${values.map((itemValue) => renderReferenceListItem(field.collection, itemValue, context, referenceListItemLabel(field))).join('')}
       </div>
       <button class="icon-button add-list-button" type="button" data-list-action="add" aria-label="${escapeAttribute(field.label)} hinzufügen">+</button>
     </section>
   `;
 }
 
-function renderReferenceListItem(collection, value = '', context = {}) {
+function referenceListItemLabel(field) {
+  if (field.collection === 'group-types') {
+    return 'Gruppenart';
+  }
+
+  return 'Referenz';
+}
+
+function renderReferenceListItem(collection, value = '', context = {}, label = referenceListItemLabel({ collection })) {
   const id = `ref-${collection}-${Math.random().toString(36).slice(2)}`;
+  const hideLabel = collection === 'group-types';
   return `
     <div class="composite-item reference-list-item" data-list-item>
-      ${renderReferenceControl({ id, label: 'Referenz', value, collection, nestedField: 'value', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject } })}
+      ${renderReferenceControl({ id, label, value, collection, nestedField: 'value', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject }, hideLabel })}
       <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="Entfernen">-</button>
     </div>
+  `;
+}
+
+function renderGroupTypeReferenceListField(field, value) {
+  const selectedValues = uniqueStrings(Array.isArray(value) ? value.filter(Boolean) : []);
+  return `
+    <section class="object-field object-field-wide composite-field group-type-reference-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}" data-reference-collection="${escapeAttribute(field.collection)}">
+      <div class="composite-header">
+        <span>${escapeHtml(field.label)}</span>
+      </div>
+      <div class="composite-list" data-list-items>
+        ${selectedValues.map((itemValue) => renderFixedGroupTypeListItem(itemValue)).join('')}
+      </div>
+      ${renderGroupTypeAddSelect(selectedValues)}
+    </section>
+  `;
+}
+
+function renderFixedGroupTypeListItem(value) {
+  const object = findReferenceObject('group-types', value);
+  const label = object ? objectLabel(object, 'group-types') : referenceDisplayValue({ label: '', _id: value }, 'group-types');
+  return `
+    <div class="composite-item group-type-fixed-item" data-list-item data-fixed-reference-value="${escapeAttribute(value)}">
+      <span>${escapeHtml(label)}</span>
+      <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="${escapeAttribute(label)} entfernen">-</button>
+    </div>
+  `;
+}
+
+function renderGroupTypeAddSelect(selectedValues = []) {
+  const selected = new Set(selectedValues);
+  const options = referencePickerObjects('group-types')
+    .filter((object) => !selected.has(objectId(object)))
+    .map((object) => `<option value="${escapeAttribute(objectId(object))}">${escapeHtml(referenceOptionLabel(object, 'group-types', state.groupTypes || []))}</option>`)
+    .join('');
+
+  return `
+    <label class="object-field group-type-add-field">
+      <span class="visually-hidden">Gruppenart hinzufügen</span>
+      <select data-group-type-add ${options ? '' : 'disabled'}>
+        <option value="">Gruppenart hinzufügen</option>
+        ${options}
+      </select>
+    </label>
   `;
 }
 
@@ -3709,7 +3773,9 @@ function handleListAction(button) {
     if (item) {
       const list = item.parentElement;
       item.remove();
-      if (list && list.children.length === 0 && !isRelationshipListField(fieldRoot)) {
+      if (fieldRoot.classList.contains('group-type-reference-field')) {
+        refreshGroupTypeAddSelect(fieldRoot);
+      } else if (list && list.children.length === 0 && !isRelationshipListField(fieldRoot)) {
         appendBlankListItem(fieldRoot);
       }
     }
@@ -3943,7 +4009,12 @@ function appendBlankListItem(fieldRoot) {
   }
 
   if (kind === 'reference-list') {
-    list.insertAdjacentHTML('beforeend', renderReferenceListItem(fieldRoot.dataset.referenceCollection || '', '', ownerContextForElement(fieldRoot)));
+    list.insertAdjacentHTML('beforeend', renderReferenceListItem(
+      fieldRoot.dataset.referenceCollection || '',
+      '',
+      ownerContextForElement(fieldRoot),
+      referenceListItemLabel({ collection: fieldRoot.dataset.referenceCollection || '' }),
+    ));
     return;
   }
 
@@ -3969,6 +4040,12 @@ function markCompositeChanged(fieldRoot) {
 }
 
 function handleReferencePickerChange(event) {
+  const groupTypeAdd = event.target.closest('[data-group-type-add]');
+  if (groupTypeAdd) {
+    handleGroupTypeAdd(groupTypeAdd);
+    return;
+  }
+
   const birthdateInput = event.target.closest('[data-object-field="birthdate"]');
   if (birthdateInput) {
     syncDateControlRaw(birthdateInput);
@@ -4018,6 +4095,38 @@ function handleReferencePickerChange(event) {
 
   if (select.dataset.referencePicker === 'membership-group') {
     updateReferenceSelectOptions(select);
+  }
+}
+
+function handleGroupTypeAdd(select) {
+  const value = select.value;
+  const fieldRoot = select.closest('[data-object-field]');
+  const list = fieldRoot?.querySelector('[data-list-items]');
+  if (!value || !fieldRoot || !list) {
+    return;
+  }
+
+  if (!list.querySelector(`[data-fixed-reference-value="${cssEscape(value)}"]`)) {
+    list.insertAdjacentHTML('beforeend', renderFixedGroupTypeListItem(value));
+  }
+
+  const selectedValues = Array.from(list.querySelectorAll('[data-fixed-reference-value]'))
+    .map((item) => item.dataset.fixedReferenceValue || '')
+    .filter(Boolean);
+  const addField = select.closest('.group-type-add-field');
+  if (addField) {
+    addField.outerHTML = renderGroupTypeAddSelect(selectedValues);
+  }
+  markCompositeChanged(fieldRoot);
+}
+
+function refreshGroupTypeAddSelect(fieldRoot) {
+  const selectedValues = Array.from(fieldRoot.querySelectorAll('[data-fixed-reference-value]'))
+    .map((item) => item.dataset.fixedReferenceValue || '')
+    .filter(Boolean);
+  const addField = fieldRoot.querySelector('.group-type-add-field');
+  if (addField) {
+    addField.outerHTML = renderGroupTypeAddSelect(selectedValues);
   }
 }
 
@@ -4735,6 +4844,13 @@ function collectObjectFields(root) {
 
 function readFieldValue(input, field) {
   if (field.kind === 'reference-list') {
+    const fixedValues = Array.from(input.querySelectorAll('[data-fixed-reference-value]'))
+      .map((item) => item.dataset.fixedReferenceValue || '')
+      .filter(Boolean);
+    if (fixedValues.length || input.querySelector('[data-group-type-add]')) {
+      return fixedValues;
+    }
+
     return Array.from(input.querySelectorAll('[data-reference-input]'))
       .map((control) => normalizeReferenceValue(control.value, control.dataset.referenceCollection || '', control.dataset.referenceValue || ''))
       .filter(Boolean);
