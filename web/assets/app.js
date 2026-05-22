@@ -601,14 +601,16 @@ function clearSourceOverride() {
 }
 
 function updateSourceControl() {
-  if (!sourceInput || !sourceClearButton) {
+  if (!sourceInput) {
     return;
   }
 
   const fallback = defaultEditSource();
   sourceInput.value = state.sourceOverride;
   sourceInput.placeholder = fallback;
-  sourceClearButton.hidden = state.sourceOverride.trim() === '';
+  if (sourceClearButton) {
+    sourceClearButton.hidden = state.sourceOverride.trim() === '';
+  }
 }
 
 function currentEditSource() {

@@ -252,7 +252,7 @@ h3 {
 .source-control input {
   width: clamp(150px, 18vw, 220px);
   min-height: 32px;
-  padding: 5px 30px 5px 9px;
+  padding: 5px 9px;
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--brand-strong);
@@ -264,31 +264,9 @@ h3 {
   opacity: 1;
 }
 
-.source-control input:focus-visible,
-.source-clear:focus-visible {
+.source-control input:focus-visible {
   outline: 2px solid var(--brand-strong);
   outline-offset: 2px;
-}
-
-.source-clear {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  display: grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  transform: translateY(-50%);
-  border: 0;
-  border-radius: 50%;
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.source-clear:hover {
-  color: var(--text);
-  background: var(--surface-muted);
 }
 
 .global-search-results {

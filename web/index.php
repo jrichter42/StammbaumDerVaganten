@@ -39,8 +39,7 @@ $configWarnings = array_map(
           <div class="source-control" id="sourceControl" hidden>
             <label class="tool-label" for="sourceInput">Quelle</label>
             <div class="source-input-wrap">
-              <input id="sourceInput" type="text" autocomplete="off" aria-label="Quelle für Änderungen">
-              <button class="source-clear" id="sourceClearButton" type="button" aria-label="Quelle zurücksetzen" hidden>x</button>
+              <input id="sourceInput" type="search" autocomplete="off" aria-label="Quelle für Änderungen">
             </div>
           </div>
         </div>
