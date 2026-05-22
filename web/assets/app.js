@@ -36,6 +36,7 @@ const emptyCollectionLabels = {
 
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
 const collectionTypes = [...objectCollections, 'users'];
+const collectionVisibleStep = 100;
 const sortCollator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const pickerActionShowAllGroups = '__picker_show_all_groups__';
 const pickerActionShowAllRoles = '__picker_show_all_roles__';
@@ -201,7 +202,7 @@ const state = {
   setupResult: null,
   createOpen: {},
   collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, sortExplicit: false }])),
-  collectionVisibleCounts: Object.fromEntries(collectionTypes.map((type) => [type, 80])),
+  collectionVisibleCounts: Object.fromEntries(collectionTypes.map((type) => [type, collectionVisibleStep])),
   deepLinkTarget: null,
   editing: {},
   relationshipEditing: {},
@@ -468,6 +469,7 @@ async function handleGlobalSearchClick(event) {
     const ui = collectionUi(type);
     ui.search = '';
     ui.filters = {};
+    expandCollectionVisibleCountToObject(type, id);
     renderCollectionControls();
     renderObjectCollection(type);
     item = objectListItem(type, id);
@@ -1457,7 +1459,7 @@ function renderObjectCollection(type) {
 
   const sourceObjects = state.objects[type] || [];
   const objects = collectionObjects(type);
-  const visibleCount = collectionVisibleCount(type);
+  const visibleCount = collectionVisibleCountForObjects(type, objects);
   const visibleObjects = objects.slice(0, visibleCount);
   const more = objects.length > visibleObjects.length
     ? renderCollectionMoreButton(type, objects.length - visibleObjects.length)
@@ -1481,15 +1483,49 @@ function renderObjectListItems(type, objects) {
 }
 
 function collectionVisibleCount(type) {
-  const count = Number(state.collectionVisibleCounts[type] || 80);
+  const count = Number(state.collectionVisibleCounts[type] || collectionVisibleStep);
   return Math.max(40, count);
+}
+
+function collectionVisibleCountForObjects(type, objects) {
+  const currentCount = collectionVisibleCount(type);
+  const targetId = collectionVisibleTargetId(type);
+  if (!targetId) {
+    return currentCount;
+  }
+
+  return expandCollectionVisibleCountToObject(type, targetId, objects);
+}
+
+function expandCollectionVisibleCountToObject(type, id, objects = collectionObjects(type)) {
+  const currentCount = collectionVisibleCount(type);
+  if (!id) {
+    return currentCount;
+  }
+
+  const targetIndex = objects.findIndex((object) => objectId(object) === id);
+  if (targetIndex === -1 || targetIndex < currentCount) {
+    return currentCount;
+  }
+
+  const neededCount = Math.ceil((targetIndex + 1) / collectionVisibleStep) * collectionVisibleStep;
+  state.collectionVisibleCounts[type] = neededCount;
+  return neededCount;
+}
+
+function collectionVisibleTargetId(type) {
+  if (state.deepLinkTarget?.view === type && state.deepLinkTarget.id) {
+    return state.deepLinkTarget.id;
+  }
+
+  return activeEditingId(type);
 }
 
 function renderCollectionMoreButton(type, remaining) {
   return `
     <div class="list-more">
       <button class="button button-secondary" type="button" data-collection-more="${escapeAttribute(type)}">
-        Mehr anzeigen (${Math.min(80, remaining)} von ${remaining})
+        Mehr anzeigen (${Math.min(collectionVisibleStep, remaining)} von ${remaining})
       </button>
     </div>
   `;
@@ -3062,7 +3098,7 @@ async function handleObjectClick(event) {
   const moreButton = event.target.closest('[data-collection-more]');
   if (moreButton) {
     const type = moreButton.dataset.collectionMore;
-    state.collectionVisibleCounts[type] = collectionVisibleCount(type) + 80;
+    state.collectionVisibleCounts[type] = collectionVisibleCount(type) + collectionVisibleStep;
     renderObjectCollection(type);
     return;
   }
@@ -4011,7 +4047,7 @@ function updateCollectionControl(control) {
   } else {
     ui.filters[name] = Array.from(control.selectedOptions || []).map((option) => option.value).filter(Boolean);
   }
-  state.collectionVisibleCounts[type] = 80;
+  state.collectionVisibleCounts[type] = collectionVisibleStep;
 
   if (shouldRenderControls) {
     renderCollectionControls();
