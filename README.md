@@ -120,11 +120,13 @@ Group ..|> Datapoint
 
 class GroupPhase {
   +UUID groupType
+  +UUID parentGroup
   +Period period
 }
 
 class GroupType {
   +String label
+  +UUID parentGroupType
 }
 GroupType ..|> Object
 

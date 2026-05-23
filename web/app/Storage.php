@@ -43,6 +43,7 @@ final class Storage
             'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
             'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             'label' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'parentGroupType' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
         ],
         'roles' => [
             'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],

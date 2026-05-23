@@ -109,6 +109,7 @@ const objectConfigs = {
     list: '#groupTypesList',
     fields: [
       { name: 'label', label: 'Name' },
+      { name: 'parentGroupType', label: 'Übergeordnete Gruppenart', kind: 'reference', collection: 'group-types', picker: 'parent-group-type' },
       { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
     ],
@@ -2771,6 +2772,14 @@ function groupPhaseTypeId(phase) {
   return phase?.groupType || phase?.groupTypeId || phase?.group_type_id || '';
 }
 
+function groupPhaseParentGroupId(phase) {
+  return phase?.parentGroup || phase?.parentGroupId || phase?.parent_group_id || '';
+}
+
+function groupTypeParentGroupTypeId(groupType) {
+  return groupType?.parentGroupType || groupType?.parentGroupTypeId || groupType?.parent_group_type_id || '';
+}
+
 function activityRoleId(activity) {
   return activity?.role || activity?.roleId || activity?.role_id || '';
 }
@@ -3017,7 +3026,7 @@ function renderReferenceField(field, value, fieldAttrs, id, context = {}) {
     value,
     collection: field.collection,
     objectFieldAttrs: fieldAttrs,
-    pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject },
+    pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: field.picker || '' },
   });
 }
 
@@ -3117,6 +3126,16 @@ function referenceOptionConfigFromContext(context = {}, currentValue = '') {
     }
   }
 
+  if (context.picker === 'group-phase-parent') {
+    const groupType = findReferenceObject('group-types', groupPhaseTypeId(context.phase || {}));
+    config.excludeGroupId = objectId(context.ownerObject || {});
+    config.parentGroupTypeId = groupTypeParentGroupTypeId(groupType);
+  }
+
+  if (context.picker === 'parent-group-type') {
+    config.excludeGroupTypeId = objectId(context.ownerObject || {});
+  }
+
   if (context.picker === 'period-start-timepoint') {
     config.minYear = birthYear;
     config.maxYear = periodBoundaryYearFromValue(context.period?.endTimepoint, context.period?.customEnd);
@@ -3135,6 +3154,14 @@ function referencePickerObjects(collection, config = {}) {
   let objects = (state.objects[collection] || []).filter((object) => !object._deleted);
 
   if (collection === 'groups') {
+    if (config.excludeGroupId) {
+      objects = objects.filter((group) => objectId(group) !== config.excludeGroupId);
+    }
+
+    if (config.parentGroupTypeId) {
+      objects = objects.filter((group) => groupTypeIds(group).includes(config.parentGroupTypeId));
+    }
+
     if (config.birthYear) {
       objects = objects.filter((group) => !groupEndedBeforeYear(group, config.birthYear));
     }
@@ -3147,6 +3174,10 @@ function referencePickerObjects(collection, config = {}) {
     if (roleHasGroupTypeRestrictions(role)) {
       objects = objects.filter((group) => groupMatchesRole(group, role));
     }
+  }
+
+  if (collection === 'group-types' && config.excludeGroupTypeId) {
+    objects = objects.filter((groupType) => objectId(groupType) !== config.excludeGroupTypeId);
   }
 
   if (collection === 'roles') {
@@ -3173,7 +3204,10 @@ function referencePickerObjects(collection, config = {}) {
   }
 
   const currentObject = findReferenceObject(collection, config.currentValue || '');
-  if (currentObject && !currentObject._deleted && !objects.some((object) => objectId(object) === objectId(currentObject))) {
+  const currentId = currentObject ? objectId(currentObject) : '';
+  const currentExcluded = (collection === 'groups' && config.excludeGroupId && currentId === config.excludeGroupId)
+    || (collection === 'group-types' && config.excludeGroupTypeId && currentId === config.excludeGroupTypeId);
+  if (currentObject && !currentObject._deleted && !currentExcluded && !objects.some((object) => objectId(object) === currentId)) {
     objects = [currentObject, ...objects];
   }
 
@@ -3495,7 +3529,8 @@ function complexItemSummary(kind, value = {}) {
 
   if (kind === 'group-phase-list' || kind === 'group-phase') {
     return [
-      objectLabel(findReferenceObject('group-types', value.groupType), 'group-types') || 'Keine Gruppenart',
+      objectLabel(findReferenceObject('group-types', groupPhaseTypeId(value)), 'group-types') || 'Keine Gruppenart',
+      groupPhaseParentGroupId(value) ? `unter ${objectLabel(findReferenceObject('groups', groupPhaseParentGroupId(value)), 'groups') || 'unbekannter Gruppe'}` : '',
       periodYearLabel(value.period),
     ].filter(Boolean).join(' · ');
   }
@@ -3511,7 +3546,7 @@ function complexItemValidationWarnings(kind, value = {}, context = {}) {
   const warnings = [];
 
   if (kind === 'group-phase-list' || kind === 'group-phase') {
-    collectGroupPhaseWarnings(warnings, value, '', true);
+    collectGroupPhaseWarnings(warnings, value, '', true, { ownerGroupId: objectId(context.ownerObject || {}) });
     return [...new Set(warnings)];
   }
 
@@ -3593,8 +3628,9 @@ function relationshipOwnerKey(context = {}) {
 function renderGroupPhaseEditor(value = {}, compact = false, context = {}) {
   const idBase = `group-phase-${Math.random().toString(36).slice(2)}`;
   return `
-    <div class="nested-editor ${compact ? 'is-compact' : ''}">
-      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Gruppenart', value: value.groupType || '', collection: 'group-types', nestedField: 'groupType', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject } })}
+    <div class="nested-editor ${compact ? 'is-compact' : ''}" data-group-phase-editor>
+      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Gruppenart', value: groupPhaseTypeId(value), collection: 'group-types', nestedField: 'groupType', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'group-phase-type' } })}
+      ${renderReferenceControl({ id: `${idBase}-parent-group`, label: 'Übergeordnete Gruppe', value: groupPhaseParentGroupId(value), collection: 'groups', nestedField: 'parentGroup', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'group-phase-parent', phase: value } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, context)}
     </div>
   `;
@@ -4723,6 +4759,15 @@ function handleReferencePickerChange(event) {
   }
 
   const action = select.value;
+  const groupPhaseEditor = select.closest('[data-group-phase-editor]');
+  if (groupPhaseEditor && select.dataset.referencePicker === 'group-phase-type') {
+    const parentSelect = groupPhaseEditor.querySelector('[data-reference-picker="group-phase-parent"]');
+    if (parentSelect) {
+      updateReferenceSelectOptions(parentSelect);
+    }
+    return;
+  }
+
   const activityEditor = select.closest('[data-activity-editor]');
   if (activityEditor && action === pickerActionShowAllGroups) {
     clearActivityPicker(activityEditor, 'role');
@@ -4938,6 +4983,19 @@ function referenceOptionConfigForSelect(select, currentValue = '') {
       config.actionValue = pickerActionShowAllRoles;
       config.actionLabel = 'Alle Rollen anzeigen (Gruppe leeren)';
     }
+  }
+
+  const groupPhaseEditor = select.closest('[data-group-phase-editor]');
+  if (picker === 'group-phase-parent') {
+    const groupTypeId = referenceSelectValue(groupPhaseEditor?.querySelector('[data-reference-picker="group-phase-type"]'));
+    const ownerObject = ownerRootForElement(select)?.closest('[data-object-type][data-object-id]');
+    config.excludeGroupId = ownerObject?.dataset.objectType === 'groups' ? ownerObject.dataset.objectId : '';
+    config.parentGroupTypeId = groupTypeParentGroupTypeId(findReferenceObject('group-types', groupTypeId));
+  }
+
+  if (picker === 'parent-group-type') {
+    const ownerObject = ownerRootForElement(select)?.closest('[data-object-type][data-object-id]');
+    config.excludeGroupTypeId = ownerObject?.dataset.objectType === 'group-types' ? ownerObject.dataset.objectId : '';
   }
 
   if (picker === 'period-start-timepoint') {
@@ -5568,6 +5626,7 @@ function readComplexList(root, reader, hasValue) {
 function readGroupPhase(root) {
   return {
     groupType: nestedValue(root, 'groupType'),
+    parentGroup: nestedValue(root, 'parentGroup'),
     period: readPeriod(root.querySelector('[data-period-editor]')),
   };
 }
@@ -5663,7 +5722,7 @@ function periodHasValue(period) {
 }
 
 function groupPhaseHasValue(value) {
-  return Boolean(value?.groupType || periodHasValue(value?.period));
+  return Boolean(groupPhaseTypeId(value) || groupPhaseParentGroupId(value) || periodHasValue(value?.period));
 }
 
 function membershipHasValue(value) {
@@ -6598,11 +6657,11 @@ function collectGroupWarnings(warnings, group) {
   if (!groupPhaseHasValue(group?.mainPhase)) {
     warnings.push('Hauptphase fehlt.');
   } else {
-    collectGroupPhaseWarnings(warnings, group.mainPhase, 'Hauptphase', true);
+    collectGroupPhaseWarnings(warnings, group.mainPhase, 'Hauptphase', true, { ownerGroupId: objectId(group) });
   }
 
   (Array.isArray(group?.additionalPhases) ? group.additionalPhases : []).forEach((phase) => {
-    collectGroupPhaseWarnings(warnings, phase, groupPhaseValidationLabel(phase), true);
+    collectGroupPhaseWarnings(warnings, phase, groupPhaseValidationLabel(phase), true, { ownerGroupId: objectId(group) });
   });
 }
 
@@ -6611,6 +6670,13 @@ function collectGroupTypeWarnings(warnings, groupType) {
     warnings.push('Name fehlt.');
   }
   collectDuplicateLabelWarning(warnings, 'group-types', groupType, groupType?.label);
+  const parentTypeId = groupTypeParentGroupTypeId(groupType);
+  if (parentTypeId) {
+    collectReferenceWarning(warnings, 'group-types', parentTypeId, '', 'Übergeordnete Gruppenart nicht gefunden.');
+    if (parentTypeId === objectId(groupType)) {
+      warnings.push('Übergeordnete Gruppenart darf nicht dieselbe Gruppenart sein.');
+    }
+  }
 }
 
 function collectRoleWarnings(warnings, role) {
@@ -6689,12 +6755,24 @@ function collectActivityWarnings(warnings, activity, birthYear, label) {
   collectActivityRoleWarning(warnings, activity, label);
 }
 
-function collectGroupPhaseWarnings(warnings, phase, label, requirePeriod = false) {
+function collectGroupPhaseWarnings(warnings, phase, label, requirePeriod = false, options = {}) {
   const groupTypeId = groupPhaseTypeId(phase);
   if (!groupTypeId) {
     warnings.push(labeledWarning(label, 'Gruppenart fehlt.'));
   } else {
     collectReferenceWarning(warnings, 'group-types', groupTypeId, label, 'Gruppenart nicht gefunden.');
+  }
+
+  const parentGroupId = groupPhaseParentGroupId(phase);
+  if (parentGroupId) {
+    collectReferenceWarning(warnings, 'groups', parentGroupId, label, 'Übergeordnete Gruppe nicht gefunden.');
+    if (parentGroupId === options.ownerGroupId) {
+      warnings.push(labeledWarning(label, 'Übergeordnete Gruppe darf nicht dieselbe Gruppe sein.'));
+    }
+    const parentGroupTypeId = groupTypeParentGroupTypeId(findReferenceObject('group-types', groupTypeId));
+    if (parentGroupTypeId && !groupTypeIds(findReferenceObject('groups', parentGroupId)).includes(parentGroupTypeId)) {
+      warnings.push(labeledWarning(label, 'Übergeordnete Gruppe passt nicht zur übergeordneten Gruppenart.'));
+    }
   }
 
   if (requirePeriod && !periodHasValue(phase?.period)) {
