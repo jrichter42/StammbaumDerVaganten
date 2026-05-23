@@ -1328,6 +1328,7 @@ function publicGraphData(groups, people, roles, groupTypes, groupTypeFilter = ''
     return !groupTypeFilter || groupTypeIds(group).includes(groupTypeFilter);
   });
   const groupIds = new Set(visibleGroups.map(objectId).filter(Boolean));
+  const levelByGroupId = publicGraphGroupDateLevels(visibleGroups);
 
   visibleGroups.forEach((group, index) => {
     const id = objectId(group);
@@ -1354,6 +1355,7 @@ function publicGraphData(groups, people, roles, groupTypes, groupTypeFilter = ''
         String(group.description || '').trim(),
       ]),
       group: 'group',
+      level: levelByGroupId.get(id) || 0,
       shape: 'box',
     });
   });
@@ -1407,32 +1409,24 @@ function publicGraphData(groups, people, roles, groupTypes, groupTypeFilter = ''
     });
   });
 
-  applyPublicGraphLevels(nodes, edges);
   return { nodes, edges, layout: 'top-down' };
 }
 
-function applyPublicGraphLevels(nodes, edges) {
-  const nodeIds = new Set(nodes.map((node) => node.id));
-  const levels = new Map(nodes.map((node) => [node.id, 0]));
-  const directedEdges = edges.filter((edge) => edge.from !== edge.to && nodeIds.has(edge.from) && nodeIds.has(edge.to));
+function publicGraphGroupDateLevels(groups) {
+  const entries = groups.map((group) => ({
+    id: objectId(group),
+    start: periodStartSortKey(group?.mainPhase?.period),
+  })).filter((entry) => entry.id);
+  const datedStarts = [...new Set(entries
+    .map((entry) => entry.start)
+    .filter((start) => Number.isFinite(start)))]
+    .sort((left, right) => left - right);
+  const fallbackLevel = datedStarts.length ? datedStarts.length : 0;
 
-  for (let iteration = 0; iteration < nodes.length; iteration += 1) {
-    let changed = false;
-    directedEdges.forEach((edge) => {
-      const nextLevel = Math.min((levels.get(edge.from) || 0) + 1, nodes.length - 1);
-      if (nextLevel > (levels.get(edge.to) || 0)) {
-        levels.set(edge.to, nextLevel);
-        changed = true;
-      }
-    });
-    if (!changed) {
-      break;
-    }
-  }
-
-  nodes.forEach((node) => {
-    node.level = levels.get(node.id) || 0;
-  });
+  return new Map(entries.map((entry) => [
+    entry.id,
+    Number.isFinite(entry.start) ? datedStarts.indexOf(entry.start) : fallbackLevel,
+  ]));
 }
 
 function publicGraphOptions(graph = {}) {
