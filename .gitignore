@@ -16,11 +16,10 @@ dist/
 build/
 
 # Local runtime files
+web/bootstrap_setup.txt
 web/var/*.log
-web/var/auth/bootstrap_setup.txt
+web/var/auth/*
 web/var/cache/*
 web/var/changes/*
 web/var/locks/*
-!web/var/cache/.gitkeep
-!web/var/changes/.gitkeep
-!web/var/locks/.gitkeep
+!.gitkeep
