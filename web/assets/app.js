@@ -1403,7 +1403,32 @@ function publicGraphData(groups, people, roles, groupTypes, groupTypeFilter = ''
     });
   });
 
-  return { nodes, edges };
+  applyPublicGraphLevels(nodes, edges);
+  return { nodes, edges, layout: 'top-down' };
+}
+
+function applyPublicGraphLevels(nodes, edges) {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const levels = new Map(nodes.map((node) => [node.id, 0]));
+  const directedEdges = edges.filter((edge) => edge.from !== edge.to && nodeIds.has(edge.from) && nodeIds.has(edge.to));
+
+  for (let iteration = 0; iteration < nodes.length; iteration += 1) {
+    let changed = false;
+    directedEdges.forEach((edge) => {
+      const nextLevel = Math.min((levels.get(edge.from) || 0) + 1, nodes.length - 1);
+      if (nextLevel > (levels.get(edge.to) || 0)) {
+        levels.set(edge.to, nextLevel);
+        changed = true;
+      }
+    });
+    if (!changed) {
+      break;
+    }
+  }
+
+  nodes.forEach((node) => {
+    node.level = levels.get(node.id) || 0;
+  });
 }
 
 function publicGraphOptions(graph = {}) {
@@ -1415,8 +1440,13 @@ function publicGraphOptions(graph = {}) {
         enabled: topDown,
         direction: 'UD',
         sortMethod: topDown ? 'directed' : 'hubsize',
-        nodeSpacing: 220,
-        levelSeparation: 250,
+        nodeSpacing: 260,
+        levelSeparation: 260,
+        treeSpacing: 320,
+        blockShifting: true,
+        edgeMinimization: true,
+        parentCentralization: true,
+        shakeTowards: 'roots',
       },
     },
     physics: {
@@ -1451,6 +1481,7 @@ function publicGraphOptions(graph = {}) {
       },
     },
     interaction: {
+      dragNodes: false,
       hover: true,
       tooltipDelay: 140,
       navigationButtons: false,
