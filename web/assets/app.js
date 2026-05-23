@@ -2780,6 +2780,20 @@ function groupTypeParentGroupTypeId(groupType) {
   return groupType?.parentGroupType || groupType?.parentGroupTypeId || groupType?.parent_group_type_id || '';
 }
 
+function defaultParentGroupForPhase(groupTypeId, ownerGroupId = '') {
+  const parentGroupTypeId = groupTypeParentGroupTypeId(findReferenceObject('group-types', groupTypeId));
+  if (!parentGroupTypeId) {
+    return '';
+  }
+
+  const matches = (state.objects.groups || [])
+    .filter((group) => group && !group._deleted)
+    .filter((group) => objectId(group) !== ownerGroupId)
+    .filter((group) => groupTypeIds(group).includes(parentGroupTypeId));
+
+  return matches.length === 1 ? objectId(matches[0]) : '';
+}
+
 function activityRoleId(activity) {
   return activity?.role || activity?.roleId || activity?.role_id || '';
 }
@@ -2820,7 +2834,7 @@ function renderObjectEditor(type, object) {
 
 function renderEditorFields(type, fields, object, isCreate) {
   const sections = editorFieldSections(fields);
-  const context = { ownerType: type, ownerObject: object };
+  const context = { ownerType: type, ownerObject: object, isCreate };
   const renderFields = (sectionFields) => sectionFields.map((field) => (
     renderFieldInput(field, isCreate ? defaultFieldValue(field) : object[field.name], isCreate, context)
   )).join('');
@@ -3127,9 +3141,15 @@ function referenceOptionConfigFromContext(context = {}, currentValue = '') {
   }
 
   if (context.picker === 'group-phase-parent') {
-    const groupType = findReferenceObject('group-types', groupPhaseTypeId(context.phase || {}));
+    const groupTypeId = groupPhaseTypeId(context.phase || {});
+    const groupType = findReferenceObject('group-types', groupTypeId);
     config.excludeGroupId = objectId(context.ownerObject || {});
     config.parentGroupTypeId = groupTypeParentGroupTypeId(groupType);
+    config.requireParentGroupType = true;
+    config.strictReferenceScope = true;
+    if (context.useDefaultParentGroup) {
+      config.defaultValue = defaultParentGroupForPhase(groupTypeId, config.excludeGroupId);
+    }
   }
 
   if (context.picker === 'parent-group-type') {
@@ -3156,6 +3176,10 @@ function referencePickerObjects(collection, config = {}) {
   if (collection === 'groups') {
     if (config.excludeGroupId) {
       objects = objects.filter((group) => objectId(group) !== config.excludeGroupId);
+    }
+
+    if (config.requireParentGroupType && !config.parentGroupTypeId) {
+      objects = [];
     }
 
     if (config.parentGroupTypeId) {
@@ -3207,7 +3231,7 @@ function referencePickerObjects(collection, config = {}) {
   const currentId = currentObject ? objectId(currentObject) : '';
   const currentExcluded = (collection === 'groups' && config.excludeGroupId && currentId === config.excludeGroupId)
     || (collection === 'group-types' && config.excludeGroupTypeId && currentId === config.excludeGroupTypeId);
-  if (currentObject && !currentObject._deleted && !currentExcluded && !objects.some((object) => objectId(object) === currentId)) {
+  if (!config.strictReferenceScope && currentObject && !currentObject._deleted && !currentExcluded && !objects.some((object) => objectId(object) === currentId)) {
     objects = [currentObject, ...objects];
   }
 
@@ -3627,10 +3651,14 @@ function relationshipOwnerKey(context = {}) {
 
 function renderGroupPhaseEditor(value = {}, compact = false, context = {}) {
   const idBase = `group-phase-${Math.random().toString(36).slice(2)}`;
+  const groupTypeId = groupPhaseTypeId(value);
+  const ownerGroupId = objectId(context.ownerObject || {});
+  const useDefaultParentGroup = Boolean(context.isCreate || context.isNewComplexItem);
+  const parentGroupId = groupPhaseParentGroupId(value) || (useDefaultParentGroup ? defaultParentGroupForPhase(groupTypeId, ownerGroupId) : '');
   return `
-    <div class="nested-editor ${compact ? 'is-compact' : ''}" data-group-phase-editor>
-      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Gruppenart', value: groupPhaseTypeId(value), collection: 'group-types', nestedField: 'groupType', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'group-phase-type' } })}
-      ${renderReferenceControl({ id: `${idBase}-parent-group`, label: 'Übergeordnete Gruppe', value: groupPhaseParentGroupId(value), collection: 'groups', nestedField: 'parentGroup', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'group-phase-parent', phase: value } })}
+    <div class="nested-editor ${compact ? 'is-compact' : ''}" data-group-phase-editor data-new-group-phase="${useDefaultParentGroup ? '1' : '0'}">
+      ${renderReferenceControl({ id: `${idBase}-type`, label: 'Gruppenart', value: groupTypeId, collection: 'group-types', nestedField: 'groupType', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'group-phase-type' } })}
+      ${renderReferenceControl({ id: `${idBase}-parent-group`, label: 'Übergeordnete Gruppe', value: parentGroupId, collection: 'groups', nestedField: 'parentGroup', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'group-phase-parent', phase: { ...value, groupType: groupTypeId, parentGroup: parentGroupId }, useDefaultParentGroup } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, context)}
     </div>
   `;
@@ -4708,6 +4736,7 @@ function appendBlankListItem(fieldRoot) {
     ...ownerContextForElement(fieldRoot),
     listField: fieldRoot.dataset.objectField || '',
     listIndex: list.children.length,
+    isNewComplexItem: true,
   }));
 }
 
@@ -4924,7 +4953,9 @@ function updateReferenceSelectOptions(select) {
   const collection = select.dataset.referenceCollection || '';
   const showIds = select.dataset.referenceShowIds === '1';
   const config = referenceOptionConfigForSelect(select, current);
-  const nextValue = config.allowOutOfScopeCurrent || referenceValueInScope(collection, current, config) ? current : '';
+  const currentInScope = config.allowOutOfScopeCurrent || referenceValueInScope(collection, current, config);
+  const defaultInScope = config.defaultValue && referenceValueInScope(collection, config.defaultValue, config);
+  const nextValue = current && currentInScope ? current : (defaultInScope ? config.defaultValue : '');
   select.innerHTML = referenceOptions(collection, showIds, { ...config, currentValue: nextValue });
   select.value = Array.from(select.options).some((option) => option.value === nextValue) ? nextValue : '';
   filterReferenceOptions(select, select.closest('[data-reference-field]')?.querySelector('[data-reference-filter]')?.value || '');
@@ -4991,6 +5022,11 @@ function referenceOptionConfigForSelect(select, currentValue = '') {
     const ownerObject = ownerRootForElement(select)?.closest('[data-object-type][data-object-id]');
     config.excludeGroupId = ownerObject?.dataset.objectType === 'groups' ? ownerObject.dataset.objectId : '';
     config.parentGroupTypeId = groupTypeParentGroupTypeId(findReferenceObject('group-types', groupTypeId));
+    config.requireParentGroupType = true;
+    config.strictReferenceScope = true;
+    if (groupPhaseEditor?.dataset.newGroupPhase === '1') {
+      config.defaultValue = defaultParentGroupForPhase(groupTypeId, config.excludeGroupId);
+    }
   }
 
   if (picker === 'parent-group-type') {
@@ -5276,6 +5312,7 @@ async function flushObjectEdit(item, force) {
     if (currentPayloadKey === payloadKey) {
       item.dataset.dirty = '';
       item.dataset.lastSavedPayload = payloadKey;
+      clearNewGroupPhaseMarkers(item);
       setObjectSaveState(item, 'Gespeichert', false, true);
     } else {
       item.dataset.dirty = '1';
@@ -5308,6 +5345,12 @@ async function createObjectFromForm(form) {
     setCreateState(form, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'), true);
     return false;
   }
+}
+
+function clearNewGroupPhaseMarkers(root) {
+  root.querySelectorAll('[data-group-phase-editor][data-new-group-phase="1"]').forEach((editor) => {
+    editor.dataset.newGroupPhase = '0';
+  });
 }
 
 async function handleExampleDataClick(event) {
