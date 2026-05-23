@@ -482,7 +482,7 @@ async function canSwitchToView(viewName) {
     return true;
   }
 
-  if (!resolveOpenCreateFormBeforeSwitch()) {
+  if (!(await resolveOpenCreateFormBeforeSwitch())) {
     return false;
   }
 
@@ -494,7 +494,7 @@ function currentViewName() {
   return document.querySelector('[data-view].is-active')?.dataset.view || 'people';
 }
 
-function resolveOpenCreateFormBeforeSwitch() {
+async function resolveOpenCreateFormBeforeSwitch() {
   const form = openCreateForm();
   if (!form) {
     return true;
@@ -503,6 +503,10 @@ function resolveOpenCreateFormBeforeSwitch() {
   if (isPristineCreateForm(form)) {
     closeCreateForm(form);
     return true;
+  }
+
+  if (form.matches('[data-create-form]')) {
+    return createObjectFromForm(form);
   }
 
   if (window.confirm('Der neue Eintrag ist noch nicht erstellt. Wechseln und Eingaben verwerfen?')) {
@@ -604,7 +608,7 @@ async function handleGlobalSearchClick(event) {
   if (!type || !id) {
     return;
   }
-  if (openCreateForm() && !resolveOpenCreateFormBeforeSwitch()) {
+  if (openCreateForm() && !(await resolveOpenCreateFormBeforeSwitch())) {
     return;
   }
 
@@ -5238,7 +5242,7 @@ async function createObjectFromForm(form) {
     payload = collectObjectFields(form);
   } catch (error) {
     setCreateState(form, localizeErrorMessage(error.message), true);
-    return;
+    return false;
   }
 
   setCreateState(form, 'Wird erstellt', false);
@@ -5246,8 +5250,10 @@ async function createObjectFromForm(form) {
     await postJson('object-create', { type, object: payload });
     state.createOpen[type] = false;
     await reloadObjectData();
+    return true;
   } catch (error) {
     setCreateState(form, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'), true);
+    return false;
   }
 }
 
