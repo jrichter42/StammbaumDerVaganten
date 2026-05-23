@@ -4006,6 +4006,7 @@ async function handleObjectClick(event) {
       return;
     }
 
+    await closeOpenEditorsBeforeSwitch();
     const createType = createButton.dataset.createType;
     collectionTypes.forEach((type) => {
       state.createOpen[type] = false;
