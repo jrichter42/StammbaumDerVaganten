@@ -2665,8 +2665,8 @@ function reversePersonLine(person, period) {
 
 function reverseActivityLine(entry) {
   return [
-    objectListTitle('people', entry.person),
     objectLabel(entry.role, 'roles'),
+    objectListTitle('people', entry.person),
     periodYearLabel(entry.period),
   ].filter(Boolean).join(' · ');
 }
