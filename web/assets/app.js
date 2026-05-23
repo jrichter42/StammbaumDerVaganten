@@ -3616,8 +3616,8 @@ function renderActivityEditor(value = {}, context = {}) {
   const idBase = `activity-${Math.random().toString(36).slice(2)}`;
   return `
     <div class="nested-editor" data-activity-editor>
-      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-group', activity: value } })}
       ${renderReferenceControl({ id: `${idBase}-role`, label: 'Rolle', value: value.role || '', collection: 'roles', nestedField: 'role', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-role', activity: value } })}
+      ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-group', activity: value } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, context)}
       ${renderNestedCertaintyField(`${idBase}-certainty`, value._certainty || 'none')}
       ${renderNestedSourceDisplayField(`${idBase}-sources`, value._sources || '')}
