@@ -88,36 +88,28 @@ $configWarnings = array_map(
 
       <p class="message global-message" id="authMessage" role="alert" hidden></p>
 
-      <main class="public-overview" id="publicOverview" hidden>
-        <section class="public-hero" aria-label="Öffentliche Übersicht">
-          <div>
-            <p id="publicOverviewText">Öffentliche Daten werden geladen.</p>
-          </div>
-          <div class="public-stats" id="publicStats" aria-label="Öffentliche Daten"></div>
-        </section>
-
+      <main class="public-overview" id="publicOverview" data-tree-graph-root hidden>
         <section class="public-map" aria-labelledby="publicTreeTitle">
           <div class="public-section-heading">
             <h2 id="publicTreeTitle">Stammbaum</h2>
-            <p id="publicTreeSubtitle"></p>
+            <div class="public-graph-tools">
+              <p id="publicGraphStatus" data-tree-graph-status>Öffentliche Struktur wird geladen.</p>
+              <label class="public-graph-filter" for="publicGraphGroupTypeFilter">
+                <span>Gruppenart</span>
+                <select id="publicGraphGroupTypeFilter" data-tree-group-type-filter></select>
+              </label>
+            </div>
           </div>
-          <div class="tree-board" id="publicTree"></div>
-        </section>
-
-        <section class="public-grid">
-          <section class="public-panel" aria-labelledby="publicRolesTitle">
-            <h2 id="publicRolesTitle">Rollen</h2>
-            <div class="public-chip-list" id="publicRoleList"></div>
-          </section>
-          <section class="public-panel" aria-labelledby="publicTimelineTitle">
-            <h2 id="publicTimelineTitle">Zeitpunkte</h2>
-            <div class="public-timeline" id="publicTimeline"></div>
-          </section>
+          <div class="public-graph" id="publicGraph" data-tree-graph aria-label="Öffentlicher Stammbaum-Graph"></div>
         </section>
       </main>
 
       <main class="workspace" id="workspace" hidden>
         <nav class="sidebar editor-nav" aria-label="Editorbereiche">
+          <div class="nav-group">
+            <span class="nav-label">Visualisierung</span>
+            <button class="nav-item" type="button" data-view="tree"><span class="nav-count"></span><span>Baum</span></button>
+          </div>
           <div class="nav-group">
             <span class="nav-label">Daten</span>
             <button class="nav-item is-active" type="button" data-view="people"><span class="nav-count" data-nav-count="people">0</span><span>Personen</span></button>
@@ -203,6 +195,30 @@ $configWarnings = array_map(
             </section>
           </div>
 
+          <div class="view" id="view-tree" data-tree-graph-root>
+            <section class="panel public-map" aria-label="Baum-Visualisierung">
+              <div class="panel-header collection-header">
+                <div class="collection-heading">
+                  <div class="collection-controls">
+                    <section class="collection-filter-section">
+                      <div class="collection-filter-controls">
+                        <label class="collection-control" for="workspaceTreeGroupTypeFilter">
+                          <span class="collection-filter-label">
+                            <span>Gruppenart</span>
+                            <button class="period-toggle" type="button" data-tree-group-type-clear>(reset)</button>
+                          </span>
+                          <select id="workspaceTreeGroupTypeFilter" data-tree-group-type-filter></select>
+                        </label>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+              <p data-tree-graph-status hidden>Struktur wird geladen.</p>
+              <div class="public-graph" data-tree-graph aria-label="Baum-Visualisierung"></div>
+            </section>
+          </div>
+
           <div class="view" id="view-users">
             <section class="panel">
               <div class="panel-header collection-header">
@@ -221,6 +237,7 @@ $configWarnings = array_map(
       </div>
       <button class="button button-secondary back-to-top" id="backToTopButton" type="button" aria-label="Nach oben" hidden>∧</button>
     </div>
+    <script src="assets/vis-network.min.js"></script>
     <script type="module" src="assets/app.js"></script>
   </body>
 </html>

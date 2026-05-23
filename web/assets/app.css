@@ -514,7 +514,7 @@ h3 {
 .public-overview {
   display: grid;
   gap: 24px;
-  width: min(1180px, 100%);
+  width: min(1480px, 100%);
   margin: 0 auto;
   padding: clamp(18px, 3vw, 38px);
 }
@@ -574,6 +574,55 @@ h3 {
   align-items: end;
   justify-content: space-between;
   gap: 18px;
+}
+
+.public-graph-tools {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.public-graph-filter {
+  display: grid;
+  gap: 5px;
+  min-width: 190px;
+}
+
+.public-graph-filter span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.public-graph-filter select {
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: #0f1418;
+}
+
+.public-graph {
+  height: min(72vh, 760px);
+  min-height: 520px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(var(--brand-rgb), 0.07) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.05) 1px, transparent 1px),
+    rgba(21, 27, 32, 0.78);
+  background-size: 42px 42px;
+  overflow: hidden;
+}
+
+.public-graph .vis-navigation {
+  filter: saturate(0.8);
+}
+
+.public-graph .vis-button {
+  opacity: 0.72;
 }
 
 .tree-board {
@@ -776,6 +825,7 @@ h3 {
 #view-group-types .panel,
 #view-roles .panel,
 #view-timepoints .panel,
+#view-tree .panel,
 #view-users .panel {
   border: 0;
   border-radius: 0;
@@ -798,6 +848,7 @@ h3 {
 #view-group-types .panel-header,
 #view-roles .panel-header,
 #view-timepoints .panel-header,
+#view-tree .panel-header,
 #view-users .panel-header {
   padding-inline: 0;
   border-bottom: 0;
@@ -2151,6 +2202,20 @@ button.object-title-row:focus-visible::before {
 
   .public-section-heading {
     flex-direction: column;
+  }
+
+  .public-graph-tools {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .public-graph-filter {
+    width: 100%;
+  }
+
+  .public-graph {
+    min-height: 420px;
+    height: 68vh;
   }
 
   .auth-screen {

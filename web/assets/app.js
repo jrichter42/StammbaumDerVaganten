@@ -209,6 +209,7 @@ const state = {
   relationshipEditing: {},
   editTimers: {},
   exampleDataCreating: false,
+  publicGraphGroupType: '',
   sourceOverride: readStoredSourceOverride(),
 };
 
@@ -238,9 +239,13 @@ const exampleDataState = document.querySelector('#exampleDataState');
 const userList = document.querySelector('#userList');
 const appContent = document.querySelector('.app-content');
 const backToTopButton = document.querySelector('#backToTopButton');
+const treeGroupTypeFilters = Array.from(document.querySelectorAll('[data-tree-group-type-filter]'));
+const treeGroupTypeClearButtons = Array.from(document.querySelectorAll('[data-tree-group-type-clear]'));
 
 const urlSetup = new URLSearchParams(window.location.search).get('setup');
 let isSetupPage = Boolean(urlSetup);
+let publicNetwork = null;
+let publicGraphSignature = '';
 if (urlSetup) {
   setupInput.value = urlSetup;
   setupPanel.hidden = false;
@@ -267,6 +272,8 @@ globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
 sourceInput?.addEventListener('input', handleSourceInput);
 sourceInput?.addEventListener('blur', () => updateSourceControl());
 sourceClearButton?.addEventListener('click', clearSourceOverride);
+treeGroupTypeFilters.forEach((filter) => filter.addEventListener('change', handlePublicGraphFilterChange));
+treeGroupTypeClearButtons.forEach((button) => button.addEventListener('click', clearPublicGraphFilter));
 setupForm.addEventListener('submit', beginSetup);
 setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
@@ -325,12 +332,22 @@ function activateView(viewName, urlExtra = {}) {
   });
 
   writeUrlState({ view: viewName, ...urlExtra });
+  if (viewName === 'tree') {
+    publicGraphSignature = '';
+    renderTreeGraph();
+  }
 }
 
 function restoreUrlState() {
   const params = new URLSearchParams(window.location.search);
   const view = params.get('view');
   const id = params.get('id');
+  state.publicGraphGroupType = params.get('group-type') || params.get('gruppenart') || params.get('groupType') || '';
+
+  if (view === 'tree') {
+    window.requestAnimationFrame(() => activateView('tree'));
+    return;
+  }
 
   if (view && (objectCollections.includes(view) || view === 'users')) {
     const collectionType = viewCollectionType(view);
@@ -353,6 +370,16 @@ function writeUrlState(extra = {}) {
   }
 
   const activeView = extra.view || document.querySelector('[data-view].is-active')?.dataset.view || 'people';
+  if (activeView === 'tree') {
+    const params = new URLSearchParams();
+    params.set('view', 'tree');
+    if (state.publicGraphGroupType) {
+      params.set('group-type', state.publicGraphGroupType);
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    return;
+  }
+
   const urlView = activeView;
   const collectionType = viewCollectionType(urlView);
   const ui = collectionUi(collectionType);
@@ -371,6 +398,25 @@ function writeUrlState(extra = {}) {
   }
 
   window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+}
+
+function writeTreeGraphUrlState() {
+  if (isSetupPage) {
+    return;
+  }
+
+  const loggedIn = Boolean(state.status?.auth?.user);
+  const activeView = document.querySelector('[data-view].is-active')?.dataset.view || '';
+  const params = new URLSearchParams();
+  if (loggedIn) {
+    params.set('view', activeView === 'tree' ? 'tree' : activeView || 'people');
+  }
+  if (state.publicGraphGroupType) {
+    params.set('group-type', state.publicGraphGroupType);
+  }
+
+  const query = params.toString();
+  window.history.replaceState(null, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
 }
 
 function viewCollectionType(view) {
@@ -506,6 +552,18 @@ async function refreshActivatedView(viewName) {
   if (viewName === 'users') {
     await loadManagedUsers();
     renderUsersManagement();
+    return;
+  }
+
+  if (viewName === 'tree') {
+    if (canAccessObjects() && !hasPendingObjectEdits()) {
+      try {
+        await loadObjects();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    renderTreeGraph();
     return;
   }
 
@@ -1104,7 +1162,7 @@ async function readJsonResponse(response) {
 }
 
 function render() {
-  renderPublicOverview();
+  renderTreeGraph();
   renderMetrics();
   renderReferenceData();
   renderSystem();
@@ -1115,106 +1173,661 @@ function render() {
   applyDeepLinkTarget();
 }
 
-function renderPublicOverview() {
-  if (!publicOverview) {
+function renderTreeGraph() {
+  const root = activeTreeGraphRoot();
+  if (!root) {
     return;
   }
 
   const groups = state.objects.groups || [];
   const people = state.objects.people || [];
   const roles = state.objects.roles || [];
-  const timepoints = state.objects.timepoints || [];
   const groupTypes = state.groupTypes || [];
 
-  setText('#publicOverviewText', publicOverviewText(groups, people, roles, timepoints));
-  renderPublicStats(groups, people, roles, timepoints);
-  renderPublicTree(groups, people, groupTypes);
-  renderPublicRoles(roles);
-  renderPublicTimeline(timepoints);
+  renderPublicGraphFilter(root, groupTypes, groups);
+  renderPublicGraph(root, groups, people, roles, groupTypes);
 }
 
-function publicOverviewText(groups, people, roles, timepoints) {
-  const parts = [
-    formatCount(groups.length, 'group'),
-    formatCount(people.length, 'person record'),
-    formatCount(roles.length, 'role'),
-    formatCount(timepoints.length, 'timepoint'),
-  ];
-
-  return parts.join(' / ');
+function handlePublicGraphFilterChange(event) {
+  state.publicGraphGroupType = event.target.value || '';
+  publicGraphSignature = '';
+  writeTreeGraphUrlState();
+  renderTreeGraph();
 }
 
-function renderPublicStats(groups, people, roles, timepoints) {
-  const stats = document.querySelector('#publicStats');
-  if (!stats) {
+function clearPublicGraphFilter() {
+  state.publicGraphGroupType = '';
+  publicGraphSignature = '';
+  treeGroupTypeFilters.forEach((filter) => {
+    filter.value = '';
+  });
+  writeTreeGraphUrlState();
+  renderTreeGraph();
+}
+
+function renderPublicGraphFilter(root, groupTypes, groups = []) {
+  const filter = root.querySelector('[data-tree-group-type-filter]');
+  if (!filter) {
     return;
   }
 
-  stats.innerHTML = [
-    ['Gruppen', groups.length],
-    ['Personen', people.length],
-    ['Rollen', roles.length],
-    ['Zeitpunkte', timepoints.length],
-  ].map(([label, value]) => `
-    <div class="public-stat">
-      <strong>${Number(value || 0)}</strong>
-      <span>${escapeHtml(label)}</span>
-    </div>
-  `).join('');
+  const availableTypeIds = availableTreeGroupTypeIds(groups);
+  const availableGroupTypes = groupTypes.filter((type) => availableTypeIds.has(objectId(type)));
+  const options = [
+    '<option value="">Alle Gruppenarten</option>',
+    ...availableGroupTypes.map((type) => {
+      const id = objectId(type);
+      return `<option value="${escapeAttribute(id)}" ${id === state.publicGraphGroupType ? 'selected' : ''}>${escapeHtml(objectLabel(type, 'group-types'))}</option>`;
+    }),
+  ].join('');
+
+  if (filter.innerHTML !== options) {
+    filter.innerHTML = options;
+  }
+
+  if (state.publicGraphGroupType && !availableTypeIds.has(state.publicGraphGroupType)) {
+    state.publicGraphGroupType = '';
+    filter.value = '';
+    writeTreeGraphUrlState();
+  }
+
+  filter.disabled = availableGroupTypes.length < 2;
+
+  const clearButton = root.querySelector('[data-tree-group-type-clear]');
+  if (clearButton) {
+    clearButton.disabled = !state.publicGraphGroupType || availableGroupTypes.length < 2;
+  }
 }
 
-function renderPublicTree(groups, people, groupTypes) {
-  renderTreeBoard({
-    treeSelector: '#publicTree',
-    subtitleSelector: '#publicTreeSubtitle',
-    groups,
-    people,
-    groupTypes,
-    groupNoun: 'public group',
-    personNoun: 'public person record',
-    emptyText: 'Noch keine öffentlichen Gruppen',
+function availableTreeGroupTypeIds(groups) {
+  return new Set((groups || []).flatMap((group) => (objectId(group) ? groupTypeIds(group) : [])));
+}
+
+function renderPublicGraph(root, groups, people, roles, groupTypes) {
+  const container = root.querySelector('[data-tree-graph]');
+  const status = root.querySelector('[data-tree-graph-status]');
+  if (!container) {
+    return;
+  }
+
+  const visNetwork = window.vis;
+  if (!visNetwork?.Network || !visNetwork?.DataSet) {
+    setTreeGraphStatus(status, 'Graph-Bibliothek konnte nicht geladen werden.');
+    return;
+  }
+
+  const graph = publicGraphData(groups, people, roles, groupTypes, state.publicGraphGroupType);
+  if (!graph.nodes.length) {
+    if (publicNetwork) {
+      publicNetwork.destroy();
+      publicNetwork = null;
+      publicGraphSignature = '';
+    }
+    setTreeGraphStatus(status, 'Noch keine öffentliche Struktur.');
+    return;
+  }
+
+  const signature = JSON.stringify({ root: root.id || '', graph });
+  if (signature === publicGraphSignature && publicNetwork) {
+    publicNetwork.redraw();
+    return;
+  }
+
+  publicGraphSignature = signature;
+  setTreeGraphStatus(status, '');
+
+  if (publicNetwork) {
+    publicNetwork.destroy();
+  }
+
+  publicNetwork = new visNetwork.Network(container, {
+    nodes: new visNetwork.DataSet(graph.nodes),
+    edges: new visNetwork.DataSet(graph.edges),
+  }, publicGraphOptions(graph));
+
+  publicNetwork.once('stabilizationIterationsDone', () => {
+    publicNetwork.fit({ animation: { duration: 240, easingFunction: 'easeInOutQuad' } });
   });
 }
 
-function renderTreeBoard({ treeSelector, subtitleSelector, groups, people, groupTypes, groupNoun, personNoun, emptyText }) {
-  const tree = document.querySelector(treeSelector);
-  if (!tree) {
+function setTreeGraphStatus(status, text) {
+  if (!status) {
     return;
   }
 
-  setText(subtitleSelector, groups.length
-    ? `${formatCount(groups.length, groupNoun)} in den aktuellen Daten`
-    : 'Referenzstruktur');
+  status.textContent = text;
+  status.hidden = !text;
+}
 
-  if (!groups.length) {
-    tree.innerHTML = `
-      <div class="tree-empty">
-        ${groupTypes.map((type) => `
-          <span class="tree-type-chip">${escapeHtml(objectLabel(type, 'group-types'))}</span>
-        `).join('') || `<span class="tree-type-chip">${escapeHtml(emptyText)}</span>`}
-      </div>
-    `;
-    return;
+function activeTreeGraphRoot() {
+  const roots = Array.from(document.querySelectorAll('[data-tree-graph-root]'));
+  return roots.find((root) => {
+    if (root.hidden) {
+      return false;
+    }
+
+    const view = root.classList.contains('view') ? root : root.closest('.view');
+    return !view || view.classList.contains('is-active');
+  }) || null;
+}
+
+function publicGraphData(groups, people, roles, groupTypes, groupTypeFilter = '') {
+  const nodes = [];
+  const edges = [];
+  const groupStats = publicGroupStats(groups, people);
+  const visibleGroups = groups.filter((group) => {
+    const id = objectId(group);
+    if (!id) {
+      return false;
+    }
+
+    return !groupTypeFilter || groupTypeIds(group).includes(groupTypeFilter);
+  });
+  const groupIds = new Set(visibleGroups.map(objectId).filter(Boolean));
+
+  visibleGroups.forEach((group, index) => {
+    const id = objectId(group);
+    if (!id) {
+      return;
+    }
+
+    const type = groupTypeLabel(group, groupTypes);
+    const stats = groupStats.get(id) || { members: 0, activities: 0, span: '' };
+    nodes.push({
+      id: `group:${id}`,
+      label: publicGraphEntryLabel([
+        publicGroupLabel(group, groupTypes, index),
+        [type || 'Gruppe', stats.span].filter(Boolean).join(' · '),
+        publicGraphCountLine(stats.members, 'Mitgliedschaft', 'Mitgliedschaften'),
+        publicGraphCountLine(stats.activities, 'Aktivität', 'Aktivitäten'),
+      ]),
+      title: publicGraphTitle([
+        publicGroupLabel(group, groupTypes, index),
+        type ? `Gruppenart: ${type}` : '',
+        stats.span ? `Zeitraum: ${stats.span}` : '',
+        publicGraphCountLine(stats.members, 'Mitgliedschaft', 'Mitgliedschaften'),
+        publicGraphCountLine(stats.activities, 'Aktivität', 'Aktivitäten'),
+        String(group.description || '').trim(),
+      ]),
+      group: 'group',
+      shape: 'box',
+    });
+  });
+
+  people.forEach((person, personIndex) => {
+    const personId = objectId(person);
+    if (!personId) {
+      return;
+    }
+
+    const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
+      .map((membership, index) => ({ membership, index, groupId: periodEntryGroupId(membership) }))
+      .filter((entry) => groupIds.has(entry.groupId));
+
+    const activities = (Array.isArray(person.activities) ? person.activities : [])
+      .map((activity, index) => ({ activity, index, groupId: periodEntryGroupId(activity) }))
+      .filter((entry) => groupIds.has(entry.groupId));
+
+    activities.forEach((activityEntry) => {
+      const sourceMemberships = memberships.filter((membershipEntry) => (
+        periodsCouldOverlap(membershipEntry.membership.period, {
+          startYear: periodStartYear(activityEntry.activity.period),
+          endYear: periodEndYear(activityEntry.activity.period),
+        })
+      ));
+
+      (sourceMemberships.length ? sourceMemberships : memberships).forEach((membershipEntry) => {
+        const role = publicRoleLabel(roles.find((candidate) => objectId(candidate) === activityRoleId(activityEntry.activity)));
+        const membershipYears = periodYearLabel(membershipEntry.membership.period);
+        const activityYears = periodYearLabel(activityEntry.activity.period);
+        const personLabel = publicPersonLabel(person, personIndex);
+        const sourceGroup = findReferenceObject('groups', membershipEntry.groupId);
+        const targetGroup = findReferenceObject('groups', activityEntry.groupId);
+        edges.push({
+          id: `membership-activity:${personId}:${membershipEntry.index}:${activityEntry.index}`,
+          from: `group:${membershipEntry.groupId}`,
+          to: `group:${activityEntry.groupId}`,
+          label: publicGraphEdgeLabel([personLabel, role, activityYears]),
+          title: publicGraphTitle([
+            personLabel,
+            role,
+            `Mitgliedschaft: ${objectLabel(sourceGroup, 'groups')}${membershipYears ? ` (${membershipYears})` : ''}`,
+            `Aktivität: ${objectLabel(targetGroup, 'groups')}${activityYears ? ` (${activityYears})` : ''}`,
+            String(person.description || '').trim(),
+          ]),
+          group: 'activity',
+          arrows: 'to',
+          width: 2.1,
+        });
+      });
+    });
+  });
+
+  return { nodes, edges };
+}
+
+function publicGraphOptions(graph = {}) {
+  const topDown = graph.layout === 'top-down';
+  return {
+    autoResize: true,
+    layout: {
+      hierarchical: {
+        enabled: topDown,
+        direction: 'UD',
+        sortMethod: topDown ? 'directed' : 'hubsize',
+        nodeSpacing: 220,
+        levelSeparation: 250,
+      },
+    },
+    physics: {
+      enabled: true,
+      solver: topDown ? 'hierarchicalRepulsion' : 'forceAtlas2Based',
+      adaptiveTimestep: true,
+      maxVelocity: 28,
+      minVelocity: 0.9,
+      hierarchicalRepulsion: {
+        nodeDistance: 240,
+        springLength: 190,
+        damping: 0.42,
+      },
+      forceAtlas2Based: {
+        gravitationalConstant: -70,
+        centralGravity: 0.015,
+        springLength: 190,
+        springConstant: 0.055,
+        damping: 0.42,
+        avoidOverlap: 0.65,
+      },
+      repulsion: {
+        nodeDistance: 240,
+        springLength: 190,
+        damping: 0.42,
+      },
+      stabilization: {
+        enabled: true,
+        iterations: 45,
+        updateInterval: 10,
+        fit: true,
+      },
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 140,
+      navigationButtons: false,
+      keyboard: false,
+    },
+    nodes: {
+      borderWidth: 1,
+      borderWidthSelected: 2,
+      margin: { top: 12, right: 14, bottom: 12, left: 14 },
+      widthConstraint: { minimum: 168, maximum: 210 },
+      color: {
+        border: 'rgba(216,216,90,0.48)',
+        background: '#151b20',
+        highlight: { border: '#d8d85a', background: '#1c252b' },
+        hover: { border: '#d8d85a', background: '#1c252b' },
+      },
+      font: {
+        color: '#ece8d9',
+        face: 'Aptos, Segoe UI, Inter, sans-serif',
+        size: 15,
+        multi: 'html',
+        bold: {
+          color: '#fbf7de',
+          size: 18,
+          face: 'Aptos Display, Aptos, Segoe UI, Inter, sans-serif',
+          mod: 'bold',
+        },
+      },
+      shapeProperties: {
+        borderRadius: 8,
+      },
+      shadow: {
+        enabled: true,
+        color: 'rgba(0,0,0,0.25)',
+        size: 10,
+        x: 0,
+        y: 4,
+      },
+    },
+    groups: {
+      group: {
+        color: { border: '#d8d85a', background: '#1f2118' },
+        font: { color: '#f4f0cf', bold: true },
+        shapeProperties: { borderRadius: 8 },
+      },
+    },
+    edges: {
+      color: { color: 'rgba(195,201,197,0.62)', highlight: '#d8d85a', hover: '#d8d85a' },
+      width: 1.6,
+      smooth: { enabled: true, type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.32 },
+      font: {
+        color: '#cfd6d2',
+        strokeColor: '#0b0f12',
+        strokeWidth: 4,
+        size: 12,
+        face: 'Aptos, Segoe UI, Inter, sans-serif',
+      },
+    },
+  };
+}
+
+function publicSippeGraphData(groups, people, roles, groupTypes, groupStats, sippeTypeIds) {
+  const nodes = [];
+  const edges = [];
+  const groupIds = new Set(groups.map(objectId).filter(Boolean));
+  const levelByGroupId = publicSippeLevelMap(groups, groupStats);
+
+  groups.forEach((group, index) => {
+    const id = objectId(group);
+    const stats = groupStats.get(id) || { members: 0, activities: 0, span: '' };
+    nodes.push({
+      id: `group:${id}`,
+      label: publicGraphEntryLabel([
+        publicGroupLabel(group, groupTypes, index),
+        stats.span,
+        publicGraphMemberLine(stats.members),
+      ]),
+      title: publicGraphTitle([
+        publicGroupLabel(group, groupTypes, index),
+        stats.span ? `Zeitraum: ${stats.span}` : '',
+        publicGraphMemberLine(stats.members),
+        String(group.description || '').trim(),
+      ]),
+      group: 'group',
+      level: levelByGroupId.get(id) || 0,
+      shape: 'box',
+    });
+  });
+
+  people.forEach((person, personIndex) => {
+    const personId = objectId(person);
+    if (!personId) {
+      return;
+    }
+
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity, activityIndex) => {
+      const targetGroupId = periodEntryGroupId(activity);
+      if (!groupIds.has(targetGroupId)) {
+        return;
+      }
+
+      const sourceGroupId = publicSourceSippeForActivity(person, activity.period, groupIds, sippeTypeIds, targetGroupId);
+      if (!sourceGroupId) {
+        return;
+      }
+
+      const role = publicRoleLabel(roles.find((candidate) => objectId(candidate) === activityRoleId(activity)));
+      const years = periodYearLabel(activity.period);
+      const personLabel = publicPersonLabel(person, personIndex);
+      edges.push({
+        id: `sippe-activity:${sourceGroupId}:${targetGroupId}:${personId}:${activityIndex}`,
+        from: `group:${sourceGroupId}`,
+        to: `group:${targetGroupId}`,
+        label: publicGraphEdgeLabel([role, personLabel]),
+        title: publicGraphTitle([
+          role,
+          personLabel,
+          years,
+          `Von: ${objectLabel(findReferenceObject('groups', sourceGroupId), 'groups')}`,
+          `Nach: ${objectLabel(findReferenceObject('groups', targetGroupId), 'groups')}`,
+          String(person.description || '').trim(),
+        ]),
+        group: 'sippe-activity',
+        arrows: 'to',
+        width: 2.2,
+        color: { color: '#d8d85a', highlight: '#f2f28b', hover: '#f2f28b' },
+      });
+    });
+  });
+
+  return { nodes, edges, layout: 'top-down' };
+}
+
+function publicSourceSippeForActivity(person, activityPeriod, groupIds, sippeTypeIds, targetGroupId) {
+  const activityRange = { startYear: periodStartYear(activityPeriod), endYear: periodEndYear(activityPeriod) };
+  const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
+    .map((membership) => ({ membership, groupId: periodEntryGroupId(membership) }))
+    .filter((entry) => entry.groupId && entry.groupId !== targetGroupId && groupIds.has(entry.groupId))
+    .filter((entry) => publicGroupHasType(entry.groupId, sippeTypeIds));
+
+  return (memberships.find((entry) => periodsCouldOverlap(entry.membership.period, activityRange)) || memberships[0])?.groupId || '';
+}
+
+function publicSippeLevelMap(groups, groupStats) {
+  const entries = groups.map((group) => {
+    const id = objectId(group);
+    const year = Number((String(groupStats.get(id)?.span || '').match(/\d{4}/) || [])[0] || 0);
+    return { id, year };
+  });
+  const orderedYears = [...new Set(entries.map((entry) => entry.year).filter(Boolean))].sort((left, right) => left - right);
+  const fallbackLevel = orderedYears.length;
+  return new Map(entries.map((entry) => [
+    entry.id,
+    entry.year ? orderedYears.indexOf(entry.year) : fallbackLevel,
+  ]));
+}
+
+function publicGroupTypeIdsByLabel(groupTypes, label) {
+  const folded = publicFoldLabel(label);
+  return new Set(groupTypes
+    .filter((type) => publicFoldLabel(objectLabel(type, 'group-types')) === folded)
+    .map(objectId)
+    .filter(Boolean));
+}
+
+function publicRoleIdsByLabel(roles, label) {
+  const folded = publicFoldLabel(label);
+  return new Set(roles
+    .filter((role) => publicFoldLabel(publicRoleLabel(role)) === folded)
+    .map(objectId)
+    .filter(Boolean));
+}
+
+function publicSippenfuehrungLineage(visibleGroups, people, sippeTypeIds, sippenfuehrungRoleIds) {
+  const visibleGroupIds = new Set(visibleGroups.map(objectId).filter(Boolean));
+  const links = [];
+
+  people.forEach((person) => {
+    const personId = objectId(person);
+    if (!personId) {
+      return;
+    }
+
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity, activityIndex) => {
+      const childGroupId = periodEntryGroupId(activity);
+      if (!visibleGroupIds.has(childGroupId) || !sippenfuehrungRoleIds.has(activityRoleId(activity))) {
+        return;
+      }
+
+      if (!publicGroupHasType(childGroupId, sippeTypeIds)) {
+        return;
+      }
+
+      const parentGroupId = publicParentSippeForPerson(person, activity.period, visibleGroupIds, sippeTypeIds, childGroupId);
+      if (parentGroupId) {
+        links.push({ personId, parentGroupId, childGroupId, activityIndex });
+      }
+    });
+  });
+
+  const groupLevels = publicLineageGroupLevels(visibleGroupIds, links);
+  const personLevels = new Map();
+  const personParents = new Map();
+  links.forEach((link) => {
+    const level = (groupLevels.get(link.parentGroupId) || 0) + 1;
+    const current = personLevels.get(link.personId);
+    if (current === undefined || level < current) {
+      personLevels.set(link.personId, level);
+      personParents.set(link.personId, link.parentGroupId);
+    }
+  });
+
+  return { links, groupLevels, personLevels, personParents };
+}
+
+function publicLineageGroupLevels(groupIds, links) {
+  const levels = new Map(Array.from(groupIds).map((id) => [id, 0]));
+  for (let iteration = 0; iteration < Math.max(1, links.length); iteration += 1) {
+    let changed = false;
+    links.forEach((link) => {
+      const next = Math.min((levels.get(link.parentGroupId) || 0) + 2, 18);
+      if (next > (levels.get(link.childGroupId) || 0)) {
+        levels.set(link.childGroupId, next);
+        changed = true;
+      }
+    });
+    if (!changed) {
+      break;
+    }
+  }
+  return levels;
+}
+
+function publicParentSippeForPerson(person, activityPeriod, visibleGroupIds, sippeTypeIds, childGroupId) {
+  const activityRange = { startYear: periodStartYear(activityPeriod), endYear: periodEndYear(activityPeriod) };
+  const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
+    .map((membership) => ({ membership, groupId: periodEntryGroupId(membership) }))
+    .filter((entry) => entry.groupId && entry.groupId !== childGroupId && visibleGroupIds.has(entry.groupId))
+    .filter((entry) => publicGroupHasType(entry.groupId, sippeTypeIds));
+
+  return (memberships.find((entry) => periodsCouldOverlap(entry.membership.period, activityRange)) || memberships[0])?.groupId || '';
+}
+
+function publicGroupHasType(groupId, typeIds) {
+  return groupTypeIds(findReferenceObject('groups', groupId)).some((id) => typeIds.has(id));
+}
+
+function publicLineageLinkForActivity(links, personId, groupId, activityIndex) {
+  return links.find((link) => (
+    link.personId === personId
+    && link.childGroupId === groupId
+    && link.activityIndex === activityIndex
+  )) || null;
+}
+
+function publicPersonLeadsGroup(links, personId, groupId) {
+  return links.some((link) => link.personId === personId && link.childGroupId === groupId);
+}
+
+function publicPersonIsOnlyLineageBridge(links, personId) {
+  return links.some((link) => link.personId === personId);
+}
+
+function publicFoldLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ü/g, 'u')
+    .replace(/ä/g, 'a')
+    .replace(/ö/g, 'o')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/gi, '')
+    .toLocaleLowerCase('de-DE');
+}
+
+function publicGroupStats(groups, people) {
+  const stats = new Map(groups.map((group) => [objectId(group), {
+    members: 0,
+    activities: 0,
+    years: [],
+    span: publicPeriodSpan(groupPhases(group).map((phase) => phase.period)),
+  }]));
+
+  people.forEach((person) => {
+    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
+      const entry = stats.get(periodEntryGroupId(membership));
+      if (entry) {
+        entry.members += 1;
+        entry.years.push(periodYearLabel(membership.period));
+      }
+    });
+
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+      const entry = stats.get(periodEntryGroupId(activity));
+      if (entry) {
+        entry.activities += 1;
+        entry.years.push(periodYearLabel(activity.period));
+      }
+    });
+  });
+
+  stats.forEach((entry) => {
+    entry.span = entry.span || publicYearSpan(entry.years);
+  });
+
+  return stats;
+}
+
+function publicPeriodSpan(periods) {
+  return publicYearSpan((periods || []).flatMap((period) => {
+    if (!period || typeof period !== 'object') {
+      return [];
+    }
+    return [
+      referenceYear('timepoints', period.startTimepoint) || dateYear(period.customStart),
+      referenceYear('timepoints', period.endTimepoint) || dateYear(period.customEnd),
+    ].filter(Boolean);
+  }));
+}
+
+function publicYearSpan(years) {
+  const numeric = (years || []).flatMap((value) => String(value || '').match(/\d{4}/g) || [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!numeric.length) {
+    return '';
+  }
+  const start = Math.min(...numeric);
+  const end = Math.max(...numeric);
+  return start === end ? String(start) : `${start}-${end}`;
+}
+
+function publicGroupLabel(group, groupTypes, index) {
+  const type = groupTypeLabel(group, groupTypes);
+  const name = String(group.name || group.label || group.description || `Gruppe ${index + 1}`).trim();
+  return [type, name].filter(Boolean).join(' ');
+}
+
+function publicPersonLabel(person, index) {
+  return String(person.description || `Person ${index + 1}`).trim();
+}
+
+function publicRoleLabel(role) {
+  return String(role?.label || role?.name || 'Rolle').trim();
+}
+
+function publicGraphEntryLabel(lines) {
+  const clean = lines.map((line) => String(line || '').trim()).filter(Boolean);
+  if (!clean.length) {
+    return '';
+  }
+  return [`<b>${publicGraphShortLabel(clean[0], 34)}</b>`, ...clean.slice(1).map((line) => publicGraphShortLabel(line, 34))].join('\n');
+}
+
+function publicGraphCountLine(count, singular, plural) {
+  return `${Number(count || 0)} ${Number(count || 0) === 1 ? singular : plural}`;
+}
+
+function publicGraphMemberLine(count) {
+  return `${Number(count || 0)} ${Number(count || 0) === 1 ? 'Mitglied' : 'Mitglieder'}`;
+}
+
+function publicGraphEdgeLabel(lines) {
+  return lines.map((line) => publicGraphShortLabel(line, 30)).filter(Boolean).join('\n');
+}
+
+function publicGraphTitle(lines) {
+  return lines.map((line) => String(line || '').trim()).filter(Boolean).map(escapeHtml).join('<br>');
+}
+
+function publicGraphShortLabel(value, maxLength) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) {
+    return text;
   }
 
-  tree.innerHTML = groups.map((group) => {
-    const groupId = objectId(group);
-    const groupType = groupTypeLabel(group, groupTypes);
-    const memberCount = people.filter((person) => personHasGroup(person, groupId)).length;
-    const description = group.description || '';
-    return `
-      <article class="tree-node">
-        <div class="tree-node-top">
-          <span>${escapeHtml(groupType || 'Gruppe')}</span>
-          <strong>${escapeHtml(objectLabel(group, 'groups'))}</strong>
-        </div>
-        ${description ? `<p>${escapeHtml(description)}</p>` : ''}
-        <div class="tree-node-foot">
-          <span>${formatCount(memberCount, personNoun)}</span>
-        </div>
-      </article>
-    `;
-  }).join('');
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
 }
 
 function renderCreateForm(type, fields) {
@@ -1289,35 +1902,6 @@ function dateDisplayValue(value) {
   }
 
   return `${parts.day}.${parts.month}.${parts.year}`;
-}
-
-function renderPublicRoles(roles) {
-  const list = document.querySelector('#publicRoleList');
-  if (!list) {
-    return;
-  }
-
-  list.innerHTML = roles.map((role) => `
-    <span class="public-chip">${escapeHtml(objectLabel(role, 'roles'))}</span>
-  `).join('') || '<p class="public-muted">Noch keine öffentlichen Rollen.</p>';
-}
-
-function renderPublicTimeline(timepoints) {
-  const list = document.querySelector('#publicTimeline');
-  if (!list) {
-    return;
-  }
-
-  const ordered = timepoints.slice().sort((left, right) => {
-    return String(timepointValue(left)).localeCompare(String(timepointValue(right)));
-  });
-
-  list.innerHTML = ordered.map((timepoint) => `
-    <article class="timeline-item">
-      <strong>${escapeHtml(objectLabel(timepoint, 'timepoints'))}</strong>
-      <span>${escapeHtml(timepointValue(timepoint) || 'ohne Datum')}</span>
-    </article>
-  `).join('') || '<p class="public-muted">Noch keine öffentlichen Zeitpunkte.</p>';
 }
 
 function renderMetrics() {
