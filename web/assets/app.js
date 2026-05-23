@@ -353,7 +353,8 @@ function restoreUrlState() {
   if (view && (objectCollections.includes(view) || view === 'users')) {
     const collectionType = viewCollectionType(view);
     const urlSort = readUrlSortState(collectionType, params);
-    state.deepLinkTarget = id && objectCollections.includes(view) ? { view, id } : null;
+    const edit = id && objectCollections.includes(view) ? readNestedEditParam(params) : '';
+    state.deepLinkTarget = id && objectCollections.includes(view) ? { view, id, edit } : null;
     state.collectionUi[collectionType] = {
       ...collectionUi(collectionType),
       sort: urlSort.sort,
@@ -361,7 +362,7 @@ function restoreUrlState() {
       search: params.get('q') || '',
       sortExplicit: urlSort.explicit,
     };
-    window.requestAnimationFrame(() => activateView(view, id ? { id } : {}));
+    window.requestAnimationFrame(() => activateView(view, id ? { id, edit } : {}));
   }
 }
 
@@ -390,6 +391,10 @@ function writeUrlState(extra = {}) {
   const activeId = Object.prototype.hasOwnProperty.call(extra, 'id') ? extra.id : activeEditingId(collectionType);
   if (activeId && objectCollections.includes(urlView)) {
     params.set('id', activeId);
+    const activeEdit = Object.prototype.hasOwnProperty.call(extra, 'edit') ? extra.edit : activeNestedEditKey(collectionType, activeId);
+    if (activeEdit) {
+      params.set('edit', activeEdit);
+    }
   }
   if (ui?.search) {
     params.set('q', ui.search);
@@ -446,6 +451,19 @@ function activeEditingId(type) {
   return key ? key.slice(prefix.length) : '';
 }
 
+function activeNestedEditKey(type, id = '') {
+  return id ? state.relationshipEditing[objectKey(type, id)] || '' : '';
+}
+
+function readNestedEditParam(params) {
+  const value = String(params.get('edit') || '').trim();
+  return validNestedEditKey(value) ? value : '';
+}
+
+function validNestedEditKey(value) {
+  return value === 'mainPhase' || /^(additionalPhases|memberships|activities):\d+$/.test(value);
+}
+
 function applyDeepLinkTarget() {
   const target = state.deepLinkTarget;
   if (!target?.view || !target.id) {
@@ -458,12 +476,35 @@ function applyDeepLinkTarget() {
   }
 
   state.deepLinkTarget = null;
+  if (target.edit) {
+    state.relationshipEditing[objectKey(target.view, target.id)] = target.edit;
+  }
   state.editing[objectKey(target.view, target.id)] = true;
   renderObjectCollection(target.view);
-  window.requestAnimationFrame(() => scrollObjectEditorIntoView(target.view, target.id, item.parentElement?.id || ''));
+  window.requestAnimationFrame(() => {
+    if (target.edit) {
+      openNestedEditRow(target.view, target.id, target.edit);
+      return;
+    }
+    scrollObjectEditorIntoView(target.view, target.id, item.parentElement?.id || '');
+  });
 }
 
 async function handleNavigationJump(event) {
+  const referenceLink = event.target.closest('[data-reference-link]');
+  if (referenceLink) {
+    event.preventDefault();
+    await followReferenceLink(referenceLink);
+    return;
+  }
+
+  const nestedEditLink = event.target.closest('[data-nested-edit-link]');
+  if (nestedEditLink) {
+    event.preventDefault();
+    await followNestedEditLink(nestedEditLink);
+    return;
+  }
+
   const button = event.target.closest('[data-jump-view]');
   if (!button) {
     return;
@@ -476,6 +517,108 @@ async function handleNavigationJump(event) {
   }
   activateView(viewName);
   await refreshActivatedView(viewName);
+}
+
+async function followReferenceLink(link) {
+  const type = link.dataset.linkView || '';
+  const id = link.dataset.linkId || '';
+  if (!objectCollections.includes(type) || !id) {
+    return;
+  }
+
+  if (focusExistingCreateForm(link)) {
+    return;
+  }
+
+  if (!(await canSwitchToView(type))) {
+    return;
+  }
+
+  clearCollectionNarrowingForDeepLink(type);
+  activateView(type, { id, edit: '' });
+  await refreshActivatedView(type);
+
+  const item = objectItemElement(type, id);
+  if (!item) {
+    state.deepLinkTarget = { view: type, id, edit: '' };
+    return;
+  }
+
+  if (!state.editing[objectKey(type, id)]) {
+    await focusObjectEditor(item);
+  } else {
+    writeUrlState({ view: type, id, edit: '' });
+    scrollObjectEditorIntoView(type, id, item.parentElement?.id || '');
+  }
+}
+
+async function followNestedEditLink(link) {
+  const type = link.dataset.linkView || '';
+  const id = link.dataset.linkId || '';
+  const edit = link.dataset.linkEdit || '';
+  if (!objectCollections.includes(type) || !id || !validNestedEditKey(edit)) {
+    return;
+  }
+
+  if (focusExistingCreateForm(link)) {
+    return;
+  }
+
+  if (!(await canSwitchToView(type))) {
+    return;
+  }
+
+  clearCollectionNarrowingForDeepLink(type);
+  activateView(type, { id, edit });
+  await refreshActivatedView(type);
+
+  const item = objectItemElement(type, id);
+  if (!item) {
+    state.deepLinkTarget = { view: type, id, edit };
+    return;
+  }
+
+  const key = objectKey(type, id);
+  state.relationshipEditing[key] = edit;
+  if (!state.editing[key]) {
+    await focusObjectEditor(item);
+  } else {
+    writeUrlState({ view: type, id, edit });
+  }
+
+  openNestedEditRow(type, id, edit);
+}
+
+function objectItemElement(type, id) {
+  return document.querySelector(`[data-object-type="${cssEscape(type)}"][data-object-id="${cssEscape(id)}"]`);
+}
+
+function clearCollectionNarrowingForDeepLink(type) {
+  const ui = collectionUi(type);
+  ui.search = '';
+  ui.filters = {};
+}
+
+function openNestedEditRow(type, id, edit) {
+  if (!validNestedEditKey(edit)) {
+    return false;
+  }
+
+  const item = objectItemElement(type, id);
+  const row = item?.querySelector(`[data-relationship-row-key="${cssEscape(edit)}"]`);
+  if (!item || !row) {
+    scrollObjectEditorIntoView(type, id, item?.parentElement?.id || '');
+    return false;
+  }
+
+  const fieldRoot = row.closest('[data-object-field]');
+  if (fieldRoot) {
+    collapseRelationshipRowsForPerson(fieldRoot, row);
+  }
+  row.classList.remove('is-collapsed');
+  row.querySelector('[data-list-action="toggle"]')?.setAttribute('aria-expanded', 'true');
+  scrollElementIntoView(row);
+  return true;
 }
 
 async function canSwitchToView(viewName) {
@@ -2622,15 +2765,15 @@ function renderGroupReverseView(group) {
   const activities = [];
 
   (state.objects.people || []).forEach((person) => {
-    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
+    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
       if (periodEntryGroupId(membership) === groupId) {
-        memberships.push({ person, period: membership.period });
+        memberships.push({ person, period: membership.period, rowKey: `memberships:${index}` });
       }
     });
 
-    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
       if (periodEntryGroupId(activity) === groupId) {
-        activities.push({ person, role: findReferenceObject('roles', activity.role), period: activity.period });
+        activities.push({ person, role: findReferenceObject('roles', activity.role), period: activity.period, rowKey: `activities:${index}` });
       }
     });
   });
@@ -2641,7 +2784,7 @@ function renderGroupReverseView(group) {
 
   return `
     <div class="reverse-view" aria-label="Abgeleitete Gruppendaten">
-      ${renderReverseColumn('Mitglieder', memberships.map((entry) => reversePersonLine(entry.person, entry.period)))}
+      ${renderReverseColumn('Mitglieder', memberships.map((entry) => reversePersonLine(entry.person, entry.period, entry.rowKey)))}
       ${renderReverseColumn('Aktivitäten', activities.map((entry) => reverseActivityLine(entry)))}
     </div>
   `;
@@ -2653,22 +2796,70 @@ function renderReverseColumn(title, lines) {
   return `
     <section class="reverse-column">
       <strong>${escapeHtml(title)} <span>${lines.length}</span></strong>
-      ${visible.map((line) => `<small>${escapeHtml(line)}</small>`).join('')}
+      ${visible.map((line) => reverseLineHtml(line)).join('')}
       ${more ? `<small>${escapeHtml(more)}</small>` : ''}
     </section>
   `;
 }
 
-function reversePersonLine(person, period) {
-  return [objectListTitle('people', person), periodYearLabel(period)].filter(Boolean).join(' · ');
+function reverseLineHtml(line) {
+  const text = typeof line === 'string' ? line : line?.text || '';
+  if (!text) {
+    return '';
+  }
+
+  if (!line || typeof line === 'string' || !line.type || !line.id || !line.edit) {
+    return `<small>${escapeHtml(text)}</small>`;
+  }
+
+  return `
+    <small>
+      <a class="reverse-link" href="${escapeAttribute(nestedEditUrl(line.type, line.id, line.edit))}" data-nested-edit-link data-link-view="${escapeAttribute(line.type)}" data-link-id="${escapeAttribute(line.id)}" data-link-edit="${escapeAttribute(line.edit)}">${escapeHtml(text)}</a>
+    </small>
+  `;
+}
+
+function linkedReverseLine(text, type, id, edit) {
+  return validNestedEditKey(edit) && objectCollections.includes(type) && id
+    ? { text, type, id, edit }
+    : text;
+}
+
+function reverseEntry(label, type, id, edit) {
+  return linkedReverseLine(label, type, id, edit);
+}
+
+function reverseEntryText(entry) {
+  return typeof entry === 'string' ? entry : entry?.text || '';
+}
+
+function reverseEntryLine(text, entry) {
+  return linkedReverseLine(text, entry?.type || '', entry?.id || '', entry?.edit || '');
+}
+
+function nestedEditUrl(type, id, edit) {
+  const params = new URLSearchParams();
+  params.set('view', type);
+  params.set('id', id);
+  params.set('edit', edit);
+  return `${window.location.pathname}?${params.toString()}`;
+}
+
+function reversePersonLine(person, period, rowKey = '') {
+  return linkedReverseLine(
+    [objectListTitle('people', person), periodYearLabel(period)].filter(Boolean).join(' · '),
+    'people',
+    objectId(person),
+    rowKey,
+  );
 }
 
 function reverseActivityLine(entry) {
-  return [
+  return linkedReverseLine([
     objectLabel(entry.role, 'roles'),
     objectListTitle('people', entry.person),
     periodYearLabel(entry.period),
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(' · '), 'people', objectId(entry.person), entry.rowKey || '');
 }
 
 function renderTimepointReverseView(timepoint) {
@@ -2692,23 +2883,25 @@ function renderTimepointReverseView(timepoint) {
 function timepointGroupLines(timepoint) {
   const lines = [];
   (state.objects.groups || []).forEach((group) => {
+    const groupId = objectId(group);
     const starts = [];
     const ends = [];
-    groupPhases(group).forEach((phase) => {
+    groupPhaseEntries(group).forEach(({ phase, rowKey }) => {
       const label = objectLabel(findReferenceObject('group-types', groupPhaseTypeId(phase)), 'group-types') || 'Phase';
+      const entry = reverseEntry(label, 'groups', groupId, rowKey);
       if (periodBoundaryMatchesTimepoint(timepoint, phase.period, 'start')) {
-        starts.push(label);
+        starts.push(entry);
       }
       if (periodBoundaryMatchesTimepoint(timepoint, phase.period, 'end')) {
-        ends.push(label);
+        ends.push(entry);
       }
     });
 
     pairTransitions(ends, starts).forEach(([from, to]) => {
-      lines.push(`${objectListTitle('groups', group)}: ${from} → ${to}`);
+      lines.push(reverseEntryLine(`${objectListTitle('groups', group)}: ${reverseEntryText(from)} -> ${reverseEntryText(to)}`, to));
     });
-    ends.slice(starts.length).forEach((label) => lines.push(`${objectListTitle('groups', group)}: ${label} endet`));
-    starts.slice(ends.length).forEach((label) => lines.push(`${objectListTitle('groups', group)}: ${label} startet`));
+    ends.slice(starts.length).forEach((entry) => lines.push(reverseEntryLine(`${objectListTitle('groups', group)}: ${reverseEntryText(entry)} endet`, entry)));
+    starts.slice(ends.length).forEach((entry) => lines.push(reverseEntryLine(`${objectListTitle('groups', group)}: ${reverseEntryText(entry)} startet`, entry)));
   });
   return lines;
 }
@@ -2716,23 +2909,25 @@ function timepointGroupLines(timepoint) {
 function timepointMembershipLines(timepoint) {
   const lines = [];
   (state.objects.people || []).forEach((person) => {
+    const personId = objectId(person);
     const starts = [];
     const ends = [];
-    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
+    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
       const group = objectLabel(findReferenceObject('groups', periodEntryGroupId(membership)), 'groups') || 'Gruppe';
+      const entry = reverseEntry(group, 'people', personId, `memberships:${index}`);
       if (periodBoundaryMatchesTimepoint(timepoint, membership.period, 'start')) {
-        starts.push(group);
+        starts.push(entry);
       }
       if (periodBoundaryMatchesTimepoint(timepoint, membership.period, 'end')) {
-        ends.push(group);
+        ends.push(entry);
       }
     });
 
     pairTransitions(ends, starts).forEach(([from, to]) => {
-      lines.push(`${objectListTitle('people', person)}: ${from} → ${to}`);
+      lines.push(reverseEntryLine(`${objectListTitle('people', person)}: ${reverseEntryText(from)} -> ${reverseEntryText(to)}`, to));
     });
-    ends.slice(starts.length).forEach((group) => lines.push(`${objectListTitle('people', person)}: verlässt ${group}`));
-    starts.slice(ends.length).forEach((group) => lines.push(`${objectListTitle('people', person)}: tritt ${group} bei`));
+    ends.slice(starts.length).forEach((entry) => lines.push(reverseEntryLine(`${objectListTitle('people', person)}: verlässt ${reverseEntryText(entry)}`, entry)));
+    starts.slice(ends.length).forEach((entry) => lines.push(reverseEntryLine(`${objectListTitle('people', person)}: tritt ${reverseEntryText(entry)} bei`, entry)));
   });
   return lines;
 }
@@ -2740,23 +2935,25 @@ function timepointMembershipLines(timepoint) {
 function timepointActivityLines(timepoint) {
   const lines = [];
   (state.objects.people || []).forEach((person) => {
+    const personId = objectId(person);
     const starts = [];
     const ends = [];
-    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
       const label = activityLabel(activity);
+      const entry = reverseEntry(label, 'people', personId, `activities:${index}`);
       if (periodBoundaryMatchesTimepoint(timepoint, activity.period, 'start')) {
-        starts.push(label);
+        starts.push(entry);
       }
       if (periodBoundaryMatchesTimepoint(timepoint, activity.period, 'end')) {
-        ends.push(label);
+        ends.push(entry);
       }
     });
 
     pairTransitions(ends, starts).forEach(([from, to]) => {
-      lines.push(`${objectListTitle('people', person)}: ${from} → ${to}`);
+      lines.push(reverseEntryLine(`${objectListTitle('people', person)}: ${reverseEntryText(from)} -> ${reverseEntryText(to)}`, to));
     });
-    ends.slice(starts.length).forEach((label) => lines.push(`${objectListTitle('people', person)}: ${label} endet`));
-    starts.slice(ends.length).forEach((label) => lines.push(`${objectListTitle('people', person)}: ${label} startet`));
+    ends.slice(starts.length).forEach((entry) => lines.push(reverseEntryLine(`${objectListTitle('people', person)}: ${reverseEntryText(entry)} endet`, entry)));
+    starts.slice(ends.length).forEach((entry) => lines.push(reverseEntryLine(`${objectListTitle('people', person)}: ${reverseEntryText(entry)} startet`, entry)));
   });
   return lines;
 }
@@ -3052,6 +3249,7 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
   const showFilter = referenceFilterVisible(collection);
   const labelHtml = hideLabel ? '' : fieldLabelHtml(label, pickerContext.labelActionHtml || '', id);
   const labelAttr = hideLabel && label ? `aria-label="${escapeAttribute(label)}"` : '';
+  const referenceLink = referenceLinkHtml(collection, storedValue);
   const attrs = [
     objectFieldAttrs,
     nestedField ? `data-nested-field="${escapeAttribute(nestedField)}"` : '',
@@ -3067,11 +3265,26 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
     <div class="object-field reference-field" data-reference-field>
       ${labelHtml}
       ${showFilter ? `<input class="reference-filter" type="search" data-reference-filter placeholder="Auswahl filtern" aria-label="${escapeAttribute(label ? `${label} filtern` : 'Auswahl filtern')}" autocomplete="off">` : ''}
-      <select id="${escapeAttribute(id)}" ${attrs} ${labelAttr}>
-        ${referenceOptions(collection, showIds, { ...optionConfig, currentValue: storedValue })}
-      </select>
+      <div class="reference-select-row">
+        <select id="${escapeAttribute(id)}" ${attrs} ${labelAttr}>
+          ${referenceOptions(collection, showIds, { ...optionConfig, currentValue: storedValue })}
+        </select>
+        ${referenceLink}
+      </div>
     </div>
   `;
+}
+
+function referenceLinkHtml(collection, value) {
+  const canLink = objectCollections.includes(collection) && value;
+  return `<a class="reference-link" href="${escapeAttribute(canLink ? objectUrl(collection, value) : '#')}" data-reference-link data-link-view="${escapeAttribute(collection)}" data-link-id="${escapeAttribute(value || '')}" ${canLink ? '' : 'hidden'}>öffnen</a>`;
+}
+
+function objectUrl(type, id) {
+  const params = new URLSearchParams();
+  params.set('view', type);
+  params.set('id', id);
+  return `${window.location.pathname}?${params.toString()}`;
 }
 
 function referenceFilterVisible(collection) {
@@ -3414,6 +3627,7 @@ function renderFixedGroupTypeListItem(value) {
   return `
     <div class="composite-item group-type-fixed-item" data-list-item data-fixed-reference-value="${escapeAttribute(value)}">
       <span>${escapeHtml(label)}</span>
+      ${referenceLinkHtml('group-types', value)}
       <button class="icon-button icon-button-danger" type="button" data-list-action="remove" aria-label="${escapeAttribute(label)} entfernen">-</button>
     </div>
   `;
@@ -4470,6 +4684,7 @@ function handleListAction(button) {
       }
       item.classList.toggle('is-collapsed', !willOpen);
       button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      syncNestedEditUrl(fieldRoot, item, willOpen);
     }
     return;
   }
@@ -4481,6 +4696,7 @@ function handleListAction(button) {
 
     const item = button.closest('[data-list-item]');
     const personKey = relationshipPersonKeyFromFieldRoot(fieldRoot);
+    const ownerItem = fieldRoot.closest('[data-object-type][data-object-id]');
     if (personKey) {
       delete state.relationshipEditing[personKey];
     }
@@ -4492,6 +4708,10 @@ function handleListAction(button) {
       } else if (list && list.children.length === 0 && !isRelationshipListField(fieldRoot)) {
         appendBlankListItem(fieldRoot);
       }
+      refreshRelationshipRowKeys(fieldRoot);
+    }
+    if (ownerItem) {
+      writeUrlState({ view: ownerItem.dataset.objectType || '', id: ownerItem.dataset.objectId || '', edit: '' });
     }
   }
 
@@ -4507,9 +4727,58 @@ function handleListAction(button) {
       state.relationshipEditing[personKey] = `${fieldRoot.dataset.objectField}:${list?.children.length || 0}`;
     }
     appendBlankListItem(fieldRoot);
+    const list = fieldRoot.querySelector('[data-list-items]');
+    const item = list?.lastElementChild;
+    if (item?.dataset.relationshipRowKey) {
+      syncNestedEditUrl(fieldRoot, item, true);
+    }
+    refreshRelationshipRowKeys(fieldRoot);
   }
 
   markCompositeChanged(fieldRoot);
+}
+
+function refreshRelationshipRowKeys(fieldRoot) {
+  if (!isRelationshipListField(fieldRoot)) {
+    return;
+  }
+
+  const field = fieldRoot.dataset.objectField || '';
+  const list = fieldRoot.querySelector(':scope > [data-list-items], :scope > .composite-list');
+  const rows = Array.from(list?.children || []).filter((row) => row.matches('[data-list-item]'));
+  if (field === 'mainPhase') {
+    rows.forEach((row) => {
+      row.dataset.relationshipRowKey = 'mainPhase';
+    });
+    return;
+  }
+
+  if (!['additionalPhases', 'memberships', 'activities'].includes(field)) {
+    return;
+  }
+
+  rows.forEach((row, index) => {
+    row.dataset.relationshipRowKey = `${field}:${index}`;
+  });
+}
+
+function syncNestedEditUrl(fieldRoot, item, isOpen) {
+  const ownerItem = fieldRoot.closest('[data-object-type][data-object-id]');
+  const rowKey = item?.dataset.relationshipRowKey || '';
+  if (!ownerItem || !validNestedEditKey(rowKey)) {
+    return;
+  }
+
+  const type = ownerItem.dataset.objectType || '';
+  const id = ownerItem.dataset.objectId || '';
+  const key = objectKey(type, id);
+  if (isOpen) {
+    state.relationshipEditing[key] = rowKey;
+    writeUrlState({ view: type, id, edit: rowKey });
+  } else if (state.relationshipEditing[key] === rowKey) {
+    delete state.relationshipEditing[key];
+    writeUrlState({ view: type, id, edit: '' });
+  }
 }
 
 function focusExistingCreateForm(triggerButton) {
@@ -4609,6 +4878,7 @@ function focusUnsavedRelationshipRow(fieldRoot, triggerButton) {
 
   row.classList.remove('is-collapsed');
   row.querySelector('[data-list-action="toggle"]')?.setAttribute('aria-expanded', 'true');
+  syncNestedEditUrl(fieldRoot, row, true);
   showInlineActionFeedback(triggerButton, 'Offenen Eintrag erst speichern oder abbrechen.');
   scrollElementIntoView(row);
   return true;
@@ -4780,6 +5050,8 @@ function handleReferencePickerChange(event) {
   if (!select) {
     return;
   }
+
+  updateReferenceControlLink(select);
 
   const periodEditor = select.closest('[data-period-editor]');
   if (periodEditor) {
@@ -4959,6 +5231,22 @@ function updateReferenceSelectOptions(select) {
   select.innerHTML = referenceOptions(collection, showIds, { ...config, currentValue: nextValue });
   select.value = Array.from(select.options).some((option) => option.value === nextValue) ? nextValue : '';
   filterReferenceOptions(select, select.closest('[data-reference-field]')?.querySelector('[data-reference-filter]')?.value || '');
+  updateReferenceControlLink(select);
+}
+
+function updateReferenceControlLink(select) {
+  const link = select?.closest('.reference-select-row')?.querySelector('[data-reference-link]');
+  if (!link) {
+    return;
+  }
+
+  const collection = select.dataset.referenceCollection || '';
+  const value = referenceSelectValue(select);
+  const canLink = objectCollections.includes(collection) && value;
+  link.href = canLink ? objectUrl(collection, value) : '#';
+  link.dataset.linkView = collection;
+  link.dataset.linkId = value;
+  link.hidden = !canLink;
 }
 
 function filterReferenceOptions(select, query) {
@@ -7008,6 +7296,19 @@ function groupPhases(group) {
   return [
     group.mainPhase && typeof group.mainPhase === 'object' ? group.mainPhase : null,
     ...(Array.isArray(group.additionalPhases) ? group.additionalPhases : []),
+  ].filter(Boolean);
+}
+
+function groupPhaseEntries(group) {
+  if (!group || typeof group !== 'object') {
+    return [];
+  }
+
+  return [
+    group.mainPhase && typeof group.mainPhase === 'object' ? { phase: group.mainPhase, rowKey: 'mainPhase' } : null,
+    ...(Array.isArray(group.additionalPhases)
+      ? group.additionalPhases.map((phase, index) => (phase && typeof phase === 'object' ? { phase, rowKey: `additionalPhases:${index}` } : null))
+      : []),
   ].filter(Boolean);
 }
 

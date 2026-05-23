@@ -1322,6 +1322,17 @@ button.object-title-row:focus-visible::before {
   color: var(--muted);
 }
 
+.reverse-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.reverse-link:hover,
+.reverse-link:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
 .object-create {
   border-bottom: 1px solid var(--line);
   background: var(--surface-raised);
@@ -1446,6 +1457,36 @@ button.object-title-row:focus-visible::before {
 
 .reference-field {
   align-content: start;
+}
+
+.reference-select-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 6px;
+  align-items: center;
+}
+
+.reference-select-row select {
+  min-width: 0;
+}
+
+.reference-link {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(15, 20, 24, 0.72);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.reference-link:hover,
+.reference-link:focus-visible {
+  color: var(--text);
+  border-color: var(--brand-strong);
 }
 
 .reference-filter {
@@ -1772,6 +1813,7 @@ button.object-title-row:focus-visible::before {
 }
 
 .group-type-fixed-item {
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   padding-block: 8px;
 }
