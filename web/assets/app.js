@@ -37,7 +37,6 @@ const emptyCollectionLabels = {
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
 const collectionTypes = [...objectCollections, 'users'];
 const collectionVisibleStep = 100;
-const groupTypeReferenceFilterMinOptions = 25;
 const sortCollator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const pickerActionShowAllGroups = '__picker_show_all_groups__';
 const pickerActionShowAllRoles = '__picker_show_all_roles__';
@@ -491,6 +490,17 @@ function applyDeepLinkTarget() {
 }
 
 async function handleNavigationJump(event) {
+  const referenceResult = event.target.closest('[data-reference-result-value], [data-reference-create-payload]');
+  if (referenceResult) {
+    event.preventDefault();
+    await handleReferenceFilterResultClick(referenceResult);
+    return;
+  }
+
+  if (!event.target.closest('[data-reference-field]')) {
+    hideReferenceFilterResults();
+  }
+
   const referenceLink = event.target.closest('[data-reference-link]');
   if (referenceLink) {
     event.preventDefault();
@@ -550,6 +560,78 @@ async function followReferenceLink(link) {
     writeUrlState({ view: type, id, edit: '' });
     scrollObjectEditorIntoView(type, id, item.parentElement?.id || '');
   }
+}
+
+async function handleReferenceFilterResultClick(button) {
+  const field = button.closest('[data-reference-field]');
+  const select = field?.querySelector('[data-reference-input]');
+  const input = field?.querySelector('[data-reference-filter]');
+  if (!field || !select) {
+    return;
+  }
+
+  if (button.dataset.referenceResultValue) {
+    selectReferenceValue(select, button.dataset.referenceResultValue);
+    if (input) {
+      input.value = '';
+    }
+    hideReferenceFilterResults(field);
+    return;
+  }
+
+  const type = button.dataset.referenceCreateType || select.dataset.referenceCollection || '';
+  let payload = null;
+  try {
+    payload = JSON.parse(button.dataset.referenceCreatePayload || 'null');
+  } catch (_error) {
+    payload = null;
+  }
+
+  if (!objectCollections.includes(type) || !payload || button.dataset.creating === '1') {
+    return;
+  }
+
+  button.dataset.creating = '1';
+  button.disabled = true;
+  const previousText = button.textContent;
+  button.textContent = 'Wird erstellt ...';
+
+  try {
+    const response = await postJson('object-create', { type, object: payload });
+    const created = response.object;
+    const id = objectId(created);
+    updateObjectInState(type, created);
+    updateReferenceSelectOptions(select);
+    ensureReferenceOption(select, created, type);
+    selectReferenceValue(select, id);
+    if (input) {
+      input.value = '';
+    }
+    hideReferenceFilterResults(field);
+  } catch (error) {
+    button.disabled = false;
+    button.dataset.creating = '';
+    button.textContent = localizeErrorMessage(error.message || previousText || 'Erstellen fehlgeschlagen');
+  }
+}
+
+function selectReferenceValue(select, value) {
+  select.value = value || '';
+  filterReferenceOptions(select, '');
+  updateReferenceControlLink(select);
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function ensureReferenceOption(select, object, collection) {
+  const id = objectId(object);
+  if (!id || Array.from(select.options).some((option) => option.value === id)) {
+    return;
+  }
+
+  const option = document.createElement('option');
+  option.value = id;
+  option.textContent = referenceOptionLabel(object, collection, [object], select.dataset.referenceShowIds === '1');
+  select.appendChild(option);
 }
 
 async function followNestedEditLink(link) {
@@ -3264,7 +3346,12 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
   return `
     <div class="object-field reference-field" data-reference-field>
       ${labelHtml}
-      ${showFilter ? `<input class="reference-filter" type="search" data-reference-filter placeholder="Auswahl filtern" aria-label="${escapeAttribute(label ? `${label} filtern` : 'Auswahl filtern')}" autocomplete="off">` : ''}
+      ${showFilter ? `
+        <div class="reference-filter-wrap">
+          <input class="reference-filter" type="search" data-reference-filter placeholder="Auswahl filtern" aria-label="${escapeAttribute(label ? `${label} filtern` : 'Auswahl filtern')}" autocomplete="off">
+          <div class="reference-filter-results" data-reference-filter-results hidden></div>
+        </div>
+      ` : ''}
       <div class="reference-select-row">
         <select id="${escapeAttribute(id)}" ${attrs} ${labelAttr}>
           ${referenceOptions(collection, showIds, { ...optionConfig, currentValue: storedValue })}
@@ -3288,8 +3375,7 @@ function objectUrl(type, id) {
 }
 
 function referenceFilterVisible(collection) {
-  return collection !== 'group-types'
-    || (state.objects['group-types'] || []).filter((object) => !object._deleted).length > groupTypeReferenceFilterMinOptions;
+  return objectCollections.includes(collection);
 }
 
 function fieldLabelHtml(label, actionHtml = '', forId = '') {
@@ -5218,6 +5304,7 @@ function handleReferenceFilterInput(event) {
 
   const select = input.closest('[data-reference-field]')?.querySelector('[data-reference-input]');
   filterReferenceOptions(select, input.value);
+  renderReferenceFilterResults(input);
 }
 
 function updateReferenceSelectOptions(select) {
@@ -5247,6 +5334,309 @@ function updateReferenceControlLink(select) {
   link.dataset.linkView = collection;
   link.dataset.linkId = value;
   link.hidden = !canLink;
+}
+
+function renderReferenceFilterResults(input) {
+  const field = input.closest('[data-reference-field]');
+  const results = field?.querySelector('[data-reference-filter-results]');
+  const select = field?.querySelector('[data-reference-input]');
+  if (!results || !select) {
+    return;
+  }
+
+  const query = String(input.value || '').trim();
+  if (query.length < 2) {
+    hideReferenceFilterResults(field);
+    return;
+  }
+
+  const collection = select.dataset.referenceCollection || '';
+  const showIds = select.dataset.referenceShowIds === '1';
+  const config = referenceOptionConfigForSelect(select, referenceSelectValue(select));
+  const objects = referencePickerObjects(collection, config);
+  const createCheckObjects = (state.objects[collection] || []).filter((object) => !object._deleted);
+  const matches = objects
+    .filter((object) => referenceObjectMatchesQuery(collection, object, query, objects, showIds))
+    .slice(0, 8);
+  const create = smartReferenceCreateCandidate(collection, query, config, createCheckObjects, showIds);
+  const resultHtml = matches.map((object) => referenceResultHtml(collection, object)).join('');
+  const createHtml = create ? smartReferenceCreateHtml(create) : '';
+
+  results.innerHTML = resultHtml + createHtml || '<div class="reference-filter-empty">Keine Treffer</div>';
+  results.hidden = false;
+}
+
+function referenceObjectMatchesQuery(collection, object, query, objects = [], showIds = false) {
+  const needle = foldSearchText(query);
+  const text = [
+    referenceOptionLabel(object, collection, objects, showIds),
+    collectionSearchText(collection, object),
+  ].filter(Boolean).join(' ');
+  return foldSearchText(text).includes(needle);
+}
+
+function referenceResultHtml(collection, object) {
+  const id = objectId(object);
+  return `
+    <button class="reference-filter-result" type="button" data-reference-result-value="${escapeAttribute(id)}">
+      <strong>${escapeHtml(referenceOptionMainLabel(object, collection, id))}</strong>
+      <span>${escapeHtml([objectTypeLabels[collection] || collection, referenceOptionDetail(object, collection)].filter(Boolean).join(' · '))}</span>
+    </button>
+  `;
+}
+
+function smartReferenceCreateHtml(candidate) {
+  return `
+    <button class="reference-filter-result reference-filter-create" type="button" data-reference-create-type="${escapeAttribute(candidate.type)}" data-reference-create-payload="${escapeAttribute(JSON.stringify(candidate.payload))}">
+      <strong>${escapeHtml(candidate.title)}</strong>
+      <span>${escapeHtml(candidate.detail)}</span>
+    </button>
+  `;
+}
+
+function hideReferenceFilterResults(root = document) {
+  root.querySelectorAll('[data-reference-filter-results]').forEach((results) => {
+    results.hidden = true;
+    results.innerHTML = '';
+  });
+}
+
+function smartReferenceCreateCandidate(collection, query, config = {}, objects = [], showIds = false) {
+  if (!hasPermission('write') || !objectCollections.includes(collection)) {
+    return null;
+  }
+
+  const text = String(query || '').trim().replace(/\s+/g, ' ');
+  if (text.length < 2) {
+    return null;
+  }
+
+  if (collection === 'groups') {
+    return smartGroupCreateCandidate(text, config, objects, showIds);
+  }
+
+  if (collection === 'timepoints') {
+    return smartTimepointCreateCandidate(text, objects, showIds, config);
+  }
+
+  if (referenceHasExactQueryMatch(collection, text, objects, showIds)) {
+    return null;
+  }
+
+  if (collection === 'people') {
+    return {
+      type: 'people',
+      payload: { scoutname: text },
+      title: `Person "${text}" erstellen`,
+      detail: 'Neues Objekt wird angelegt und ausgewählt',
+    };
+  }
+
+  const field = collection === 'roles' || collection === 'group-types' ? 'label' : 'name';
+  const payload = { [field]: text };
+  if (collection === 'roles') {
+    const group = findReferenceObject('groups', config.groupId || '');
+    const groupTypes = groupTypeIds(group);
+    if (groupTypes.length) {
+      payload.groupTypes = groupTypes;
+    }
+  }
+
+  return {
+    type: collection,
+    payload,
+    title: `${objectTypeLabels[collection] || 'Objekt'} "${text}" erstellen`,
+    detail: 'Neues Objekt wird angelegt und ausgewählt',
+  };
+}
+
+function smartGroupCreateCandidate(query, config = {}, objects = [], showIds = false) {
+  if (config.requireParentGroupType && !config.parentGroupTypeId) {
+    return null;
+  }
+
+  const parsed = parseGroupCreateQuery(query, config);
+  const name = parsed.name || (parsed.groupTypeId ? '' : query);
+  const displayName = [parsed.groupTypeLabel, name].filter(Boolean).join(' ') || query;
+  const payload = { name };
+  if (parsed.groupTypeId) {
+    payload.mainPhase = {
+      groupType: parsed.groupTypeId,
+      parentGroup: defaultParentGroupForPhase(parsed.groupTypeId, config.excludeGroupId || ''),
+      period: emptyPeriod(),
+    };
+  }
+
+  if (smartGroupDuplicateExists(name, parsed.groupTypeId, objects, showIds, query)) {
+    return null;
+  }
+
+  return {
+    type: 'groups',
+    payload,
+    title: `Gruppe "${displayName}" erstellen`,
+    detail: parsed.groupTypeLabel ? `Gruppenart: ${parsed.groupTypeLabel}` : 'Neue Gruppe ohne Gruppenart',
+  };
+}
+
+function parseGroupCreateQuery(query, config = {}) {
+  const text = String(query || '').trim().replace(/\s+/g, ' ');
+  const contextTypeId = config.parentGroupTypeId || uniqueRoleGroupTypeId(config.roleId || '');
+  if (contextTypeId) {
+    const label = objectLabel(findReferenceObject('group-types', contextTypeId), 'group-types');
+    return {
+      groupTypeId: contextTypeId,
+      groupTypeLabel: label,
+      name: removeGroupTypePrefix(text, contextTypeId),
+    };
+  }
+
+  const match = matchingGroupTypePrefix(text);
+  if (match) {
+    return match;
+  }
+
+  return { groupTypeId: '', groupTypeLabel: '', name: text };
+}
+
+function matchingGroupTypePrefix(query) {
+  const foldedQuery = foldSearchText(query);
+  const groupTypes = (state.objects['group-types'] || [])
+    .filter((type) => !type._deleted)
+    .map((type) => ({ id: objectId(type), label: objectLabel(type, 'group-types') }))
+    .filter((type) => type.id && type.label)
+    .sort((left, right) => right.label.length - left.label.length);
+
+  for (const type of groupTypes) {
+    const foldedLabel = foldSearchText(type.label);
+    if (foldedQuery === foldedLabel || foldedQuery.startsWith(`${foldedLabel} `)) {
+      return {
+        groupTypeId: type.id,
+        groupTypeLabel: type.label,
+        name: query.slice(type.label.length).trim(),
+      };
+    }
+  }
+
+  return null;
+}
+
+function removeGroupTypePrefix(query, groupTypeId) {
+  const label = objectLabel(findReferenceObject('group-types', groupTypeId), 'group-types');
+  if (!label) {
+    return query;
+  }
+
+  const foldedQuery = foldSearchText(query);
+  const foldedLabel = foldSearchText(label);
+  if (foldedQuery === foldedLabel) {
+    return '';
+  }
+  return foldedQuery.startsWith(`${foldedLabel} `) ? query.slice(label.length).trim() : query;
+}
+
+function uniqueRoleGroupTypeId(roleId) {
+  const ids = roleGroupTypeIds(findReferenceObject('roles', roleId));
+  return ids.length === 1 ? ids[0] : '';
+}
+
+function smartGroupDuplicateExists(name, groupTypeId, objects, showIds, query) {
+  const foldedName = foldSearchText(name);
+  return objects.some((group) => {
+    const sameLabel = referenceObjectExactQueryMatch('groups', group, query, objects, showIds);
+    const sameName = foldSearchText(group.name || objectLabel(group, 'groups')) === foldedName;
+    const sameType = !groupTypeId || groupTypeIds(group).includes(groupTypeId);
+    return sameLabel || (sameName && sameType);
+  });
+}
+
+function smartTimepointCreateCandidate(query, objects, showIds, config = {}) {
+  const parsed = parseTimepointCreateQuery(query);
+  if (!parsed.name && !parsed.rawDate) {
+    return null;
+  }
+
+  const year = parsed.rawDate ? Number(dateYear(readDateValue(parsed.rawDate)) || 0) : 0;
+  if ((config.minYear && year && year < config.minYear) || (config.maxYear && year && year > config.maxYear)) {
+    return null;
+  }
+
+  if (smartTimepointDuplicateExists(parsed, objects, showIds, query)) {
+    return null;
+  }
+
+  const payload = {
+    name: parsed.name,
+    date: parsed.rawDate ? readDateValue(parsed.rawDate) : null,
+  };
+  const title = parsed.name || parsed.rawDate;
+  const detail = parsed.rawDate
+    ? `Neuer Zeitpunkt mit Datum ${compactDateDisplayValue(payload.date)}`
+    : 'Neuer Zeitpunkt ohne Datum';
+
+  return {
+    type: 'timepoints',
+    payload,
+    title: `Zeitpunkt "${title}" erstellen`,
+    detail,
+  };
+}
+
+function parseTimepointCreateQuery(query) {
+  const text = String(query || '').trim().replace(/\s+/g, ' ');
+  const match = text.match(/^(.*?)(?:\s+)?(\d{1,2}\.\d{1,2}\.\d{1,4}|\d{1,2}\.\d{1,4}|\d{1,4}(?:-\d{1,2}(?:-\d{1,2})?)?)$/);
+  if (!match) {
+    return { name: text, rawDate: '' };
+  }
+
+  const rawDate = normalizeDateRaw(match[2]);
+  if (!rawDate || !datePartsFromRaw(rawDate)) {
+    return { name: text, rawDate: '' };
+  }
+
+  return {
+    name: match[1].trim(),
+    rawDate,
+  };
+}
+
+function smartTimepointDuplicateExists(parsed, objects, showIds, query) {
+  const foldedName = foldSearchText(parsed.name);
+  const raw = normalizeDateRaw(parsed.rawDate);
+  const year = dateYear(readDateValue(raw));
+  return objects.some((timepoint) => {
+    if (referenceObjectExactQueryMatch('timepoints', timepoint, query, objects, showIds)) {
+      return true;
+    }
+
+    const timepointRaw = dateRawString(timepoint.date);
+    const sameDate = raw && (timepointRaw === raw || (year && dateYear(timepoint.date) === year));
+    const sameName = foldedName && foldSearchText(timepoint.name || objectLabel(timepoint, 'timepoints')) === foldedName;
+    const unnamedSameDate = !foldedName && sameDate && !foldSearchText(timepoint.name || '');
+    return Boolean((sameName && sameDate) || unnamedSameDate);
+  });
+}
+
+function referenceHasExactQueryMatch(collection, query, objects = [], showIds = false) {
+  return objects.some((object) => referenceObjectExactQueryMatch(collection, object, query, objects, showIds));
+}
+
+function referenceObjectExactQueryMatch(collection, object, query, objects = [], showIds = false) {
+  const needle = foldSearchText(query);
+  return [
+    objectLabel(object, collection),
+    referenceOptionLabel(object, collection, objects, showIds),
+    referenceOptionText(referenceOptionMainLabel(object, collection, objectId(object)), referenceOptionDetail(object, collection), collection),
+  ].filter(Boolean).some((value) => foldSearchText(value) === needle);
+}
+
+function foldSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('de')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function filterReferenceOptions(select, query) {
@@ -5446,6 +5836,10 @@ function updateCollectionControl(control) {
 }
 
 async function handleObjectInput(event) {
+  if (event.target.closest('[data-reference-filter]')) {
+    return;
+  }
+
   const dateInput = event.target.closest('[data-date-control]');
   if (dateInput) {
     syncDateControlRaw(dateInput);
@@ -5469,6 +5863,10 @@ async function handleObjectInput(event) {
 }
 
 async function handleObjectChange(event) {
+  if (event.target.closest('[data-reference-filter]')) {
+    return;
+  }
+
   const dateInput = event.target.closest('[data-date-control]');
   if (dateInput) {
     syncDateControlRaw(dateInput);

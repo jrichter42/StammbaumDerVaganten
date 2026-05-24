@@ -1456,7 +1456,65 @@ button.object-title-row:focus-visible::before {
 }
 
 .reference-field {
+  position: relative;
   align-content: start;
+}
+
+.reference-filter-wrap {
+  position: relative;
+}
+
+.reference-filter-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.reference-filter-result {
+  display: grid;
+  gap: 2px;
+  padding: 8px 9px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.reference-filter-result:hover,
+.reference-filter-result:focus-visible {
+  background: var(--surface-raised);
+  outline: 0;
+}
+
+.reference-filter-result span,
+.reference-filter-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.reference-filter-create {
+  border-left: 3px solid var(--brand-strong);
+  background: rgba(var(--brand-rgb), 0.08);
+}
+
+.reference-filter-create strong::before {
+  content: "+ ";
+  color: var(--brand-strong);
+}
+
+.reference-filter-empty {
+  padding: 9px;
 }
 
 .reference-select-row {
