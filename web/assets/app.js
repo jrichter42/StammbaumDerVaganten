@@ -2013,8 +2013,7 @@ async function toggleVisibleContextGraphTarget(type, id, edit = '') {
   }
 
   if (!edit) {
-    const editor = item.querySelector('[data-object-editor]') || item;
-    if (elementInScrollView(editor)) {
+    if (elementInScrollView(item)) {
       await closeObjectEditor(item);
     } else {
       scrollObjectEditorIntoView(type, id, item.parentElement?.id || '');
