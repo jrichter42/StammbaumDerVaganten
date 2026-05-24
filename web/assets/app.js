@@ -1583,7 +1583,7 @@ function renderContextGraph() {
     return;
   }
 
-  if (currentViewName() === 'tree') {
+  if (['tree', 'users'].includes(currentViewName())) {
     destroyContextGraph();
     return;
   }

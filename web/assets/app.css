@@ -863,13 +863,13 @@ h3 {
 }
 
 @media (min-width: 1180px) {
-  .workspace:not([data-active-view="tree"]) {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]) {
     grid-template-columns: minmax(180px, 220px) minmax(0, 2fr) minmax(320px, 1fr);
     align-items: stretch;
     column-gap: 10px;
   }
 
-  .workspace:not([data-active-view="tree"]) .context-panel {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]) .context-panel {
     position: relative;
     top: auto;
     display: grid;
@@ -907,24 +907,33 @@ h3 {
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
-  gap: 12px;
+  gap: 0;
   overflow: hidden;
+  position: relative;
 }
 
 #view-tree .panel-header {
-  position: static;
   min-height: 0;
-  padding-block: 0 2px;
-  background: transparent;
 }
 
 #view-tree .collection-heading {
   min-width: 0;
-  flex-basis: 100%;
+  flex: 0 1 auto;
 }
 
 #view-tree [data-tree-graph-status] {
   margin: 0;
+  position: absolute;
+  z-index: 6;
+  top: 78px;
+  left: 12px;
+  max-width: min(420px, calc(100% - 24px));
+  padding: 8px 10px;
+  border: 1px solid rgba(var(--brand-rgb), 0.28);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(13, 17, 20, 0.88);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
 #view-tree .public-graph {
@@ -974,6 +983,22 @@ h3 {
 #view-users .panel-header {
   padding-inline: 0;
   border-bottom: 0;
+}
+
+#view-tree .panel-header {
+  position: absolute;
+  z-index: 7;
+  top: 12px;
+  left: 12px;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid rgba(var(--brand-rgb), 0.26);
+  border-radius: 8px;
+  background: rgba(13, 17, 20, 0.88);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(10px);
 }
 
 .collection-header {
@@ -1055,6 +1080,27 @@ h3 {
   align-items: flex-start;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+#view-tree .collection-heading {
+  grid-template-columns: max-content;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+#view-tree .collection-header,
+#view-tree .collection-controls,
+#view-tree .collection-filter-section,
+#view-tree .collection-filter-controls {
+  width: auto;
+}
+
+#view-tree .collection-filter-section {
+  min-width: 0;
+}
+
+#view-tree .collection-control {
+  min-width: 132px;
 }
 
 .split-layout {
