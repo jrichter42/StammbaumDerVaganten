@@ -203,7 +203,6 @@ final class Storage
             foreach ($this->normalizePayload($type, $payload, $access) as $field => $value) {
                 $object[$field] = $value;
             }
-
             [$object] = $this->appendSourcesForWrite($type, $object, $source, $modifiedBy);
 
             $this->writeJson($path, $object);
@@ -215,12 +214,12 @@ final class Storage
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    public function updateObject(string $type, string $id, int $baseRevision, array $payload, string $modifiedBy, string $access, string $source = ''): array
+    public function updateObject(string $type, string $id, int $baseRevision, array $payload, string $modifiedBy, string $access, string $source = '', bool $initialWrite = false): array
     {
         $this->assertCollection($type);
         $this->assertAccess($access);
 
-        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $payload, $modifiedBy, $access, $source): array {
+        return $this->withLock($type . '-' . $id, function () use ($type, $id, $baseRevision, $payload, $modifiedBy, $access, $source, $initialWrite): array {
             $path = $this->objectPath($type, $id);
             $current = $this->readCurrentObject($type, $id);
             if ($this->isDeletedObject($current)) {
@@ -245,8 +244,12 @@ final class Storage
                 return $this->objectForRead($type, $current, $access);
             }
 
-            $this->archiveRevision($type, $current);
-            $updated['_revision'] = ((int) ($current['_revision'] ?? 0)) + 1;
+            if ($initialWrite && ((int) ($current['_revision'] ?? 0)) === 1) {
+                $updated['_revision'] = 1;
+            } else {
+                $this->archiveRevision($type, $current);
+                $updated['_revision'] = ((int) ($current['_revision'] ?? 0)) + 1;
+            }
             $updated['_modified'] = $this->now();
             $updated['_modifiedBy'] = $modifiedBy;
             $this->writeJson($path, $updated);

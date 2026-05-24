@@ -206,6 +206,7 @@ const state = {
   collectionVisibleCounts: Object.fromEntries(collectionTypes.map((type) => [type, collectionVisibleStep])),
   deepLinkTarget: null,
   editing: {},
+  initialObjects: new Set(),
   relationshipEditing: {},
   editTimers: {},
   exampleDataCreating: false,
@@ -2815,7 +2816,7 @@ function renderObjectItem(type, object) {
   const hasStatusMeta = Boolean(modified || warnings.length);
 
   return `
-    <article class="list-item object-item ${canWrite ? 'is-clickable' : ''} ${isEditing ? 'is-editing' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}">
+    <article class="list-item object-item ${canWrite ? 'is-clickable' : ''} ${isEditing ? 'is-editing' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}" data-initial-object="${state.initialObjects.has(key) ? '1' : '0'}">
       <div class="object-main">
         <${titleTag} class="object-title-row" ${titleAttrs}>
           <span class="object-title-text">
@@ -4360,12 +4361,21 @@ async function handleObjectClick(event) {
 
   const createButton = event.target.closest('[data-create-type]');
   if (createButton) {
+    if (focusExistingInitialObject(createButton)) {
+      return;
+    }
+
     if (focusExistingCreateForm(createButton)) {
       return;
     }
 
-    await closeOpenEditorsBeforeSwitch();
     const createType = createButton.dataset.createType;
+    if (createType !== 'users') {
+      await createObjectImmediately(createType, createButton);
+      return;
+    }
+
+    await closeOpenEditorsBeforeSwitch();
     collectionTypes.forEach((type) => {
       state.createOpen[type] = false;
     });
@@ -4867,6 +4877,18 @@ function syncNestedEditUrl(fieldRoot, item, isOpen) {
   }
 }
 
+function focusExistingInitialObject(triggerButton) {
+  const item = document.querySelector('[data-object-type][data-object-id][data-initial-object="1"]');
+  if (!item) {
+    return false;
+  }
+
+  showInlineActionFeedback(triggerButton, 'Neuer Eintrag ist bereits geöffnet.');
+  scrollElementIntoView(item);
+  item.querySelector('[data-object-field] input, [data-object-field] textarea, [data-object-field] select, input, textarea, select')?.focus();
+  return true;
+}
+
 function focusExistingCreateForm(triggerButton) {
   const form = openCreateForm();
   if (!form) {
@@ -4878,10 +4900,56 @@ function focusExistingCreateForm(triggerButton) {
     return false;
   }
 
-  showInlineActionFeedback(triggerButton, 'Offenen Eintrag erst speichern oder abbrechen.');
+  showInlineActionFeedback(triggerButton, 'Neuer Eintrag ist bereits geöffnet.');
   scrollElementIntoView(form);
   form.querySelector('[data-object-field] input, [data-object-field] textarea, [data-object-field] select, input, textarea, select')?.focus();
   return true;
+}
+
+async function createObjectImmediately(type, triggerButton = null) {
+  if (!objectCollections.includes(type) || !hasPermission('write')) {
+    return false;
+  }
+
+  if (triggerButton) {
+    triggerButton.disabled = true;
+    triggerButton.dataset.previousText = triggerButton.textContent || '';
+    triggerButton.textContent = 'Erstellt ...';
+  }
+
+  try {
+    await closeOpenEditorsBeforeSwitch();
+    collectionTypes.forEach((collectionType) => {
+      state.createOpen[collectionType] = false;
+    });
+
+    const response = await postJson('object-create', {
+      type,
+      object: {},
+    });
+    const object = response.object;
+    const id = objectId(object);
+    const key = objectKey(type, id);
+    updateObjectInState(type, object);
+    state.initialObjects.add(key);
+    state.editing = { [key]: true };
+    clearCollectionNarrowingForDeepLink(type);
+    writeUrlState({ view: type, id, edit: '' });
+    renderObjectCollections();
+    scrollObjectEditorIntoView(type, id);
+    return true;
+  } catch (error) {
+    if (triggerButton) {
+      showInlineActionFeedback(triggerButton, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'));
+    }
+    return false;
+  } finally {
+    if (triggerButton) {
+      triggerButton.disabled = false;
+      triggerButton.textContent = triggerButton.dataset.previousText || triggerButton.textContent;
+      delete triggerButton.dataset.previousText;
+    }
+  }
 }
 
 function openCreateForm() {
@@ -4965,7 +5033,7 @@ function focusUnsavedRelationshipRow(fieldRoot, triggerButton) {
   row.classList.remove('is-collapsed');
   row.querySelector('[data-list-action="toggle"]')?.setAttribute('aria-expanded', 'true');
   syncNestedEditUrl(fieldRoot, row, true);
-  showInlineActionFeedback(triggerButton, 'Offenen Eintrag erst speichern oder abbrechen.');
+  showInlineActionFeedback(triggerButton, 'Neuer Eintrag ist bereits geöffnet.');
   scrollElementIntoView(row);
   return true;
 }
@@ -5960,12 +6028,16 @@ async function flushObjectEdit(item, force) {
   }
 
   if (item.dataset.dirty !== '1') {
+    if (force) {
+      finishInitialObjectEditing(item);
+    }
     return;
   }
 
   const type = item.dataset.objectType;
   const id = item.dataset.objectId;
   const revision = Number(item.dataset.revision || 0);
+  const isInitialObject = item.dataset.initialObject === '1';
   let payload;
   try {
     payload = collectObjectFields(item);
@@ -5988,10 +6060,15 @@ async function flushObjectEdit(item, force) {
       id,
       base_revision: revision,
       object: payload,
+      initial_revision: isInitialObject,
     });
 
     updateObjectInState(type, response.object);
     item.dataset.revision = Number(response.object._revision || revision);
+    item.dataset.initialObject = isInitialObject && !force ? '1' : '0';
+    if (force) {
+      finishInitialObjectEditing(item);
+    }
     updateObjectChrome(item, type, response.object);
 
     const currentPayloadKey = JSON.stringify(collectObjectFields(item));
@@ -6031,6 +6108,15 @@ async function createObjectFromForm(form) {
     setCreateState(form, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'), true);
     return false;
   }
+}
+
+function finishInitialObjectEditing(item) {
+  if (!item) {
+    return;
+  }
+
+  state.initialObjects.delete(objectKey(item.dataset.objectType, item.dataset.objectId));
+  item.dataset.initialObject = '0';
 }
 
 function clearNewGroupPhaseMarkers(root) {

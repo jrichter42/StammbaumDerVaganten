@@ -166,10 +166,11 @@ try {
             $id = (string) ($body['id'] ?? '');
             $payload = is_array($body['object'] ?? null) ? $body['object'] : (is_array($body['patch'] ?? null) ? $body['patch'] : []);
             $baseRevision = (int) ($body['base_revision'] ?? 0);
+            $initialWrite = ($body['initial_revision'] ?? false) === true;
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, data_username($editor), object_access($auth), edit_source($body, $editor)),
+                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, data_username($editor), object_access($auth), edit_source($body, $editor), $initialWrite),
             ]);
             break;
 
