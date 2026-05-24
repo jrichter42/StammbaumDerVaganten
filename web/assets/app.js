@@ -2265,11 +2265,6 @@ function addContextNode(graph, type, object, focus = false) {
       objectListTitle(type, object),
       meta,
     ]),
-    title: publicGraphTitle([
-      objectListTitle(type, object),
-      meta,
-      String(object.description || '').trim(),
-    ]),
     group: focus ? 'focus' : contextNodeGroup(type),
     shape: contextNodeShape(type),
   });
@@ -2905,8 +2900,8 @@ function publicGraphEdgeLabel(lines) {
   return lines.map((line) => publicGraphShortLabel(line, 30)).filter(Boolean).join('\n');
 }
 
-function publicGraphTitle(lines) {
-  return lines.map((line) => String(line || '').trim()).filter(Boolean).map(escapeHtml).join('<br>');
+function publicGraphTitle(_lines) {
+  return undefined;
 }
 
 function publicGraphShortLabel(value, maxLength) {
