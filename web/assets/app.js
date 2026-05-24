@@ -240,6 +240,7 @@ const exampleDataButton = document.querySelector('#exampleDataButton');
 const exampleDataState = document.querySelector('#exampleDataState');
 const userList = document.querySelector('#userList');
 const appContent = document.querySelector('.app-content');
+const contentArea = document.querySelector('.content-area');
 const backToTopButton = document.querySelector('#backToTopButton');
 const contextPanel = document.querySelector('#contextPanel');
 const contextGraphContainer = document.querySelector('#contextGraph');
@@ -254,6 +255,8 @@ let publicGraphSignature = '';
 let contextNetwork = null;
 let contextGraphSignature = '';
 let contextGraphFrame = 0;
+let contextGraphNodeIds = new Set();
+let contextHighlightedNodeId = '';
 let treeGraphFrame = 0;
 if (urlSetup) {
   setupInput.value = urlSetup;
@@ -292,7 +295,9 @@ document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
 document.addEventListener('pointermove', handleDateDetailPointerMove);
 document.addEventListener('pointerover', handleDateDetailPreview);
+document.addEventListener('pointerover', handleObjectGraphHover);
 document.addEventListener('pointerout', handleDateDetailPreviewEnd);
+document.addEventListener('pointerout', handleObjectGraphHoverEnd);
 document.addEventListener('input', handleCollectionControlInput);
 document.addEventListener('input', handleReferenceFilterInput);
 document.addEventListener('input', handleObjectInput);
@@ -303,8 +308,7 @@ document.addEventListener('focusout', handleObjectBlur);
 document.addEventListener('focusin', handleEditorFocus);
 document.addEventListener('input', scheduleContextGraphRender);
 document.addEventListener('change', scheduleContextGraphRender);
-appContent?.addEventListener('scroll', updateBackToTopButton, { passive: true });
-appContent?.addEventListener('scroll', scheduleContextGraphRender, { passive: true });
+contentArea?.addEventListener('scroll', updateBackToTopButton, { passive: true });
 backToTopButton?.addEventListener('click', scrollBackToTop);
 window.addEventListener('beforeunload', handleBeforeUnload);
 window.addEventListener('resize', scheduleContextGraphRender);
@@ -1606,10 +1610,12 @@ function renderContextGraph() {
   const signature = JSON.stringify({ view: currentViewName(), graph });
   if (signature === contextGraphSignature && contextNetwork) {
     contextNetwork.redraw();
+    applyContextGraphHighlight();
     return;
   }
 
   contextGraphSignature = signature;
+  contextGraphNodeIds = new Set(graph.nodes.map((node) => node.id));
   setTreeGraphStatus(contextGraphStatus, graph.status || '');
   if (contextNetwork) {
     contextNetwork.destroy();
@@ -1622,7 +1628,9 @@ function renderContextGraph() {
 
   contextNetwork.once('stabilizationIterationsDone', () => {
     contextNetwork.fit({ animation: { duration: 180, easingFunction: 'easeInOutQuad' } });
+    applyContextGraphHighlight();
   });
+  applyContextGraphHighlight();
 }
 
 function updateContextGraphHeight() {
@@ -1630,11 +1638,10 @@ function updateContextGraphHeight() {
     return;
   }
 
-  const workspaceStyle = window.getComputedStyle(workspace);
-  const bottomInset = Number.parseFloat(workspaceStyle.paddingBottom) || 0;
-  const contentRect = appContent.getBoundingClientRect();
+  const contentRect = appScrollRoot().getBoundingClientRect();
   const panelRect = contextPanel.getBoundingClientRect();
-  const height = Math.max(160, contentRect.bottom - panelRect.top - bottomInset);
+  const height = Math.max(160, contentRect.bottom - panelRect.top);
+  contextPanel.style.setProperty('--context-graph-height', `${height}px`);
   contextGraphContainer.style.setProperty('--context-graph-height', `${height}px`);
 }
 
@@ -1644,12 +1651,9 @@ function updateTreeGraphHeight(root) {
     return;
   }
 
-  const container = root.closest('.workspace') || root;
-  const containerStyle = window.getComputedStyle(container);
-  const bottomInset = Number.parseFloat(containerStyle.paddingBottom) || 0;
-  const contentRect = appContent.getBoundingClientRect();
+  const contentRect = appScrollRoot().getBoundingClientRect();
   const graphRect = graph.getBoundingClientRect();
-  const height = Math.max(260, contentRect.bottom - graphRect.top - bottomInset);
+  const height = Math.max(260, contentRect.bottom - graphRect.top);
   graph.style.setProperty('--tree-graph-height', `${height}px`);
 }
 
@@ -1659,6 +1663,47 @@ function destroyContextGraph() {
     contextNetwork = null;
   }
   contextGraphSignature = '';
+  contextGraphNodeIds = new Set();
+  contextHighlightedNodeId = '';
+}
+
+function handleObjectGraphHover(event) {
+  const item = event.target.closest('.object-item[data-object-type][data-object-id]');
+  if (!item || !item.closest('.view.is-active') || item.contains(event.relatedTarget)) {
+    return;
+  }
+
+  const type = item.dataset.objectType || '';
+  const id = item.dataset.objectId || '';
+  contextHighlightedNodeId = objectCollections.includes(type) && id ? contextNodeId(type, id) : '';
+  applyContextGraphHighlight();
+}
+
+function handleObjectGraphHoverEnd(event) {
+  const item = event.target.closest('.object-item[data-object-type][data-object-id]');
+  if (!item || item.contains(event.relatedTarget)) {
+    return;
+  }
+
+  const type = item.dataset.objectType || '';
+  const id = item.dataset.objectId || '';
+  if (contextHighlightedNodeId === contextNodeId(type, id)) {
+    contextHighlightedNodeId = '';
+    applyContextGraphHighlight();
+  }
+}
+
+function applyContextGraphHighlight() {
+  if (!contextNetwork) {
+    return;
+  }
+
+  if (contextHighlightedNodeId && contextGraphNodeIds.has(contextHighlightedNodeId)) {
+    contextNetwork.selectNodes([contextHighlightedNodeId], true);
+    return;
+  }
+
+  contextNetwork.unselectAll();
 }
 
 function contextGraphData() {
@@ -1901,11 +1946,10 @@ function addContextNode(graph, type, object, focus = false) {
     id,
     label: publicGraphEntryLabel([
       objectListTitle(type, object),
-      [objectTypeLabels[type] || labels[type] || type, meta].filter(Boolean).join(' · '),
+      meta,
     ]),
     title: publicGraphTitle([
       objectListTitle(type, object),
-      objectTypeLabels[type] || labels[type] || type,
       meta,
       String(object.description || '').trim(),
     ]),
@@ -2100,6 +2144,7 @@ function publicGraphGroupDateLevels(groups) {
 
 function publicGraphOptions(graph = {}) {
   const topDown = graph.layout === 'top-down';
+  const contextGraph = graph.layout === 'context';
   return {
     autoResize: true,
     layout: {
@@ -2149,10 +2194,12 @@ function publicGraphOptions(graph = {}) {
     },
     interaction: {
       dragNodes: false,
+      dragView: !contextGraph,
       hover: true,
       tooltipDelay: 140,
       navigationButtons: false,
       keyboard: false,
+      zoomView: !contextGraph,
     },
     nodes: {
       borderWidth: 1,
@@ -4974,7 +5021,11 @@ function scrollObjectEditorIntoView(type, id, listId = '') {
 }
 
 function appScrollRoot() {
-  return document.querySelector('.app-content') || document.documentElement;
+  if (workspace && !workspace.hidden && contentArea) {
+    return contentArea;
+  }
+
+  return appContent || document.documentElement;
 }
 
 async function handlePeriodModeAction(button) {

@@ -121,7 +121,7 @@ textarea {
 
 .app-content {
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   display: grid;
   grid-auto-rows: auto;
   align-content: start;
@@ -508,9 +508,13 @@ h3 {
 .workspace {
   display: grid;
   grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
   gap: 20px;
   width: 100%;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   margin: 0;
   padding: var(--workspace-pad);
 }
@@ -519,6 +523,8 @@ h3 {
   display: grid;
   gap: 24px;
   width: min(1480px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
   margin: 0 auto;
   padding: clamp(18px, 3vw, 38px);
 }
@@ -741,6 +747,8 @@ h3 {
 
 .auth-screen {
   width: min(860px, calc(100% - clamp(28px, 5vw, 56px)));
+  max-height: calc(100% - clamp(36px, 8vw, 96px));
+  overflow-y: auto;
   margin: clamp(18px, 4vw, 48px) auto;
 }
 
@@ -813,30 +821,42 @@ h3 {
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
   width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   min-width: 0;
+  padding-inline-end: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .context-panel {
   display: none;
   min-width: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .context-graph {
   height: var(--context-graph-height, 100%);
   min-height: 0;
+  overscroll-behavior: contain;
 }
 
 @media (min-width: 1180px) {
   .workspace:not([data-active-view="tree"]) {
     grid-template-columns: minmax(180px, 220px) minmax(0, 2fr) minmax(320px, 1fr);
-    align-items: start;
+    align-items: stretch;
+    column-gap: 10px;
   }
 
   .workspace:not([data-active-view="tree"]) .context-panel {
-    position: sticky;
-    top: var(--workspace-pad);
+    position: relative;
+    top: auto;
     display: grid;
     align-content: start;
+    height: var(--context-graph-height, auto);
     min-height: 0;
   }
 }
