@@ -1880,8 +1880,13 @@ async function openContextGraphTarget(target) {
   if (!target?.type || !target.id) {
     return;
   }
+  const edit = validNestedEditKey(target.edit || '') ? target.edit : '';
 
   if (focusExistingCreateForm(contextGraphContainer)) {
+    return;
+  }
+
+  if (await toggleVisibleContextGraphTarget(target.type, target.id, edit)) {
     return;
   }
 
@@ -1892,7 +1897,6 @@ async function openContextGraphTarget(target) {
   clearCollectionNarrowingForDeepLink(target.type);
   expandCollectionVisibleCountToObject(target.type, target.id);
   renderCollectionControls();
-  const edit = validNestedEditKey(target.edit || '') ? target.edit : '';
   activateView(target.type, { id: target.id, edit });
   await refreshActivatedView(target.type);
 
@@ -1916,6 +1920,73 @@ async function openContextGraphTarget(target) {
       openNestedEditRow(target.type, target.id, edit);
     }
   }
+}
+
+async function toggleVisibleContextGraphTarget(type, id, edit = '') {
+  if (currentViewName() !== type) {
+    return false;
+  }
+
+  const item = objectItemElement(type, id);
+  const key = objectKey(type, id);
+  if (!item || !state.editing[key]) {
+    return false;
+  }
+
+  if (!edit) {
+    const editor = item.querySelector('[data-object-editor]') || item;
+    if (elementInScrollView(editor)) {
+      await closeObjectEditor(item);
+    } else {
+      scrollObjectEditorIntoView(type, id, item.parentElement?.id || '');
+    }
+    return true;
+  }
+
+  const row = item.querySelector(`[data-relationship-row-key="${cssEscape(edit)}"]`);
+  const isRowOpen = row && !row.classList.contains('is-collapsed');
+  if (!row || !isRowOpen) {
+    return false;
+  }
+
+  if (elementInScrollView(row)) {
+    closeNestedEditRow(row);
+  } else {
+    scrollElementIntoView(row);
+  }
+  return true;
+}
+
+function closeNestedEditRow(row) {
+  const fieldRoot = row.closest('[data-object-field]');
+  const ownerItem = row.closest('[data-object-type][data-object-id]');
+  if (!fieldRoot || !ownerItem) {
+    return false;
+  }
+
+  row.classList.add('is-collapsed');
+  row.querySelector('[data-list-action="toggle"]')?.setAttribute('aria-expanded', 'false');
+  syncNestedEditUrl(fieldRoot, row, false);
+  return true;
+}
+
+function elementInScrollView(element) {
+  if (!element) {
+    return false;
+  }
+
+  const scrollRoot = appScrollRoot();
+  const rootRect = scrollRoot === document.documentElement
+    ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight }
+    : scrollRoot.getBoundingClientRect();
+  const rect = element.getBoundingClientRect();
+  const margin = 16;
+  const usableHeight = rootRect.bottom - rootRect.top - (margin * 2);
+  if (rect.height > usableHeight) {
+    return rect.top >= rootRect.top - 2 && rect.top < rootRect.top + margin + 48;
+  }
+
+  return rect.top >= rootRect.top - 2 && rect.bottom <= rootRect.bottom - margin;
 }
 
 function setContextListHighlight(type, id, edit = '') {
@@ -5900,7 +5971,7 @@ function showInlineActionFeedback(trigger, text) {
 
 function scrollElementIntoView(element) {
   window.requestAnimationFrame(() => {
-    element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }
 
