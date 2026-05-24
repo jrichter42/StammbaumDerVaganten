@@ -1204,6 +1204,12 @@ h3 {
   box-shadow: var(--edit-shadow);
 }
 
+.object-list .object-item.is-graph-highlighted:not(.is-editing) {
+  border-color: rgba(var(--brand-rgb), 0.62);
+  background: rgba(var(--brand-rgb), 0.08);
+  box-shadow: 0 0 0 1px rgba(var(--brand-rgb), 0.18);
+}
+
 .object-list .list-item:not(.is-editing):hover,
 .user-list .list-item:not(.is-editing):hover {
   background: var(--surface);

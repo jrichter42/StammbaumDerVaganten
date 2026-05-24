@@ -257,6 +257,7 @@ let contextGraphSignature = '';
 let contextGraphFrame = 0;
 let contextGraphNodeIds = new Set();
 let contextHighlightedNodeId = '';
+let contextHighlightedListKey = '';
 let treeGraphFrame = 0;
 if (urlSetup) {
   setupInput.value = urlSetup;
@@ -1620,6 +1621,9 @@ function renderContextGraph() {
     edges: new visNetwork.DataSet(graph.edges),
   }, publicGraphOptions(graph));
 
+  contextNetwork.on('hoverNode', handleContextGraphNodeHover);
+  contextNetwork.on('blurNode', handleContextGraphNodeBlur);
+  contextNetwork.on('click', handleContextGraphNodeClick);
   applyContextGraphHighlight();
 }
 
@@ -1631,6 +1635,7 @@ function destroyContextGraph() {
   contextGraphSignature = '';
   contextGraphNodeIds = new Set();
   contextHighlightedNodeId = '';
+  clearContextListHighlight();
 }
 
 function handleObjectGraphHover(event) {
@@ -1670,6 +1675,109 @@ function applyContextGraphHighlight() {
   }
 
   contextNetwork.unselectAll();
+}
+
+function handleContextGraphNodeHover(params) {
+  const target = contextNodeTarget(params.node);
+  if (!target) {
+    return;
+  }
+
+  contextHighlightedNodeId = params.node;
+  applyContextGraphHighlight();
+  setContextListHighlight(target.type, target.id);
+}
+
+function handleContextGraphNodeBlur(params) {
+  if (contextHighlightedNodeId === params.node) {
+    contextHighlightedNodeId = '';
+    applyContextGraphHighlight();
+  }
+  clearContextListHighlight();
+}
+
+function handleContextGraphNodeClick(params) {
+  const nodeId = params.nodes?.[0] || '';
+  if (!nodeId) {
+    return;
+  }
+
+  void openContextGraphNode(nodeId);
+}
+
+async function openContextGraphNode(nodeId) {
+  const target = contextNodeTarget(nodeId);
+  if (!target) {
+    return;
+  }
+
+  if (focusExistingCreateForm(contextGraphContainer)) {
+    return;
+  }
+
+  if (!(await canSwitchToView(target.type))) {
+    return;
+  }
+
+  clearCollectionNarrowingForDeepLink(target.type);
+  expandCollectionVisibleCountToObject(target.type, target.id);
+  renderCollectionControls();
+  activateView(target.type, { id: target.id, edit: '' });
+  await refreshActivatedView(target.type);
+
+  let item = objectItemElement(target.type, target.id);
+  if (!item) {
+    state.deepLinkTarget = { view: target.type, id: target.id, edit: '' };
+    renderObjectCollection(target.type);
+    item = objectItemElement(target.type, target.id);
+  }
+
+  if (item) {
+    await focusObjectEditor(item);
+  }
+}
+
+function setContextListHighlight(type, id) {
+  clearContextListHighlight();
+
+  if (currentViewName() !== type) {
+    return;
+  }
+
+  const item = objectItemElement(type, id);
+  if (!item || !item.closest('.view.is-active')) {
+    return;
+  }
+
+  contextHighlightedListKey = objectKey(type, id);
+  item.classList.add('is-graph-highlighted');
+}
+
+function clearContextListHighlight() {
+  if (!contextHighlightedListKey) {
+    return;
+  }
+
+  document.querySelectorAll('.object-item.is-graph-highlighted').forEach((item) => {
+    item.classList.remove('is-graph-highlighted');
+  });
+  contextHighlightedListKey = '';
+}
+
+function contextNodeTarget(nodeId) {
+  const raw = String(nodeId || '');
+  const separator = raw.indexOf(':');
+  if (separator <= 0) {
+    return null;
+  }
+
+  const type = raw.slice(0, separator);
+  const id = raw.slice(separator + 1);
+  if (!objectCollections.includes(type) || !id) {
+    return null;
+  }
+
+  return { type, id };
 }
 
 function contextGraphData() {
