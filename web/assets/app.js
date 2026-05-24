@@ -1777,7 +1777,7 @@ function settleGraph(network, graph) {
 }
 
 function graphStabilizationIterations(graph) {
-  return Math.max(240, Math.min(520, 150 + ((graph.nodes?.length || 0) * 12)));
+  return Math.max(400, Math.min(1000, 200 + ((graph.nodes?.length || 0) * 12)));
 }
 
 function graphPhysicsOptions(graph) {
@@ -1788,18 +1788,18 @@ function graphPhysicsOptions(graph) {
     maxVelocity: 18,
     minVelocity: 0.22,
     forceAtlas2Based: {
-      gravitationalConstant: -82,
+      gravitationalConstant: -200,
       centralGravity: 0.075,
-      springLength: 132,
-      springConstant: 0.085,
-      damping: 0.56,
-      avoidOverlap: 1.35,
+      springLength: 1000,
+      springConstant: 0.01,
+      damping: 0.5,
+      avoidOverlap: 0.95,
     },
     stabilization: {
       enabled: true,
       iterations: graphStabilizationIterations(graph),
       updateInterval: 10,
-      fit: false,
+      fit: true,
     },
   };
 }
@@ -1818,13 +1818,13 @@ function graphInteractionOptions() {
 
 function graphEdgeBehaviorOptions() {
   return {
-    selectionWidth: 5,
+    selectionWidth: 3,
     hoverWidth: 3,
     smooth: {
       enabled: true,
       type: 'cubicBezier',
-      forceDirection: 'none',
-      roundness: 0.2,
+      forceDirection: 'vertical',
+      roundness: 0.4,
     },
   };
 }
