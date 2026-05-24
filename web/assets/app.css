@@ -66,6 +66,7 @@
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
   --workspace-pad: clamp(10px, 1.6vw, 20px);
   --workspace-pad-left: clamp(12px, 2vw, 24px);
+  --context-panel-width: clamp(320px, 33vw, 560px);
 }
 
 * {
@@ -847,6 +848,40 @@ h3 {
   overscroll-behavior: contain;
 }
 
+.context-resizer {
+  display: none;
+  width: 8px;
+  min-width: 8px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.context-resizer::before {
+  content: "";
+  display: block;
+  width: 2px;
+  height: 100%;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(var(--brand-rgb), 0.18);
+}
+
+.context-resizer:hover::before,
+.context-resizer:focus-visible::before,
+body.is-context-resizing .context-resizer::before {
+  background: rgba(var(--brand-rgb), 0.72);
+}
+
+body.is-context-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
 .context-graph {
   height: 100%;
   min-height: 0;
@@ -864,9 +899,13 @@ h3 {
 
 @media (min-width: 1180px) {
   .workspace:not([data-active-view="tree"]):not([data-active-view="users"]) {
-    grid-template-columns: minmax(180px, 220px) minmax(0, 2fr) minmax(320px, 1fr);
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) 8px minmax(280px, var(--context-panel-width));
     align-items: stretch;
-    column-gap: 10px;
+    column-gap: 8px;
+  }
+
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]) .context-resizer {
+    display: block;
   }
 
   .workspace:not([data-active-view="tree"]):not([data-active-view="users"]) .context-panel {

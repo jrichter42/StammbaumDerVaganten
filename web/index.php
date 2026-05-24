@@ -235,6 +235,7 @@ $configWarnings = array_map(
           </div>
         </section>
 
+        <button class="context-resizer" id="contextResizer" type="button" aria-label="Visualisierungsbreite anpassen" aria-orientation="vertical"></button>
         <aside class="context-panel" id="contextPanel" aria-label="Kontext-Visualisierung">
           <div class="public-graph context-graph" id="contextGraph" data-context-graph aria-label="Kontext-Graph"></div>
         </aside>

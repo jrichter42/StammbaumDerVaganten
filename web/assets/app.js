@@ -242,6 +242,7 @@ const userList = document.querySelector('#userList');
 const appContent = document.querySelector('.app-content');
 const contentArea = document.querySelector('.content-area');
 const backToTopButton = document.querySelector('#backToTopButton');
+const contextResizer = document.querySelector('#contextResizer');
 const contextPanel = document.querySelector('#contextPanel');
 const contextGraphContainer = document.querySelector('#contextGraph');
 const contextGraphStatus = document.querySelector('#contextGraphStatus');
@@ -258,6 +259,8 @@ let contextGraphFrame = 0;
 let contextGraphNodeIds = new Set();
 let contextHighlightedNodeId = '';
 let contextHighlightedListKey = '';
+let contextResizeActive = false;
+let contextPanelRatio = null;
 let treeGraphFrame = 0;
 if (urlSetup) {
   setupInput.value = urlSetup;
@@ -311,7 +314,9 @@ document.addEventListener('input', scheduleContextGraphRender);
 document.addEventListener('change', scheduleContextGraphRender);
 contentArea?.addEventListener('scroll', updateBackToTopButton, { passive: true });
 backToTopButton?.addEventListener('click', scrollBackToTop);
+contextResizer?.addEventListener('pointerdown', beginContextResize);
 window.addEventListener('beforeunload', handleBeforeUnload);
+window.addEventListener('resize', handleContextLayoutResize);
 window.addEventListener('resize', scheduleContextGraphRender);
 window.addEventListener('resize', scheduleTreeGraphRender);
 
@@ -329,6 +334,103 @@ function updateBackToTopButton() {
 
 function scrollBackToTop() {
   appScrollRoot().scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function beginContextResize(event) {
+  if (!workspace || window.getComputedStyle(contextResizer).display === 'none') {
+    return;
+  }
+
+  event.preventDefault();
+  contextResizeActive = true;
+  document.body.classList.add('is-context-resizing');
+  contextResizer.setPointerCapture?.(event.pointerId);
+  resizeContextPanel(event.clientX);
+  document.addEventListener('pointermove', handleContextResize);
+  document.addEventListener('pointerup', endContextResize, { once: true });
+  document.addEventListener('pointercancel', endContextResize, { once: true });
+}
+
+function handleContextResize(event) {
+  if (!contextResizeActive) {
+    return;
+  }
+
+  event.preventDefault();
+  resizeContextPanel(event.clientX);
+}
+
+function endContextResize() {
+  contextResizeActive = false;
+  document.body.classList.remove('is-context-resizing');
+  document.removeEventListener('pointermove', handleContextResize);
+  applyContextSplitRatio();
+  scheduleContextGraphResize();
+}
+
+function resizeContextPanel(clientX) {
+  const metrics = contextSplitMetrics();
+  if (!metrics) {
+    return;
+  }
+
+  const leftWidth = Math.max(metrics.minLeft, Math.min(metrics.total - metrics.minRight, clientX - metrics.left));
+  contextPanelRatio = Math.max(0, Math.min(1, (metrics.total - leftWidth) / metrics.total));
+  applyContextSplitRatio(metrics);
+  scheduleContextGraphResize();
+}
+
+function handleContextLayoutResize() {
+  applyContextSplitRatio();
+}
+
+function applyContextSplitRatio(metrics = contextSplitMetrics()) {
+  if (!workspace || contextPanelRatio === null || !metrics) {
+    return;
+  }
+
+  const minRatio = metrics.minRight / metrics.total;
+  const maxRatio = 1 - (metrics.minLeft / metrics.total);
+  const ratio = Math.max(minRatio, Math.min(maxRatio, contextPanelRatio));
+  const width = Math.round(metrics.total * ratio);
+  workspace.style.setProperty('--context-panel-width', `${width}px`);
+}
+
+function contextSplitMetrics() {
+  if (!workspace || !contentArea || !contextPanel || !contextResizer) {
+    return null;
+  }
+
+  if (workspace.hidden || window.getComputedStyle(contextPanel).display === 'none') {
+    return null;
+  }
+
+  const contentRect = contentArea.getBoundingClientRect();
+  const panelRect = contextPanel.getBoundingClientRect();
+  const total = contentRect.width + panelRect.width;
+  if (total <= 0) {
+    return null;
+  }
+
+  const minLeft = Math.min(300, total * 0.48);
+  const minRight = Math.min(280, total - minLeft);
+  return {
+    left: contentRect.left,
+    total,
+    minLeft,
+    minRight,
+  };
+}
+
+function scheduleContextGraphResize() {
+  window.requestAnimationFrame(() => {
+    if (!contextNetwork) {
+      return;
+    }
+
+    contextNetwork.setSize?.('100%', '100%');
+    contextNetwork.redraw();
+  });
 }
 
 function handleBeforeUnload(event) {
