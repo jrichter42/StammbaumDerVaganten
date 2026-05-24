@@ -1657,6 +1657,7 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
     edges: new visNetwork.DataSet(graph.edges),
   }, publicGraphOptions(graph));
 
+  settleGraph(publicNetwork, graph);
 }
 
 function setTreeGraphStatus(status, text) {
@@ -1733,6 +1734,7 @@ function renderContextGraph() {
   contextNetwork.on('hoverEdge', handleContextGraphEdgeHover);
   contextNetwork.on('blurEdge', handleContextGraphEdgeBlur);
   contextNetwork.on('click', handleContextGraphNodeClick);
+  settleGraph(contextNetwork, graph);
   applyContextGraphHighlight();
 }
 
@@ -1748,6 +1750,83 @@ function destroyContextGraph() {
   contextHighlightedNodeId = '';
   contextHighlightedEdgeId = '';
   clearContextListHighlight();
+}
+
+function settleGraph(network, graph) {
+  if (!network) {
+    return;
+  }
+
+  let didSettle = false;
+  const finish = () => {
+    if (didSettle || !network) {
+      return;
+    }
+
+    didSettle = true;
+    network.stopSimulation();
+    network.fit({ animation: false, maxZoomLevel: 1.15 });
+    if (network.getScale() < 0.72) {
+      network.moveTo({ scale: 0.72, animation: false });
+    }
+  };
+
+  network.once?.('stabilizationIterationsDone', finish);
+  window.setTimeout(finish, 1100);
+  network.stabilize?.(graphStabilizationIterations(graph));
+}
+
+function graphStabilizationIterations(graph) {
+  return Math.max(240, Math.min(520, 150 + ((graph.nodes?.length || 0) * 12)));
+}
+
+function graphPhysicsOptions(graph) {
+  return {
+    enabled: true,
+    solver: 'forceAtlas2Based',
+    adaptiveTimestep: true,
+    maxVelocity: 18,
+    minVelocity: 0.22,
+    forceAtlas2Based: {
+      gravitationalConstant: -82,
+      centralGravity: 0.075,
+      springLength: 132,
+      springConstant: 0.085,
+      damping: 0.56,
+      avoidOverlap: 1.35,
+    },
+    stabilization: {
+      enabled: true,
+      iterations: graphStabilizationIterations(graph),
+      updateInterval: 10,
+      fit: false,
+    },
+  };
+}
+
+function graphInteractionOptions() {
+  return {
+    dragNodes: true,
+    dragView: true,
+    hover: true,
+    tooltipDelay: 140,
+    navigationButtons: false,
+    keyboard: false,
+    zoomView: true,
+  };
+}
+
+function graphEdgeBehaviorOptions() {
+  return {
+    selectionWidth: 5,
+    hoverWidth: 3,
+    smooth: {
+      enabled: true,
+      type: 'cubicBezier',
+      forceDirection: 'none',
+      roundness: 0.2,
+    },
+  };
 }
 
 function handleObjectGraphHover(event) {
@@ -2105,7 +2184,12 @@ function activeContextObject() {
 
 function collectionContextGraphData(type, objects) {
   const graph = createContextGraph(`${labels[type] || type}: ${objects.length}`);
-  objects.forEach((object) => addObjectRelations(graph, type, object, { focus: false, compact: true }));
+  objects.forEach((object, index) => addObjectRelations(graph, type, object, {
+    focus: false,
+    compact: true,
+    rowIndex: index,
+    collectionType: type,
+  }));
   return finishContextGraph(graph);
 }
 
@@ -2121,6 +2205,7 @@ function createContextGraph(status = '') {
     edges: [],
     nodeMap: new Map(),
     edgeIds: new Set(),
+    placementPriorities: new Map(),
     layout: 'context',
     status,
   };
@@ -2130,6 +2215,7 @@ function finishContextGraph(graph) {
   graph.nodes = Array.from(graph.nodeMap.values());
   delete graph.nodeMap;
   delete graph.edgeIds;
+  delete graph.placementPriorities;
   return graph;
 }
 
@@ -2151,14 +2237,153 @@ function addObjectRelations(graph, type, object, options = {}) {
   }
 }
 
+function placePrimaryContextNode(graph, nodeId, options = {}) {
+  if (!nodeId) {
+    return;
+  }
+
+  if (Number.isInteger(options.rowIndex)) {
+    placeContextNode(graph, nodeId, 0, contextRowY(options.rowIndex), 20);
+    return;
+  }
+
+  if (options.focus) {
+    placeContextNode(graph, nodeId, 0, 0, 30);
+  }
+}
+
+function placeRelationContextNode(graph, nodeId, options = {}, relation = 'context', index = 0, total = 1) {
+  if (!nodeId) {
+    return;
+  }
+
+  const safeTotal = Math.max(1, Number(total) || 1);
+  const safeIndex = Math.max(0, Number(index) || 0);
+  const rowMode = Number.isInteger(options.rowIndex);
+  const baseY = rowMode ? contextRowY(options.rowIndex) : 0;
+  const compactOffset = (safeIndex - ((safeTotal - 1) / 2)) * 44;
+  const focusOffset = 92 + (safeIndex * 58);
+  const priority = contextRelationPriority(relation);
+
+  if (rowMode) {
+    const x = {
+      membership: -250,
+      phase: -250,
+      parent: -250,
+      groupType: -250,
+      person: -250,
+      activity: 250,
+      child: 250,
+      group: 250,
+    }[relation] || 180;
+    const unorderedX = x + compactOffset;
+    const y = ['child', 'group', 'person', 'parent', 'groupType'].includes(relation)
+      ? baseY
+      : baseY + compactOffset;
+    placeContextNode(graph, nodeId, ['child', 'group', 'person', 'parent', 'groupType'].includes(relation) ? unorderedX : x, y, priority);
+    return;
+  }
+
+  if (relation === 'membership' || relation === 'phase' || relation === 'parent' || relation === 'groupType') {
+    const unordered = relation === 'parent' || relation === 'groupType';
+    placeContextNode(
+      graph,
+      nodeId,
+      unordered ? compactOffset * 1.7 : 0,
+      unordered ? -108 : -(92 + ((safeTotal - 1 - safeIndex) * 58)),
+      priority,
+    );
+    return;
+  }
+
+  if (relation === 'activity' || relation === 'child' || relation === 'group' || relation === 'person') {
+    const unordered = relation === 'child' || relation === 'group' || relation === 'person';
+    placeContextNode(
+      graph,
+      nodeId,
+      unordered ? compactOffset * 1.7 : 0,
+      unordered ? 108 : focusOffset,
+      priority,
+    );
+    return;
+  }
+
+  placeContextNode(graph, nodeId, 0, focusOffset, priority);
+}
+
+function placeContextNode(graph, nodeId, x, y, priority = 0) {
+  const node = graph.nodeMap.get(nodeId);
+  if (!node) {
+    return;
+  }
+
+  const previous = graph.placementPriorities.get(nodeId) ?? -Infinity;
+  if (priority < previous) {
+    return;
+  }
+
+  graph.placementPriorities.set(nodeId, priority);
+  node.x = Math.round(x);
+  node.y = Math.round(y);
+}
+
+function contextRelationPriority(relation) {
+  return {
+    membership: 14,
+    phase: 14,
+    parent: 13,
+    groupType: 13,
+    activity: 12,
+    child: 11,
+    group: 11,
+    person: 11,
+  }[relation] || 10;
+}
+
+function contextRowY(index) {
+  return index * 170;
+}
+
+function contextPeriodEntries(values, collection, idGetter, secondaryGetter = null) {
+  return (Array.isArray(values) ? values : [])
+    .map((value, index) => ({
+      value,
+      index,
+      label: [
+        secondaryGetter ? secondaryGetter(value) : '',
+        objectListTitle(collection, findReferenceObject(collection, idGetter(value)) || {}),
+      ].filter(Boolean).join(' '),
+    }))
+    .sort((left, right) => contextPeriodCompare(left.value?.period, right.value?.period, left.label, right.label));
+}
+
+function contextPeriodCompare(leftPeriod, rightPeriod, leftLabel = '', rightLabel = '') {
+  const leftStart = periodStartSortKey(leftPeriod);
+  const rightStart = periodStartSortKey(rightPeriod);
+  const leftValue = Number.isFinite(leftStart) ? leftStart : Number.MAX_SAFE_INTEGER;
+  const rightValue = Number.isFinite(rightStart) ? rightStart : Number.MAX_SAFE_INTEGER;
+  if (leftValue !== rightValue) {
+    return leftValue - rightValue;
+  }
+
+  return sortCollator.compare(String(leftLabel || ''), String(rightLabel || ''));
+}
+
 function addPersonContext(graph, person, options = {}) {
   const personNode = addContextNode(graph, 'people', person, options.focus);
+  placePrimaryContextNode(graph, personNode, options);
   const memberships = Array.isArray(person.memberships) ? person.memberships : [];
   const activities = Array.isArray(person.activities) ? person.activities : [];
 
-  memberships.slice(0, options.compact ? 4 : 16).forEach((membership, index) => {
+  const membershipEntries = contextPeriodEntries(memberships, 'groups', periodEntryGroupId)
+    .slice(0, options.compact ? 4 : 16);
+  const activityEntries = contextPeriodEntries(activities, 'groups', periodEntryGroupId, (activity) => objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles'))
+    .slice(0, options.compact ? 4 : 16);
+
+  membershipEntries.forEach(({ value: membership, index }, slot) => {
     const group = findReferenceObject('groups', periodEntryGroupId(membership));
     const groupNode = addContextNode(graph, 'groups', group);
+    placeRelationContextNode(graph, groupNode, options, 'membership', slot, membershipEntries.length);
     addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', periodYearLabel(membership.period)].filter(Boolean).join('\n'), 'membership', {
       type: 'people',
       id: objectId(person),
@@ -2166,9 +2391,10 @@ function addPersonContext(graph, person, options = {}) {
     });
   });
 
-  activities.slice(0, options.compact ? 4 : 16).forEach((activity, index) => {
+  activityEntries.forEach(({ value: activity, index }, slot) => {
     const group = findReferenceObject('groups', periodEntryGroupId(activity));
     const groupNode = addContextNode(graph, 'groups', group);
+    placeRelationContextNode(graph, groupNode, options, 'activity', slot, activityEntries.length);
     const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet';
     addContextEdge(graph, personNode, groupNode, [role, periodYearLabel(activity.period)].filter(Boolean).join('\n'), 'activity', {
       type: 'people',
@@ -2180,12 +2406,17 @@ function addPersonContext(graph, person, options = {}) {
 
 function addGroupContext(graph, group, options = {}) {
   const groupNode = addContextNode(graph, 'groups', group, options.focus);
-  groupPhaseEntries(group).forEach(({ phase, rowKey }) => {
+  placePrimaryContextNode(graph, groupNode, options);
+  const phaseEntries = groupPhaseEntries(group)
+    .sort((left, right) => contextPeriodCompare(left.phase?.period, right.phase?.period, objectLabel(findReferenceObject('group-types', groupPhaseTypeId(left.phase)), 'group-types'), objectLabel(findReferenceObject('group-types', groupPhaseTypeId(right.phase)), 'group-types')));
+  phaseEntries.forEach(({ phase, rowKey }, slot) => {
     const typeNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', groupPhaseTypeId(phase)));
+    placeRelationContextNode(graph, typeNode, options, 'phase', slot, phaseEntries.length);
     const target = { type: 'groups', id: objectId(group), edit: rowKey };
     addContextEdge(graph, typeNode, groupNode, periodYearLabel(phase.period), 'type', target);
 
     const parentNode = addContextNode(graph, 'groups', findReferenceObject('groups', groupPhaseParentGroupId(phase)));
+    placeRelationContextNode(graph, parentNode, options, 'parent', slot, phaseEntries.length);
     addContextEdge(graph, parentNode, groupNode, periodYearLabel(phase.period), 'parent', target);
   });
 
@@ -2197,6 +2428,7 @@ function addGroupContext(graph, group, options = {}) {
     (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
       if (periodEntryGroupId(membership) === objectId(group)) {
         matched = true;
+        placeRelationContextNode(graph, personNode, options, 'membership', used, limit);
         addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', periodYearLabel(membership.period)].filter(Boolean).join('\n'), 'membership', {
           type: 'people',
           id: objectId(person),
@@ -2208,6 +2440,7 @@ function addGroupContext(graph, group, options = {}) {
       if (periodEntryGroupId(activity) === objectId(group)) {
         matched = true;
         const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet';
+        placeRelationContextNode(graph, personNode, options, 'activity', used, limit);
         addContextEdge(graph, personNode, groupNode, [role, periodYearLabel(activity.period)].filter(Boolean).join('\n'), 'activity', {
           type: 'people',
           id: objectId(person),
@@ -2225,25 +2458,37 @@ function addGroupContext(graph, group, options = {}) {
 
 function addGroupTypeContext(graph, groupType, options = {}) {
   const typeNode = addContextNode(graph, 'group-types', groupType, options.focus);
+  placePrimaryContextNode(graph, typeNode, options);
   const parentNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', groupTypeParentGroupTypeId(groupType)));
+  placeRelationContextNode(graph, parentNode, options, 'parent', 0, 1);
   addContextEdge(graph, parentNode, typeNode, 'untergeordnet', 'type');
 
-  (state.groupTypes || []).forEach((candidate) => {
+  (state.groupTypes || []).sort((left, right) => sortCollator.compare(objectListTitle('group-types', left), objectListTitle('group-types', right))).forEach((candidate, index) => {
     if (groupTypeParentGroupTypeId(candidate) === objectId(groupType)) {
-      addContextEdge(graph, typeNode, addContextNode(graph, 'group-types', candidate), 'untergeordnet', 'type');
+      const childNode = addContextNode(graph, 'group-types', candidate);
+      placeRelationContextNode(graph, childNode, options, 'child', index, 8);
+      addContextEdge(graph, typeNode, childNode, 'untergeordnet', 'type');
     }
   });
 
   (state.objects.groups || [])
     .filter((group) => groupTypeIds(group).includes(objectId(groupType)))
+    .sort((left, right) => compareObjects('groups', left, right))
     .slice(0, options.compact ? 5 : 18)
-    .forEach((group) => addContextEdge(graph, typeNode, addContextNode(graph, 'groups', group), 'Gruppe', 'type'));
+    .forEach((group, index) => {
+      const groupNode = addContextNode(graph, 'groups', group);
+      placeRelationContextNode(graph, groupNode, options, 'group', index, options.compact ? 5 : 18);
+      addContextEdge(graph, typeNode, groupNode, 'Gruppe', 'type');
+    });
 }
 
 function addRoleContext(graph, role, options = {}) {
   const roleNode = addContextNode(graph, 'roles', role, options.focus);
-  roleGroupTypeIds(role).forEach((typeId) => {
-    addContextEdge(graph, roleNode, addContextNode(graph, 'group-types', findReferenceObject('group-types', typeId)), 'nutzbar fuer', 'type');
+  placePrimaryContextNode(graph, roleNode, options);
+  roleGroupTypeIds(role).forEach((typeId, index) => {
+    const typeNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', typeId));
+    placeRelationContextNode(graph, typeNode, options, 'groupType', index, roleGroupTypeIds(role).length);
+    addContextEdge(graph, roleNode, typeNode, 'nutzbar fuer', 'type');
   });
 
   const limit = options.compact ? 5 : 18;
@@ -2257,6 +2502,8 @@ function addRoleContext(graph, role, options = {}) {
       const personNode = addContextNode(graph, 'people', person);
       const groupNode = addContextNode(graph, 'groups', findReferenceObject('groups', periodEntryGroupId(activity)));
       const target = { type: 'people', id: objectId(person), edit: `activities:${index}` };
+      placeRelationContextNode(graph, personNode, options, 'person', used - 1, limit);
+      placeRelationContextNode(graph, groupNode, options, 'group', used - 1, limit);
       addContextEdge(graph, personNode, roleNode, periodYearLabel(activity.period), 'activity', target);
       addContextEdge(graph, roleNode, groupNode, objectLabel(findReferenceObject('groups', periodEntryGroupId(activity)), 'groups'), 'activity', target);
     });
@@ -2266,6 +2513,7 @@ function addRoleContext(graph, role, options = {}) {
 
 function addTimepointContext(graph, timepoint, options = {}) {
   const timepointNode = addContextNode(graph, 'timepoints', timepoint, options.focus);
+  placePrimaryContextNode(graph, timepointNode, options);
   const limit = options.compact ? 5 : 18;
   let used = 0;
 
@@ -2275,7 +2523,9 @@ function addTimepointContext(graph, timepoint, options = {}) {
         return;
       }
       used += 1;
-      addContextEdge(graph, addContextNode(graph, 'groups', group), timepointNode, objectLabel(findReferenceObject('group-types', groupPhaseTypeId(phase)), 'group-types') || 'Phase', 'time', {
+      const groupNode = addContextNode(graph, 'groups', group);
+      placeRelationContextNode(graph, groupNode, options, 'phase', used - 1, limit);
+      addContextEdge(graph, groupNode, timepointNode, objectLabel(findReferenceObject('group-types', groupPhaseTypeId(phase)), 'group-types') || 'Phase', 'time', {
         type: 'groups',
         id: objectId(group),
         edit: rowKey,
@@ -2290,7 +2540,9 @@ function addTimepointContext(graph, timepoint, options = {}) {
         return;
       }
       used += 1;
-      addContextEdge(graph, addContextNode(graph, 'people', person), timepointNode, objectLabel(findReferenceObject('groups', periodEntryGroupId(membership)), 'groups') || 'Mitgliedschaft', 'time', {
+      const personNode = addContextNode(graph, 'people', person);
+      placeRelationContextNode(graph, personNode, options, 'membership', used - 1, limit);
+      addContextEdge(graph, personNode, timepointNode, objectLabel(findReferenceObject('groups', periodEntryGroupId(membership)), 'groups') || 'Mitgliedschaft', 'time', {
         type: 'people',
         id: objectId(person),
         edit: `memberships:${index}`,
@@ -2301,7 +2553,9 @@ function addTimepointContext(graph, timepoint, options = {}) {
         return;
       }
       used += 1;
-      addContextEdge(graph, addContextNode(graph, 'people', person), timepointNode, objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet', 'time', {
+      const personNode = addContextNode(graph, 'people', person);
+      placeRelationContextNode(graph, personNode, options, 'activity', used - 1, limit);
+      addContextEdge(graph, personNode, timepointNode, objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet', 'time', {
         type: 'people',
         id: objectId(person),
         edit: `activities:${index}`,
@@ -2365,6 +2619,7 @@ function addContextEdge(graph, from, to, label = '', group = 'context', target =
   }
 
   graph.edgeIds.add(id);
+  const smooth = contextEdgeSmooth(graph, from, to);
   graph.edges.push({
     id,
     from,
@@ -2373,8 +2628,32 @@ function addContextEdge(graph, from, to, label = '', group = 'context', target =
     group,
     target,
     arrows: 'to',
+    smooth,
+    selectionWidth: 5,
+    hoverWidth: 3,
     width: group === 'activity' ? 2.1 : 1.5,
   });
+}
+
+function contextEdgeSmooth(graph, from, to) {
+  const fromNode = graph.nodeMap.get(from) || {};
+  const toNode = graph.nodeMap.get(to) || {};
+  const connectedCount = graph.edges.filter((edge) => (
+    edge.from === from
+    || edge.to === from
+    || edge.from === to
+    || edge.to === to
+  )).length;
+  const sameColumn = Math.abs(Number(fromNode.x || 0) - Number(toNode.x || 0)) < 80;
+  const lane = connectedCount % 5;
+  const direction = connectedCount % 2 === 0 ? 'curvedCW' : 'curvedCCW';
+  const roundness = (sameColumn ? 0.24 : 0.14) + (lane * 0.055);
+
+  return {
+    enabled: true,
+    type: direction,
+    roundness: Math.min(0.48, roundness),
+  };
 }
 
 function contextNodeId(type, id) {
@@ -2533,7 +2812,8 @@ function publicGraphOptions(graph = {}) {
   return {
     autoResize: false,
     layout: {
-      improvedLayout: true,
+      randomSeed: 7,
+      improvedLayout: !contextGraph,
       hierarchical: {
         enabled: topDown,
         direction: 'UD',
@@ -2547,51 +2827,15 @@ function publicGraphOptions(graph = {}) {
         shakeTowards: 'roots',
       },
     },
-    physics: {
-      enabled: false,
-      solver: topDown ? 'hierarchicalRepulsion' : 'forceAtlas2Based',
-      adaptiveTimestep: true,
-      maxVelocity: 28,
-      minVelocity: 0.9,
-      hierarchicalRepulsion: {
-        nodeDistance: 240,
-        springLength: 190,
-        damping: 0.42,
-      },
-      forceAtlas2Based: {
-        gravitationalConstant: -70,
-        centralGravity: 0.015,
-        springLength: 190,
-        springConstant: 0.055,
-        damping: 0.42,
-        avoidOverlap: 0.65,
-      },
-      repulsion: {
-        nodeDistance: 240,
-        springLength: 190,
-        damping: 0.42,
-      },
-      stabilization: {
-        enabled: false,
-        iterations: 45,
-        updateInterval: 10,
-        fit: false,
-      },
-    },
-    interaction: {
-      dragNodes: false,
-      dragView: !contextGraph,
-      hover: true,
-      tooltipDelay: 140,
-      navigationButtons: false,
-      keyboard: false,
-      zoomView: !contextGraph,
-    },
+    physics: graphPhysicsOptions(graph),
+    interaction: graphInteractionOptions(),
     nodes: {
       borderWidth: 1,
       borderWidthSelected: 2,
       margin: { top: 12, right: 14, bottom: 12, left: 14 },
-      widthConstraint: { minimum: 168, maximum: 210 },
+      widthConstraint: contextGraph
+        ? { minimum: 170, maximum: 230 }
+        : { minimum: 168, maximum: 210 },
       color: {
         border: 'rgba(216,216,90,0.48)',
         background: '#151b20',
@@ -2601,11 +2845,11 @@ function publicGraphOptions(graph = {}) {
       font: {
         color: '#ece8d9',
         face: 'Aptos, Segoe UI, Inter, sans-serif',
-        size: 15,
+        size: contextGraph ? 14 : 15,
         multi: 'html',
         bold: {
           color: '#fbf7de',
-          size: 18,
+          size: contextGraph ? 16 : 18,
           face: 'Aptos Display, Aptos, Segoe UI, Inter, sans-serif',
           mod: 'bold',
         },
@@ -2654,13 +2898,16 @@ function publicGraphOptions(graph = {}) {
     edges: {
       color: { color: 'rgba(195,201,197,0.62)', highlight: '#d8d85a', hover: '#d8d85a' },
       width: 1.6,
-      smooth: { enabled: true, type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.32 },
+      ...graphEdgeBehaviorOptions(),
       font: {
         color: '#cfd6d2',
         strokeColor: '#0b0f12',
         strokeWidth: 4,
-        size: 12,
+        size: 11,
         face: 'Aptos, Segoe UI, Inter, sans-serif',
+        align: 'horizontal',
+        vadjust: 0,
+        mod: 'normal',
       },
     },
   };
