@@ -130,6 +130,7 @@ $configWarnings = array_map(
         </nav>
 
         <section class="content-area" aria-live="polite">
+          <button class="button button-secondary back-to-top" id="backToTopButton" type="button" aria-label="Nach oben" hidden>∧</button>
           <div class="view is-active" id="view-people">
             <section class="panel">
               <div class="panel-header collection-header">
@@ -233,9 +234,12 @@ $configWarnings = array_map(
             </section>
           </div>
         </section>
+
+        <aside class="context-panel" id="contextPanel" aria-label="Kontext-Visualisierung">
+          <div class="public-graph context-graph" id="contextGraph" data-context-graph aria-label="Kontext-Graph"></div>
+        </aside>
       </main>
       </div>
-      <button class="button button-secondary back-to-top" id="backToTopButton" type="button" aria-label="Nach oben" hidden>∧</button>
     </div>
     <script src="assets/vis-network.min.js"></script>
     <script type="module" src="assets/app.js"></script>

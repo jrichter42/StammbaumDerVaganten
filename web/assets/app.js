@@ -240,6 +240,9 @@ const exampleDataState = document.querySelector('#exampleDataState');
 const userList = document.querySelector('#userList');
 const appContent = document.querySelector('.app-content');
 const backToTopButton = document.querySelector('#backToTopButton');
+const contextPanel = document.querySelector('#contextPanel');
+const contextGraphContainer = document.querySelector('#contextGraph');
+const contextGraphStatus = document.querySelector('#contextGraphStatus');
 const treeGroupTypeFilters = Array.from(document.querySelectorAll('[data-tree-group-type-filter]'));
 const treeGroupTypeClearButtons = Array.from(document.querySelectorAll('[data-tree-group-type-clear]'));
 
@@ -247,6 +250,10 @@ const urlSetup = new URLSearchParams(window.location.search).get('setup');
 let isSetupPage = Boolean(urlSetup);
 let publicNetwork = null;
 let publicGraphSignature = '';
+let contextNetwork = null;
+let contextGraphSignature = '';
+let contextGraphFrame = 0;
+let treeGraphFrame = 0;
 if (urlSetup) {
   setupInput.value = urlSetup;
   setupPanel.hidden = false;
@@ -293,9 +300,14 @@ document.addEventListener('change', handleReferencePickerChange);
 document.addEventListener('change', handleObjectChange);
 document.addEventListener('focusout', handleObjectBlur);
 document.addEventListener('focusin', handleEditorFocus);
+document.addEventListener('input', scheduleContextGraphRender);
+document.addEventListener('change', scheduleContextGraphRender);
 appContent?.addEventListener('scroll', updateBackToTopButton, { passive: true });
+appContent?.addEventListener('scroll', scheduleContextGraphRender, { passive: true });
 backToTopButton?.addEventListener('click', scrollBackToTop);
 window.addEventListener('beforeunload', handleBeforeUnload);
+window.addEventListener('resize', scheduleContextGraphRender);
+window.addEventListener('resize', scheduleTreeGraphRender);
 
 updateBackToTopButton();
 refresh();
@@ -324,6 +336,10 @@ function handleBeforeUnload(event) {
 }
 
 function activateView(viewName, urlExtra = {}) {
+  if (workspace) {
+    workspace.dataset.activeView = viewName;
+  }
+
   document.querySelectorAll('[data-view]').forEach((button) => {
     button.classList.toggle('is-active', button.dataset.view === viewName);
   });
@@ -337,6 +353,7 @@ function activateView(viewName, urlExtra = {}) {
     publicGraphSignature = '';
     renderTreeGraph();
   }
+  scheduleContextGraphRender();
 }
 
 function restoreUrlState() {
@@ -1402,6 +1419,7 @@ function render() {
   renderObjectCollections();
   renderUsersManagement();
   applyDeepLinkTarget();
+  renderContextGraph();
 }
 
 function renderTreeGraph() {
@@ -1415,6 +1433,7 @@ function renderTreeGraph() {
   const roles = state.objects.roles || [];
   const groupTypes = state.groupTypes || [];
 
+  updateTreeGraphHeight(root);
   renderPublicGraphFilter(root, groupTypes, groups);
   renderPublicGraph(root, groups, people, roles, groupTypes);
 }
@@ -1424,6 +1443,18 @@ function handlePublicGraphFilterChange(event) {
   publicGraphSignature = '';
   writeTreeGraphUrlState();
   renderTreeGraph();
+}
+
+function scheduleTreeGraphRender() {
+  if (treeGraphFrame) {
+    return;
+  }
+
+  treeGraphFrame = window.requestAnimationFrame(() => {
+    treeGraphFrame = 0;
+    publicGraphSignature = '';
+    renderTreeGraph();
+  });
 }
 
 function clearPublicGraphFilter() {
@@ -1528,6 +1559,416 @@ function setTreeGraphStatus(status, text) {
 
   status.textContent = text;
   status.hidden = !text;
+}
+
+function scheduleContextGraphRender() {
+  if (contextGraphFrame) {
+    return;
+  }
+
+  contextGraphFrame = window.requestAnimationFrame(() => {
+    contextGraphFrame = 0;
+    renderContextGraph();
+  });
+}
+
+function renderContextGraph() {
+  if (!contextPanel || !contextGraphContainer) {
+    return;
+  }
+
+  if (workspace?.hidden || window.getComputedStyle(contextPanel).display === 'none') {
+    destroyContextGraph();
+    return;
+  }
+
+  if (currentViewName() === 'tree') {
+    destroyContextGraph();
+    return;
+  }
+
+  updateContextGraphHeight();
+
+  const visNetwork = window.vis;
+  if (!visNetwork?.Network || !visNetwork?.DataSet) {
+    setTreeGraphStatus(contextGraphStatus, 'Graph-Bibliothek konnte nicht geladen werden.');
+    return;
+  }
+
+  const graph = contextGraphData();
+  if (!graph.nodes.length) {
+    destroyContextGraph();
+    setTreeGraphStatus(contextGraphStatus, 'Kein Kontext.');
+    return;
+  }
+
+  const signature = JSON.stringify({ view: currentViewName(), graph });
+  if (signature === contextGraphSignature && contextNetwork) {
+    contextNetwork.redraw();
+    return;
+  }
+
+  contextGraphSignature = signature;
+  setTreeGraphStatus(contextGraphStatus, graph.status || '');
+  if (contextNetwork) {
+    contextNetwork.destroy();
+  }
+
+  contextNetwork = new visNetwork.Network(contextGraphContainer, {
+    nodes: new visNetwork.DataSet(graph.nodes),
+    edges: new visNetwork.DataSet(graph.edges),
+  }, publicGraphOptions(graph));
+
+  contextNetwork.once('stabilizationIterationsDone', () => {
+    contextNetwork.fit({ animation: { duration: 180, easingFunction: 'easeInOutQuad' } });
+  });
+}
+
+function updateContextGraphHeight() {
+  if (!contextPanel || !contextGraphContainer || !appContent) {
+    return;
+  }
+
+  const workspaceStyle = window.getComputedStyle(workspace);
+  const bottomInset = Number.parseFloat(workspaceStyle.paddingBottom) || 0;
+  const contentRect = appContent.getBoundingClientRect();
+  const panelRect = contextPanel.getBoundingClientRect();
+  const height = Math.max(160, contentRect.bottom - panelRect.top - bottomInset);
+  contextGraphContainer.style.setProperty('--context-graph-height', `${height}px`);
+}
+
+function updateTreeGraphHeight(root) {
+  const graph = root?.querySelector('[data-tree-graph]');
+  if (!graph || !appContent) {
+    return;
+  }
+
+  const container = root.closest('.workspace') || root;
+  const containerStyle = window.getComputedStyle(container);
+  const bottomInset = Number.parseFloat(containerStyle.paddingBottom) || 0;
+  const contentRect = appContent.getBoundingClientRect();
+  const graphRect = graph.getBoundingClientRect();
+  const height = Math.max(260, contentRect.bottom - graphRect.top - bottomInset);
+  graph.style.setProperty('--tree-graph-height', `${height}px`);
+}
+
+function destroyContextGraph() {
+  if (contextNetwork) {
+    contextNetwork.destroy();
+    contextNetwork = null;
+  }
+  contextGraphSignature = '';
+}
+
+function contextGraphData() {
+  const activeObject = activeContextObject();
+  if (activeObject) {
+    return objectContextGraphData(activeObject.type, activeObject.object, { focus: true, status: 'Bearbeitung' });
+  }
+
+  const view = currentViewName();
+  if (!objectCollections.includes(view)) {
+    return { nodes: [], edges: [], layout: 'context', status: '' };
+  }
+
+  const objects = collectionObjects(view).slice(0, 28);
+  return collectionContextGraphData(view, objects);
+}
+
+function activeContextObject() {
+  const editor = document.querySelector('.view.is-active [data-object-editor]');
+  const item = editor?.closest('[data-object-type][data-object-id]');
+  if (!item) {
+    return null;
+  }
+
+  const type = item.dataset.objectType || '';
+  const id = item.dataset.objectId || '';
+  if (!objectCollections.includes(type) || !id) {
+    return null;
+  }
+
+  const saved = findReferenceObject(type, id) || {};
+  let payload = {};
+  try {
+    payload = collectObjectFields(item);
+  } catch (_error) {
+    payload = {};
+  }
+
+  return { type, object: { ...saved, ...payload, _id: id } };
+}
+
+function collectionContextGraphData(type, objects) {
+  const graph = createContextGraph(`${labels[type] || type}: ${objects.length}`);
+  objects.forEach((object) => addObjectRelations(graph, type, object, { focus: false, compact: true }));
+  return finishContextGraph(graph);
+}
+
+function objectContextGraphData(type, object, options = {}) {
+  const graph = createContextGraph(options.status || objectListTitle(type, object));
+  addObjectRelations(graph, type, object, { ...options, compact: false });
+  return finishContextGraph(graph);
+}
+
+function createContextGraph(status = '') {
+  return {
+    nodes: [],
+    edges: [],
+    nodeMap: new Map(),
+    edgeIds: new Set(),
+    layout: 'context',
+    status,
+  };
+}
+
+function finishContextGraph(graph) {
+  graph.nodes = Array.from(graph.nodeMap.values());
+  delete graph.nodeMap;
+  delete graph.edgeIds;
+  return graph;
+}
+
+function addObjectRelations(graph, type, object, options = {}) {
+  if (!objectId(object)) {
+    return;
+  }
+
+  if (type === 'people') {
+    addPersonContext(graph, object, options);
+  } else if (type === 'groups') {
+    addGroupContext(graph, object, options);
+  } else if (type === 'group-types') {
+    addGroupTypeContext(graph, object, options);
+  } else if (type === 'roles') {
+    addRoleContext(graph, object, options);
+  } else if (type === 'timepoints') {
+    addTimepointContext(graph, object, options);
+  }
+}
+
+function addPersonContext(graph, person, options = {}) {
+  const personNode = addContextNode(graph, 'people', person, options.focus);
+  const memberships = Array.isArray(person.memberships) ? person.memberships : [];
+  const activities = Array.isArray(person.activities) ? person.activities : [];
+
+  memberships.slice(0, options.compact ? 4 : 16).forEach((membership) => {
+    const group = findReferenceObject('groups', periodEntryGroupId(membership));
+    const groupNode = addContextNode(graph, 'groups', group);
+    addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', periodYearLabel(membership.period)].filter(Boolean).join('\n'), 'membership');
+  });
+
+  activities.slice(0, options.compact ? 4 : 16).forEach((activity) => {
+    const group = findReferenceObject('groups', periodEntryGroupId(activity));
+    const groupNode = addContextNode(graph, 'groups', group);
+    const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet';
+    addContextEdge(graph, personNode, groupNode, [role, periodYearLabel(activity.period)].filter(Boolean).join('\n'), 'activity');
+  });
+}
+
+function addGroupContext(graph, group, options = {}) {
+  const groupNode = addContextNode(graph, 'groups', group, options.focus);
+  groupPhaseEntries(group).forEach(({ phase }) => {
+    const typeNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', groupPhaseTypeId(phase)));
+    addContextEdge(graph, typeNode, groupNode, periodYearLabel(phase.period), 'type');
+
+    const parentNode = addContextNode(graph, 'groups', findReferenceObject('groups', groupPhaseParentGroupId(phase)));
+    addContextEdge(graph, parentNode, groupNode, periodYearLabel(phase.period), 'parent');
+  });
+
+  const limit = options.compact ? 5 : 18;
+  let used = 0;
+  (state.objects.people || []).some((person) => {
+    const personNode = addContextNode(graph, 'people', person);
+    let matched = false;
+    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
+      if (periodEntryGroupId(membership) === objectId(group)) {
+        matched = true;
+        addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', periodYearLabel(membership.period)].filter(Boolean).join('\n'), 'membership');
+      }
+    });
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+      if (periodEntryGroupId(activity) === objectId(group)) {
+        matched = true;
+        const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet';
+        addContextEdge(graph, personNode, groupNode, [role, periodYearLabel(activity.period)].filter(Boolean).join('\n'), 'activity');
+      }
+    });
+    if (!matched) {
+      removeContextNodeIfLoose(graph, personNode);
+    }
+    used += matched ? 1 : 0;
+    return used >= limit;
+  });
+}
+
+function addGroupTypeContext(graph, groupType, options = {}) {
+  const typeNode = addContextNode(graph, 'group-types', groupType, options.focus);
+  const parentNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', groupTypeParentGroupTypeId(groupType)));
+  addContextEdge(graph, parentNode, typeNode, 'untergeordnet', 'type');
+
+  (state.groupTypes || []).forEach((candidate) => {
+    if (groupTypeParentGroupTypeId(candidate) === objectId(groupType)) {
+      addContextEdge(graph, typeNode, addContextNode(graph, 'group-types', candidate), 'untergeordnet', 'type');
+    }
+  });
+
+  (state.objects.groups || [])
+    .filter((group) => groupTypeIds(group).includes(objectId(groupType)))
+    .slice(0, options.compact ? 5 : 18)
+    .forEach((group) => addContextEdge(graph, typeNode, addContextNode(graph, 'groups', group), 'Gruppe', 'type'));
+}
+
+function addRoleContext(graph, role, options = {}) {
+  const roleNode = addContextNode(graph, 'roles', role, options.focus);
+  roleGroupTypeIds(role).forEach((typeId) => {
+    addContextEdge(graph, roleNode, addContextNode(graph, 'group-types', findReferenceObject('group-types', typeId)), 'nutzbar fuer', 'type');
+  });
+
+  const limit = options.compact ? 5 : 18;
+  let used = 0;
+  (state.objects.people || []).some((person) => {
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+      if (activityRoleId(activity) !== objectId(role) || used >= limit) {
+        return;
+      }
+      used += 1;
+      const personNode = addContextNode(graph, 'people', person);
+      const groupNode = addContextNode(graph, 'groups', findReferenceObject('groups', periodEntryGroupId(activity)));
+      addContextEdge(graph, personNode, roleNode, periodYearLabel(activity.period), 'activity');
+      addContextEdge(graph, roleNode, groupNode, objectLabel(findReferenceObject('groups', periodEntryGroupId(activity)), 'groups'), 'activity');
+    });
+    return used >= limit;
+  });
+}
+
+function addTimepointContext(graph, timepoint, options = {}) {
+  const timepointNode = addContextNode(graph, 'timepoints', timepoint, options.focus);
+  const limit = options.compact ? 5 : 18;
+  let used = 0;
+
+  (state.objects.groups || []).some((group) => {
+    groupPhaseEntries(group).forEach(({ phase }) => {
+      if (used >= limit || !periodTouchesTimepoint(timepoint, phase.period)) {
+        return;
+      }
+      used += 1;
+      addContextEdge(graph, addContextNode(graph, 'groups', group), timepointNode, objectLabel(findReferenceObject('group-types', groupPhaseTypeId(phase)), 'group-types') || 'Phase', 'time');
+    });
+    return used >= limit;
+  });
+
+  (state.objects.people || []).some((person) => {
+    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
+      if (used >= limit || !periodTouchesTimepoint(timepoint, membership.period)) {
+        return;
+      }
+      used += 1;
+      addContextEdge(graph, addContextNode(graph, 'people', person), timepointNode, objectLabel(findReferenceObject('groups', periodEntryGroupId(membership)), 'groups') || 'Mitgliedschaft', 'time');
+    });
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+      if (used >= limit || !periodTouchesTimepoint(timepoint, activity.period)) {
+        return;
+      }
+      used += 1;
+      addContextEdge(graph, addContextNode(graph, 'people', person), timepointNode, objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet', 'time');
+    });
+    return used >= limit;
+  });
+}
+
+function periodTouchesTimepoint(timepoint, period) {
+  return periodBoundaryMatchesTimepoint(timepoint, period, 'start') || periodBoundaryMatchesTimepoint(timepoint, period, 'end');
+}
+
+function addContextNode(graph, type, object, focus = false) {
+  if (!object || !objectId(object)) {
+    return '';
+  }
+
+  const id = contextNodeId(type, objectId(object));
+  const existing = graph.nodeMap.get(id);
+  if (existing) {
+    if (focus) {
+      existing.group = 'focus';
+    }
+    return id;
+  }
+
+  const meta = objectListMeta(type, object);
+  graph.nodeMap.set(id, {
+    id,
+    label: publicGraphEntryLabel([
+      objectListTitle(type, object),
+      [objectTypeLabels[type] || labels[type] || type, meta].filter(Boolean).join(' · '),
+    ]),
+    title: publicGraphTitle([
+      objectListTitle(type, object),
+      objectTypeLabels[type] || labels[type] || type,
+      meta,
+      String(object.description || '').trim(),
+    ]),
+    group: focus ? 'focus' : contextNodeGroup(type),
+    shape: contextNodeShape(type),
+  });
+  return id;
+}
+
+function removeContextNodeIfLoose(graph, nodeId) {
+  if (!nodeId) {
+    return;
+  }
+
+  const hasEdge = graph.edges.some((edge) => edge.from === nodeId || edge.to === nodeId);
+  if (!hasEdge) {
+    graph.nodeMap.delete(nodeId);
+  }
+}
+
+function addContextEdge(graph, from, to, label = '', group = 'context') {
+  if (!from || !to || from === to) {
+    return;
+  }
+
+  const id = `${from}->${to}:${group}:${label}`;
+  if (graph.edgeIds.has(id)) {
+    return;
+  }
+
+  graph.edgeIds.add(id);
+  graph.edges.push({
+    id,
+    from,
+    to,
+    label: publicGraphEdgeLabel(String(label || '').split('\n')),
+    group,
+    arrows: 'to',
+    width: group === 'activity' ? 2.1 : 1.5,
+  });
+}
+
+function contextNodeId(type, id) {
+  return `${type}:${id}`;
+}
+
+function contextNodeGroup(type) {
+  return {
+    people: 'person',
+    groups: 'group',
+    'group-types': 'groupType',
+    roles: 'role',
+    timepoints: 'timepoint',
+  }[type] || 'context';
+}
+
+function contextNodeShape(type) {
+  return {
+    people: 'ellipse',
+    groups: 'box',
+    'group-types': 'box',
+    roles: 'diamond',
+    timepoints: 'dot',
+  }[type] || 'box';
 }
 
 function activeTreeGraphRoot() {
@@ -1747,10 +2188,33 @@ function publicGraphOptions(graph = {}) {
       },
     },
     groups: {
+      focus: {
+        color: { border: '#ffd208', background: '#2a2711' },
+        font: { color: '#fff2a6', bold: true },
+        borderWidth: 2,
+        shapeProperties: { borderRadius: 8 },
+      },
+      person: {
+        color: { border: '#ef859d', background: '#2a1820' },
+        font: { color: '#f5d8df', bold: true },
+      },
       group: {
         color: { border: '#d8d85a', background: '#1f2118' },
         font: { color: '#f4f0cf', bold: true },
         shapeProperties: { borderRadius: 8 },
+      },
+      groupType: {
+        color: { border: '#00b74f', background: '#12231a' },
+        font: { color: '#d7f4e4', bold: true },
+        shapeProperties: { borderRadius: 8 },
+      },
+      role: {
+        color: { border: '#8e7fae', background: '#201a2b' },
+        font: { color: '#e9e1ff', bold: true },
+      },
+      timepoint: {
+        color: { border: '#ef7d00', background: '#2a1c10' },
+        font: { color: '#ffe2bf', bold: true },
       },
     },
     edges: {
@@ -2435,6 +2899,7 @@ function renderObjectCollection(type) {
     : '';
   list.innerHTML = renderObjectListItems(type, visibleObjects) + more
     || `<div class="empty-state">${sourceObjects.length ? 'Keine Treffer.' : `Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.`}</div>`;
+  scheduleContextGraphRender();
 }
 
 function renderObjectListItems(type, objects) {
@@ -4445,6 +4910,7 @@ async function closeObjectEditor(item) {
   delete state.relationshipEditing[key];
   writeUrlState({ view: type, id: '' });
   renderObjectCollection(type);
+  scheduleContextGraphRender();
 }
 
 async function focusObjectEditor(item) {
@@ -4470,6 +4936,7 @@ async function focusObjectEditor(item) {
   writeUrlState({ view: targetType, id: targetId });
   renderObjectCollections();
   scrollObjectEditorIntoView(targetType, targetId, targetListId);
+  scheduleContextGraphRender();
 }
 
 function scrollObjectEditorIntoView(type, id, listId = '') {
@@ -6956,6 +7423,7 @@ function updateObjectInState(type, object) {
   state.objects[type] = list;
   syncReferenceState();
   refreshReferencePickers(document);
+  scheduleContextGraphRender();
 }
 
 function updateObjectChrome(item, type, object) {

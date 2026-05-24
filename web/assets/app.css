@@ -378,8 +378,11 @@ h3 {
 }
 
 .back-to-top {
-  position: fixed;
-  right: clamp(14px, 3vw, 32px);
+  grid-column: 1;
+  grid-row: 1;
+  position: sticky;
+  justify-self: end;
+  align-self: start;
   top: 50%;
   display: inline-flex;
   align-items: center;
@@ -507,6 +510,7 @@ h3 {
   grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
   gap: 20px;
   width: 100%;
+  min-height: 100%;
   margin: 0;
   padding: var(--workspace-pad);
 }
@@ -605,7 +609,7 @@ h3 {
 }
 
 .public-graph {
-  height: min(72vh, 760px);
+  height: var(--tree-graph-height, min(72vh, 760px));
   min-height: 520px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -623,6 +627,10 @@ h3 {
 
 .public-graph .vis-button {
   opacity: 0.72;
+}
+
+[data-tree-graph-root] .public-graph {
+  min-height: 0;
 }
 
 .tree-board {
@@ -801,12 +809,41 @@ h3 {
 }
 
 .content-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   width: 100%;
-  max-width: 1480px;
   min-width: 0;
 }
 
+.context-panel {
+  display: none;
+  min-width: 0;
+}
+
+.context-graph {
+  height: var(--context-graph-height, 100%);
+  min-height: 0;
+}
+
+@media (min-width: 1180px) {
+  .workspace:not([data-active-view="tree"]) {
+    grid-template-columns: minmax(180px, 220px) minmax(0, 2fr) minmax(320px, 1fr);
+    align-items: start;
+  }
+
+  .workspace:not([data-active-view="tree"]) .context-panel {
+    position: sticky;
+    top: var(--workspace-pad);
+    display: grid;
+    align-content: start;
+    min-height: 0;
+  }
+}
+
 .view {
+  grid-column: 1;
+  grid-row: 1;
   display: none;
 }
 
@@ -2317,7 +2354,7 @@ button.object-title-row:focus-visible::before {
 
   .public-graph {
     min-height: 420px;
-    height: 68vh;
+    height: var(--tree-graph-height, 68vh);
   }
 
   .auth-screen {
