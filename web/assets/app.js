@@ -129,6 +129,7 @@ const objectConfigs = {
     fields: [
       { name: 'name', label: 'Name' },
       { name: 'date', label: 'Datum', kind: 'date' },
+      { name: 'location', label: 'Ort' },
       { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: '_certainty', label: 'Gewissheit', kind: 'certainty' },
       { name: '_sources', label: 'Quellen', kind: 'source-display', visibility: 'private' },
@@ -3003,6 +3004,7 @@ function collectionSearchText(type, object) {
     objectSummary(type, object),
     objectId(object),
     object.name,
+    object.location,
     object.label,
     object.forename,
     object.lastname,
@@ -4065,7 +4067,7 @@ function referenceOptionDetail(object, collection) {
   }
 
   if (collection === 'timepoints') {
-    return compactDateDisplayValue(object.date);
+    return [compactDateDisplayValue(object.date), object.location].filter(Boolean).join(' · ');
   }
 
   if (collection === 'people' && object.birthdate) {
@@ -7786,7 +7788,7 @@ function objectListMeta(type, object) {
   }
 
   if (type === 'timepoints') {
-    return timepointValue(object);
+    return [timepointValue(object), object.location].filter(Boolean).join(' · ');
   }
 
   if (type === 'roles') {

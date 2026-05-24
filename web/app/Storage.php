@@ -60,6 +60,7 @@ final class Storage
             '_sources' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             'name' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
             'date' => ['type' => 'json', 'default' => null, 'visibility' => 'public'],
+            'location' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
         ],
     ];
 

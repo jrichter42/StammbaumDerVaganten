@@ -142,6 +142,7 @@ class Period {
 class Timepoint {
   +String name
   +Date date
+  +String location
 }
 Timepoint ..|> Object
 Timepoint ..|> Datapoint
