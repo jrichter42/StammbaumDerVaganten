@@ -1249,6 +1249,11 @@ body.is-context-resizing {
   box-shadow: 0 0 0 1px rgba(var(--brand-rgb), 0.18);
 }
 
+.composite-item.is-graph-highlighted {
+  border-color: rgba(var(--brand-rgb), 0.72);
+  box-shadow: 0 0 0 1px rgba(var(--brand-rgb), 0.22);
+}
+
 .object-list .list-item:not(.is-editing):hover,
 .user-list .list-item:not(.is-editing):hover {
   background: var(--surface);
