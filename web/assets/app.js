@@ -1438,7 +1438,6 @@ function renderTreeGraph() {
   const roles = state.objects.roles || [];
   const groupTypes = state.groupTypes || [];
 
-  updateTreeGraphHeight(root);
   renderPublicGraphFilter(root, groupTypes, groups);
   renderPublicGraph(root, groups, people, roles, groupTypes);
 }
@@ -1552,9 +1551,6 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
     edges: new visNetwork.DataSet(graph.edges),
   }, publicGraphOptions(graph));
 
-  publicNetwork.once('stabilizationIterationsDone', () => {
-    publicNetwork.fit({ animation: { duration: 240, easingFunction: 'easeInOutQuad' } });
-  });
 }
 
 function setTreeGraphStatus(status, text) {
@@ -1592,8 +1588,6 @@ function renderContextGraph() {
     return;
   }
 
-  updateContextGraphHeight();
-
   const visNetwork = window.vis;
   if (!visNetwork?.Network || !visNetwork?.DataSet) {
     setTreeGraphStatus(contextGraphStatus, 'Graph-Bibliothek konnte nicht geladen werden.');
@@ -1626,35 +1620,7 @@ function renderContextGraph() {
     edges: new visNetwork.DataSet(graph.edges),
   }, publicGraphOptions(graph));
 
-  contextNetwork.once('stabilizationIterationsDone', () => {
-    contextNetwork.fit({ animation: { duration: 180, easingFunction: 'easeInOutQuad' } });
-    applyContextGraphHighlight();
-  });
   applyContextGraphHighlight();
-}
-
-function updateContextGraphHeight() {
-  if (!contextPanel || !contextGraphContainer || !appContent) {
-    return;
-  }
-
-  const contentRect = appScrollRoot().getBoundingClientRect();
-  const panelRect = contextPanel.getBoundingClientRect();
-  const height = Math.max(160, contentRect.bottom - panelRect.top);
-  contextPanel.style.setProperty('--context-graph-height', `${height}px`);
-  contextGraphContainer.style.setProperty('--context-graph-height', `${height}px`);
-}
-
-function updateTreeGraphHeight(root) {
-  const graph = root?.querySelector('[data-tree-graph]');
-  if (!graph || !appContent) {
-    return;
-  }
-
-  const contentRect = appScrollRoot().getBoundingClientRect();
-  const graphRect = graph.getBoundingClientRect();
-  const height = Math.max(260, contentRect.bottom - graphRect.top);
-  graph.style.setProperty('--tree-graph-height', `${height}px`);
 }
 
 function destroyContextGraph() {
@@ -2146,8 +2112,9 @@ function publicGraphOptions(graph = {}) {
   const topDown = graph.layout === 'top-down';
   const contextGraph = graph.layout === 'context';
   return {
-    autoResize: true,
+    autoResize: false,
     layout: {
+      improvedLayout: true,
       hierarchical: {
         enabled: topDown,
         direction: 'UD',
@@ -2162,7 +2129,7 @@ function publicGraphOptions(graph = {}) {
       },
     },
     physics: {
-      enabled: true,
+      enabled: false,
       solver: topDown ? 'hierarchicalRepulsion' : 'forceAtlas2Based',
       adaptiveTimestep: true,
       maxVelocity: 28,
@@ -2186,10 +2153,10 @@ function publicGraphOptions(graph = {}) {
         damping: 0.42,
       },
       stabilization: {
-        enabled: true,
+        enabled: false,
         iterations: 45,
         updateInterval: 10,
-        fit: true,
+        fit: false,
       },
     },
     interaction: {
