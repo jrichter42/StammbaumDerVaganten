@@ -104,7 +104,7 @@ final class Storage
     /**
      * @return array<string, mixed>
      */
-    public function status(string $access = 'public'): array
+    public function status(string $access = 'public', bool $includeCounts = true): array
     {
         $this->assertAccess($access);
 
@@ -114,7 +114,7 @@ final class Storage
             'exists' => is_dir($this->dataPath()),
             'writable' => is_writable($this->dataPath()),
             'runtime_writable' => is_writable($this->varPath()),
-            'collections' => $this->counts(),
+            'collections' => $includeCounts ? $this->counts() : [],
             'schemas' => $this->schemas($access),
         ];
     }

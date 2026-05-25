@@ -256,6 +256,7 @@ let publicGraphSignature = '';
 let contextNetwork = null;
 let contextGraphSignature = '';
 let contextGraphFrame = 0;
+let contextGraphTimer = 0;
 let contextGraphNodeIds = new Set();
 let contextGraphEdgeTargets = new Map();
 let contextGraphEdges = [];
@@ -263,7 +264,7 @@ let contextHighlightedNodeId = '';
 let contextHighlightedEdgeId = '';
 let contextHighlightedListKey = '';
 let contextResizeActive = false;
-let contextPanelRatio = null;
+let contextPanelRatio = 0.4;
 let treeGraphFrame = 0;
 if (urlSetup) {
   setupInput.value = urlSetup;
@@ -313,8 +314,8 @@ document.addEventListener('change', handleReferencePickerChange);
 document.addEventListener('change', handleObjectChange);
 document.addEventListener('focusout', handleObjectBlur);
 document.addEventListener('focusin', handleEditorFocus);
-document.addEventListener('input', scheduleContextGraphRender);
-document.addEventListener('change', scheduleContextGraphRender);
+document.addEventListener('input', scheduleContextGraphRenderSoon);
+document.addEventListener('change', scheduleContextGraphRenderSoon);
 contentArea?.addEventListener('scroll', updateBackToTopButton, { passive: true });
 backToTopButton?.addEventListener('click', scrollBackToTop);
 contextResizer?.addEventListener('pointerdown', beginContextResize);
@@ -415,14 +416,22 @@ function contextSplitMetrics() {
     return null;
   }
 
-  const minLeft = Math.min(300, total * 0.48);
-  const minRight = Math.min(280, total - minLeft);
+  const wantedMinLeft = contextContentMinWidth();
+  const wantedMinRight = 280;
+  const minRight = Math.min(wantedMinRight, total * 0.45);
+  const minLeft = Math.min(wantedMinLeft, Math.max(0, total - minRight));
   return {
     left: contentRect.left,
     total,
     minLeft,
     minRight,
   };
+}
+
+function contextContentMinWidth() {
+  const view = document.querySelector('.view.is-active');
+  const hasObjectEditor = Boolean(view?.querySelector('.object-editor-layout.has-side'));
+  return hasObjectEditor ? 520 : 300;
 }
 
 function scheduleContextGraphResize() {
@@ -1028,10 +1037,14 @@ async function refresh() {
   clearAuthMessage();
 
   try {
-    state.status = await getJson('api.php?action=status');
+    state.status = await getJson('api.php?action=status&counts=0');
     renderShell();
 
     const user = state.status.auth?.user || null;
+    if (!user) {
+      state.status = await getJson('api.php?action=status');
+      renderShell();
+    }
     await loadObjects();
 
     if (hasPermission('manage_users')) {
@@ -1279,7 +1292,7 @@ function syncReferenceState() {
 }
 
 async function reloadObjectData() {
-  state.status = await getJson('api.php?action=status');
+  state.status = await getJson('api.php?action=status&counts=0');
   renderShell();
   if (canAccessObjects()) {
     await loadObjects();
@@ -1530,7 +1543,7 @@ function render() {
   renderObjectCollections();
   renderUsersManagement();
   applyDeepLinkTarget();
-  renderContextGraph();
+  scheduleContextGraphRender();
 }
 
 function renderTreeGraph() {
@@ -1670,6 +1683,11 @@ function setTreeGraphStatus(status, text) {
 }
 
 function scheduleContextGraphRender() {
+  if (contextGraphTimer) {
+    window.clearTimeout(contextGraphTimer);
+    contextGraphTimer = 0;
+  }
+
   if (contextGraphFrame) {
     return;
   }
@@ -1678,6 +1696,17 @@ function scheduleContextGraphRender() {
     contextGraphFrame = 0;
     renderContextGraph();
   });
+}
+
+function scheduleContextGraphRenderSoon() {
+  if (contextGraphTimer) {
+    window.clearTimeout(contextGraphTimer);
+  }
+
+  contextGraphTimer = window.setTimeout(() => {
+    contextGraphTimer = 0;
+    scheduleContextGraphRender();
+  }, 180);
 }
 
 function renderContextGraph() {
@@ -1704,7 +1733,7 @@ function renderContextGraph() {
   const graph = contextGraphData();
   if (!graph.nodes.length) {
     destroyContextGraph();
-    setTreeGraphStatus(contextGraphStatus, 'Kein Kontext.');
+    setTreeGraphStatus(contextGraphStatus, graph.status || 'Kein Kontext.');
     return;
   }
 
@@ -3554,7 +3583,10 @@ function sortDirectionLabel(direction) {
 }
 
 function renderObjectCollections() {
-  objectCollections.forEach(renderObjectCollection);
+  const view = currentViewName();
+  if (objectCollections.includes(view)) {
+    renderObjectCollection(view);
+  }
 }
 
 function renderObjectCollection(type) {
@@ -3579,6 +3611,7 @@ function renderObjectCollection(type) {
     : '';
   list.innerHTML = renderObjectListItems(type, visibleObjects) + more
     || `<div class="empty-state">${sourceObjects.length ? 'Keine Treffer.' : `Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.`}</div>`;
+  applyContextSplitRatio();
   scheduleContextGraphRender();
 }
 

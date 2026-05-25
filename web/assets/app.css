@@ -1562,13 +1562,13 @@ button.object-title-row:focus-visible::before {
 
 .object-editor {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
   gap: 12px;
   padding: 12px 0 0;
 }
 
 .object-editor-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 280px);
   align-items: start;
 }
 
@@ -1579,7 +1579,7 @@ button.object-title-row:focus-visible::before {
 .object-editor-main,
 .object-editor-relations {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
   gap: 12px;
   min-width: 0;
 }
@@ -1665,6 +1665,7 @@ button.object-title-row:focus-visible::before {
 .object-field select,
 .object-field textarea {
   width: 100%;
+  min-width: 0;
   min-height: 36px;
   padding: 7px 9px;
   border: 1px solid var(--line);

@@ -97,6 +97,7 @@ try {
             Http::requireMethod('GET');
             $authStatus = $auth->status();
             $access = object_access($auth);
+            $includeCounts = ($_GET['counts'] ?? '1') !== '0';
             Http::json([
                 'ok' => true,
                 'app' => [
@@ -108,7 +109,7 @@ try {
                 ],
                 'auth' => $authStatus,
                 'webauthn' => $webauthn->publicContext(),
-                'storage' => $storage->status($access),
+                'storage' => $storage->status($access, $includeCounts),
             ]);
             break;
 
