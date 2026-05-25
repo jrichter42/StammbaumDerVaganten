@@ -2866,7 +2866,7 @@ function publicGraphOptions(graph = {}) {
     },
     groups: {
       focus: {
-        color: { border: '#ffd208', background: '#2a2711' },
+        color: { border: '#ffff00', background: '#2a2711' },
         font: { color: '#fff2a6', bold: true },
         borderWidth: 2,
         shapeProperties: { borderRadius: 8 },
