@@ -6922,7 +6922,7 @@ function referenceOptionConfigForSelect(select, currentValue = '') {
     config.parentGroupTypeId = groupTypeParentGroupTypeId(findReferenceObject('group-types', groupTypeId));
     config.requireParentGroupType = true;
     config.strictReferenceScope = true;
-    if (groupPhaseEditor?.dataset.newGroupPhase === '1') {
+    if (groupPhaseEditor?.dataset.newGroupPhase === '1' || !currentValue) {
       config.defaultValue = defaultParentGroupForPhase(groupTypeId, config.excludeGroupId);
     }
   }
