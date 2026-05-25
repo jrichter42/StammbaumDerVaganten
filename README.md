@@ -91,6 +91,7 @@ Person ..|> Datapoint
 
 class Membership {
   +UUID group
+  %% If unset: Permanent Membership for entire period of group
   +Period period
 }
 Membership ..|> Datapoint
@@ -98,6 +99,7 @@ Membership ..|> Datapoint
 class Activity {
   +UUID role
   +UUID group
+  %% If unset: Permanent Activty for entire period of applicable group phase(s)
   +Period period
 }
 Activity ..|> Datapoint
