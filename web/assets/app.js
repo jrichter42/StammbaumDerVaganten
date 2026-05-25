@@ -1788,9 +1788,9 @@ function graphPhysicsOptions(graph) {
     maxVelocity: 18,
     minVelocity: 0.22,
     forceAtlas2Based: {
-      gravitationalConstant: -200,
-      centralGravity: 0.075,
-      springLength: 1000,
+      gravitationalConstant: -100,
+      centralGravity: 0.0075,
+      springLength: 100,
       springConstant: 0.01,
       damping: 0.5,
       avoidOverlap: 0.95,
