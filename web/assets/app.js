@@ -7510,7 +7510,7 @@ async function flushObjectEdit(item, force) {
       scheduleObjectSave(item, 900);
     }
   } catch (error) {
-    handleObjectSaveError(item, error);
+    await handleObjectSaveError(item, error);
   } finally {
     item.dataset.saving = '';
   }
@@ -7535,6 +7535,8 @@ async function createObjectFromForm(form) {
   } catch (error) {
     if (isPermissionDeniedError(error)) {
       showPermissionDeniedToast(error);
+      await reloadObjectData();
+      return false;
     }
     setCreateState(form, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'), true);
     return false;
@@ -7779,7 +7781,7 @@ async function deleteObject(item) {
     delete state.relationshipEditing[objectKey(type, id)];
     await reloadObjectData();
   } catch (error) {
-    handleObjectSaveError(item, error);
+    await handleObjectSaveError(item, error);
   }
 }
 
@@ -8497,9 +8499,11 @@ function updateCompositeRowSummaries(item, type, object) {
   });
 }
 
-function handleObjectSaveError(item, error) {
+async function handleObjectSaveError(item, error) {
   if (isPermissionDeniedError(error)) {
     showPermissionDeniedToast(error);
+    await reloadObjectData();
+    return;
   }
 
   if (error.status === 409 && error.payload?.current) {
