@@ -16,6 +16,14 @@ final class Config
             'name' => 'Stammbaum der Vaganten',
             'timezone' => 'UTC',
             'show_warnings' => true,
+            'auth' => [],
+            'mail' => [
+                'enabled' => false,
+                'from_address' => '',
+                'from_name' => 'Stammbaum der Vaganten',
+                'reply_to' => '',
+                'login_subject' => 'Login-Link für Stammbaum der Vaganten',
+            ],
         ];
 
         if (!is_file($path)) {
@@ -37,7 +45,7 @@ final class Config
             throw new RuntimeException('Config root must be a JSON object.');
         }
 
-        $config = array_replace($defaults, $config);
+        $config = array_replace_recursive($defaults, $config);
         $config['show_warnings'] = (bool) $config['show_warnings'];
         $config['warnings'] = [];
 
@@ -57,6 +65,29 @@ final class Config
         } else {
             $config['auth']['base_url'] = $baseUrl;
         }
+
+        $mail = is_array($config['mail'] ?? null) ? $config['mail'] : $defaults['mail'];
+        $mail['enabled'] = (bool) ($mail['enabled'] ?? false);
+        foreach (['from_address', 'from_name', 'reply_to', 'login_subject'] as $key) {
+            $mail[$key] = is_string($mail[$key] ?? null)
+                ? trim(str_replace(["\r", "\n"], '', $mail[$key]))
+                : '';
+        }
+
+        if ($mail['login_subject'] === '') {
+            $mail['login_subject'] = $defaults['mail']['login_subject'];
+        }
+
+        if ($mail['enabled'] && filter_var($mail['from_address'], FILTER_VALIDATE_EMAIL) === false) {
+            $config['warnings'][] = 'mail.from_address must be a valid email address before login links can be sent.';
+        }
+
+        if ($mail['reply_to'] !== '' && filter_var($mail['reply_to'], FILTER_VALIDATE_EMAIL) === false) {
+            $config['warnings'][] = 'mail.reply_to is not a valid email address and will be ignored.';
+            $mail['reply_to'] = '';
+        }
+
+        $config['mail'] = $mail;
 
         return $config;
     }

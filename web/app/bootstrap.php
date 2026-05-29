@@ -4,6 +4,7 @@ declare(strict_types=1);
 use Stammbaum\Config;
 use Stammbaum\AuthStore;
 use Stammbaum\Http;
+use Stammbaum\Mailer;
 use Stammbaum\Storage;
 
 define('STAMMBAUM_BASE_PATH', dirname(__DIR__));
@@ -33,10 +34,12 @@ Http::configureSession();
 $storage = new Storage(STAMMBAUM_BASE_PATH);
 $storage->ensureStructure();
 $auth = new AuthStore(STAMMBAUM_BASE_PATH, $config);
+$mailer = new Mailer($config);
 
 return [
     'config' => $config,
     'storage' => $storage,
     'auth' => $auth,
+    'mailer' => $mailer,
     'version' => STAMMBAUM_VERSION,
 ];

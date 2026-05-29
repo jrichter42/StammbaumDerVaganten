@@ -14,10 +14,13 @@ final class AuthStore
     private string $usersPath;
     private string $tokensPath;
     private string $challengesPath;
+    private string $loginLinksPath;
     private string $auditPath;
     private string $bootstrapPath;
     private string $initialAdminUsername = 'admin';
     private ?string $baseUrl = null;
+    private int $loginLinkTtlSeconds = 600;
+    private bool $emailLoginAvailable = false;
 
     /**
      * @param array<string, mixed> $config
@@ -28,6 +31,7 @@ final class AuthStore
         $this->usersPath = $this->authPath . '/users.json';
         $this->tokensPath = $this->authPath . '/setup_tokens.json';
         $this->challengesPath = $this->authPath . '/challenges.json';
+        $this->loginLinksPath = $this->authPath . '/login_links.json';
         $this->auditPath = $this->authPath . '/audit.jsonl';
         $this->bootstrapPath = rtrim($basePath, '/\\') . '/bootstrap_setup.txt';
         $this->configureInitialAdmin($config);
@@ -57,7 +61,7 @@ final class AuthStore
     public function listUsers(): array
     {
         $data = $this->readJson($this->usersPath, $this->defaultUsers());
-        $users = array_map(fn (array $user): array => $this->publicUser($user), $data['users'] ?? []);
+        $users = array_map(fn (array $user): array => $this->accountUser($user), $data['users'] ?? []);
 
         usort($users, static function (array $left, array $right): int {
             $leftName = (string) ($left['username'] ?: $left['display_name']);
@@ -72,14 +76,15 @@ final class AuthStore
      * @param array<int, string> $permissions
      * @return array<string, mixed>
      */
-    public function createUser(string $username, string $displayName, array $permissions, ?string $createdBy): array
+    public function createUser(string $username, string $displayName, array $permissions, ?string $createdBy, string $email = ''): array
     {
         $username = $this->normalizeUsername($username, false);
         $displayName = trim($displayName);
+        $email = $this->normalizeEmail($email, true);
         $permissions = $this->normalizePermissions($permissions);
         $now = $this->now();
 
-        return $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username, $displayName, $permissions, $createdBy, $now): array {
+        return $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username, $displayName, $email, $permissions, $createdBy, $now): array {
             if ($username !== '') {
                 $this->assertUsernameAvailable($data, $username, null);
             }
@@ -87,6 +92,7 @@ final class AuthStore
             $user = [
                 'username' => $username,
                 'display_name' => $displayName,
+                'email' => $email,
                 'enabled' => true,
                 'permissions' => $permissions,
                 'user_handle' => Base64Url::encode(random_bytes(32)),
@@ -107,9 +113,10 @@ final class AuthStore
      * @param array<string, mixed> $patch
      * @return array<string, mixed>
      */
-    public function updateUser(string $username, array $patch, ?string $updatedBy): array
+    public function updateUser(string $username, array $patch, ?string $updatedBy, bool $allowEmail = false, bool $includeEmail = false): array
     {
-        return $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username, $patch, $updatedBy): array {
+        $emailChanged = false;
+        $updated = $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username, $patch, $updatedBy, $allowEmail, $includeEmail, &$emailChanged): array {
             $index = $this->findUserIndex($data, $username);
             if ($index === null) {
                 throw new InvalidArgumentException('Unknown user.');
@@ -127,6 +134,12 @@ final class AuthStore
                 $user['display_name'] = trim((string) $patch['display_name']);
             }
 
+            if ($allowEmail && array_key_exists('email', $patch)) {
+                $newEmail = $this->normalizeEmail((string) $patch['email'], true);
+                $emailChanged = strcasecmp($newEmail, (string) ($user['email'] ?? '')) !== 0;
+                $user['email'] = $newEmail;
+            }
+
             if (array_key_exists('enabled', $patch)) {
                 $user['enabled'] = (bool) $patch['enabled'];
             }
@@ -139,8 +152,60 @@ final class AuthStore
             $user['updated_by'] = $updatedBy;
             $data['users'][$index] = $user;
 
-            return [$data, $this->publicUser($user)];
+            return [$data, $includeEmail ? $this->accountUser($user) : $this->publicUser($user)];
         });
+
+        if ($emailChanged) {
+            $this->revokeLoginLinksForUser((string) ($updated['username'] ?? $username), $updatedBy);
+        }
+
+        return $updated;
+    }
+
+    /**
+     * @param array<string, mixed> $patch
+     * @return array<string, mixed>
+     */
+    public function updateAccount(string $username, array $patch): array
+    {
+        $allowedPatch = [];
+        if (array_key_exists('display_name', $patch)) {
+            $allowedPatch['display_name'] = $patch['display_name'];
+        }
+        if (array_key_exists('email', $patch)) {
+            $allowedPatch['email'] = $patch['email'];
+        }
+
+        return $this->updateUser($username, $allowedPatch, $username, true, true);
+    }
+
+    /**
+     * @return array{user: array<string, mixed>, passkeys: array<int, array<string, mixed>>}
+     */
+    public function account(string $username): array
+    {
+        $user = $this->findUserByUsername($username);
+        if ($user === null || !($user['enabled'] ?? false)) {
+            throw new InvalidArgumentException('Unknown user.');
+        }
+
+        return [
+            'user' => $this->accountUser($user),
+            'passkeys' => $this->publicCredentials(is_array($user['credentials'] ?? null) ? $user['credentials'] : []),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function userForPasskeyRegistration(string $username): array
+    {
+        $user = $this->findUserByUsername($username);
+        if ($user === null || !($user['enabled'] ?? false)) {
+            throw new InvalidArgumentException('Unknown user.');
+        }
+
+        return $user;
     }
 
     public function deleteUser(string $username, string $deletedBy): array
@@ -173,6 +238,7 @@ final class AuthStore
         });
 
         $this->revokeSetupTokensForUser($username, $deletedBy);
+        $this->revokeLoginLinksForUser($username, $deletedBy);
         $this->appendAudit('user_deleted', ['username' => $username, 'deleted_by' => $deletedBy]);
         return $deleted;
     }
@@ -245,6 +311,54 @@ final class AuthStore
 
             throw new InvalidArgumentException('Unknown passkey.');
         });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function deleteCredential(string $username, string $credentialId): array
+    {
+        $credentialId = trim($credentialId);
+        if ($credentialId === '') {
+            throw new InvalidArgumentException('Passkey ID is required.');
+        }
+
+        $deleted = $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username, $credentialId): array {
+            $index = $this->findUserIndex($data, $username);
+            if ($index === null) {
+                throw new InvalidArgumentException('Unknown user.');
+            }
+
+            $user = $data['users'][$index];
+            $credentials = is_array($user['credentials'] ?? null) ? $user['credentials'] : [];
+            $deletedCredential = null;
+            $remaining = [];
+            foreach ($credentials as $credential) {
+                if (($credential['id'] ?? '') === $credentialId) {
+                    $deletedCredential = $credential;
+                    continue;
+                }
+
+                $remaining[] = $credential;
+            }
+
+            if ($deletedCredential === null) {
+                throw new InvalidArgumentException('Unknown passkey.');
+            }
+
+            if ($remaining === [] && !$this->hasEmailLoginFallback($user)) {
+                throw new InvalidArgumentException('At least one login method must remain.');
+            }
+
+            $data['users'][$index]['credentials'] = $remaining;
+            $data['users'][$index]['updated_at'] = $this->now();
+            $data['users'][$index]['updated_by'] = $username;
+
+            return [$data, $this->publicCredential($deletedCredential)];
+        });
+
+        $this->appendAudit('passkey_deleted', ['username' => $username, 'credential_id' => $credentialId]);
+        return $deleted;
     }
 
     /**
@@ -481,6 +595,142 @@ final class AuthStore
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function createEmailLoginLink(string $email): ?array
+    {
+        $email = $this->normalizeEmail($email, false);
+        $user = $this->findUserByEmail($email);
+        if ($user === null || !($user['enabled'] ?? false)) {
+            return null;
+        }
+
+        $username = (string) $user['username'];
+        $token = Base64Url::encode(random_bytes(32));
+        $now = $this->now();
+        $expiresAt = gmdate('Y-m-d\TH:i:s\Z', time() + $this->loginLinkTtlSeconds);
+        $row = [
+            'id' => $this->randomId('login'),
+            'username' => $username,
+            'email' => $email,
+            'token_hash' => hash('sha256', $token),
+            'created_at' => $now,
+            'expires_at' => $expiresAt,
+            'consumed_at' => null,
+            'revoked_at' => null,
+            'revoked_by' => null,
+        ];
+
+        $link = $this->updateJson($this->loginLinksPath, $this->defaultLoginLinks(), function (array $data) use ($row, $token, $user): array {
+            $data['links'] = array_values(array_filter($data['links'] ?? [], function (array $link): bool {
+                return $this->isRetainedLoginLink($link);
+            }));
+
+            foreach ($data['links'] as $existing) {
+                if (strcasecmp((string) ($existing['username'] ?? ''), (string) $row['username']) === 0
+                    && $this->isActiveLoginLink($existing)) {
+                    return [$data, [
+                        'created' => false,
+                        'id' => (string) ($existing['id'] ?? ''),
+                        'username' => (string) ($existing['username'] ?? ''),
+                        'email' => (string) ($existing['email'] ?? ''),
+                        'expires_at' => $existing['expires_at'] ?? null,
+                        'user' => $this->publicUser($user),
+                    ]];
+                }
+            }
+
+            $data['links'][] = $row;
+            return [$data, [
+                'created' => true,
+                'id' => $row['id'],
+                'username' => $row['username'],
+                'email' => $row['email'],
+                'token' => $token,
+                'login_url' => $this->loginUrl($token),
+                'expires_at' => $row['expires_at'],
+                'user' => $this->publicUser($user),
+            ]];
+        });
+
+        if (($link['created'] ?? false) === true) {
+            $this->appendAudit('email_login_link_created', ['username' => $username]);
+        }
+
+        return $link;
+    }
+
+    public function revokeEmailLoginLink(string $linkId, ?string $revokedBy): void
+    {
+        if (trim($linkId) === '') {
+            return;
+        }
+
+        $this->updateJson($this->loginLinksPath, $this->defaultLoginLinks(), function (array $data) use ($linkId, $revokedBy): array {
+            foreach (($data['links'] ?? []) as $index => $link) {
+                if (($link['id'] ?? '') === $linkId && $this->isActiveLoginLink($link)) {
+                    $data['links'][$index]['revoked_at'] = $this->now();
+                    $data['links'][$index]['revoked_by'] = $revokedBy;
+                }
+            }
+
+            return [$data, null];
+        });
+    }
+
+    private function revokeLoginLinksForUser(string $username, ?string $revokedBy): void
+    {
+        $this->updateJson($this->loginLinksPath, $this->defaultLoginLinks(), function (array $data) use ($username, $revokedBy): array {
+            foreach (($data['links'] ?? []) as $index => $link) {
+                if (strcasecmp((string) ($link['username'] ?? ''), $username) === 0 && $this->isActiveLoginLink($link)) {
+                    $data['links'][$index]['revoked_at'] = $this->now();
+                    $data['links'][$index]['revoked_by'] = $revokedBy;
+                }
+            }
+
+            return [$data, null];
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function consumeEmailLoginToken(string $input): array
+    {
+        $input = trim($input);
+        if ($input === '') {
+            throw new InvalidArgumentException('Login link is required.');
+        }
+
+        $tokenHash = hash('sha256', $input);
+        $username = $this->updateJson($this->loginLinksPath, $this->defaultLoginLinks(), function (array $data) use ($tokenHash): array {
+            foreach (($data['links'] ?? []) as $index => $link) {
+                if (!$this->isActiveLoginLink($link)) {
+                    continue;
+                }
+
+                if (!hash_equals((string) ($link['token_hash'] ?? ''), $tokenHash)) {
+                    continue;
+                }
+
+                $data['links'][$index]['consumed_at'] = $this->now();
+                return [$data, (string) ($link['username'] ?? '')];
+            }
+
+            throw new InvalidArgumentException('Login link is not valid.');
+        });
+
+        $user = $this->findUserByUsername($username);
+        if ($user === null || !($user['enabled'] ?? false)) {
+            throw new InvalidArgumentException('Login link is not valid.');
+        }
+
+        $loggedIn = $this->loginUser((string) $user['username']);
+        $this->appendAudit('email_login', ['username' => $loggedIn['username']]);
+        return $loggedIn;
+    }
+
+    /**
      * @param array<string, mixed> $context
      * @return array<string, string>
      */
@@ -570,6 +820,7 @@ final class AuthStore
         $this->ensureJsonFile($this->usersPath, $this->defaultUsers());
         $this->ensureJsonFile($this->tokensPath, $this->defaultTokens());
         $this->ensureJsonFile($this->challengesPath, $this->defaultChallenges());
+        $this->ensureJsonFile($this->loginLinksPath, $this->defaultLoginLinks());
     }
 
     /**
@@ -588,6 +839,15 @@ final class AuthStore
         if (is_string($authConfig['base_url'] ?? null) && trim($authConfig['base_url']) !== '') {
             $this->baseUrl = rtrim(trim($authConfig['base_url']), '/');
         }
+
+        if (is_numeric($authConfig['login_link_ttl_seconds'] ?? null)) {
+            $this->loginLinkTtlSeconds = max(60, min(3600, (int) $authConfig['login_link_ttl_seconds']));
+        }
+
+        $mailConfig = is_array($config['mail'] ?? null) ? $config['mail'] : [];
+        $this->emailLoginAvailable = (bool) ($mailConfig['enabled'] ?? false)
+            && is_string($mailConfig['from_address'] ?? null)
+            && filter_var($mailConfig['from_address'], FILTER_VALIDATE_EMAIL) !== false;
     }
 
     private function ensureBootstrapUser(): void
@@ -646,6 +906,15 @@ final class AuthStore
         return $this->baseUrl . '/?setup=' . rawurlencode($token);
     }
 
+    private function loginUrl(string $token): string
+    {
+        if ($this->baseUrl === null) {
+            throw new RuntimeException('auth.base_url must be configured before login links can be generated.');
+        }
+
+        return $this->baseUrl . '/?login=' . rawurlencode($token);
+    }
+
     /**
      * @return array<string, mixed>|null
      */
@@ -654,6 +923,23 @@ final class AuthStore
         $data = $this->readJson($this->usersPath, $this->defaultUsers());
         $index = $this->findUserIndex($data, $username);
         return $index === null ? null : $data['users'][$index];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findUserByEmail(string $email): ?array
+    {
+        $needle = strtolower($this->normalizeEmail($email, false));
+        $data = $this->readJson($this->usersPath, $this->defaultUsers());
+        foreach (($data['users'] ?? []) as $user) {
+            $candidate = strtolower(trim((string) ($user['email'] ?? '')));
+            if ($candidate !== '' && hash_equals($candidate, $needle)) {
+                return $user;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -709,6 +995,44 @@ final class AuthStore
     }
 
     /**
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    private function accountUser(array $user): array
+    {
+        return $this->publicUser($user) + [
+            'email' => (string) ($user['email'] ?? ''),
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $credentials
+     * @return array<int, array<string, mixed>>
+     */
+    private function publicCredentials(array $credentials): array
+    {
+        return array_map(fn (array $credential): array => $this->publicCredential($credential), $credentials);
+    }
+
+    /**
+     * @param array<string, mixed> $credential
+     * @return array<string, mixed>
+     */
+    private function publicCredential(array $credential): array
+    {
+        return [
+            'id' => (string) ($credential['id'] ?? ''),
+            'created_at' => $credential['created_at'] ?? null,
+            'last_used_at' => $credential['last_used_at'] ?? null,
+            'transports' => array_values(array_filter(
+                is_array($credential['transports'] ?? null) ? $credential['transports'] : [],
+                'is_string'
+            )),
+            'client_origin' => is_string($credential['client_origin'] ?? null) ? $credential['client_origin'] : '',
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $token
      * @return array<string, mixed>
      */
@@ -740,6 +1064,20 @@ final class AuthStore
         }
 
         return $username;
+    }
+
+    private function normalizeEmail(string $email, bool $allowEmpty): string
+    {
+        $email = strtolower(trim($email));
+        if ($email === '' && $allowEmpty) {
+            return '';
+        }
+
+        if ($email === '' || strlen($email) > 254 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            throw new InvalidArgumentException('Invalid email address.');
+        }
+
+        return $email;
     }
 
     /**
@@ -782,6 +1120,14 @@ final class AuthStore
     private function defaultChallenges(): array
     {
         return ['schema_version' => 2, 'challenges' => []];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultLoginLinks(): array
+    {
+        return ['schema_version' => 1, 'links' => []];
     }
 
     /**
@@ -889,6 +1235,47 @@ final class AuthStore
             && is_string($challenge['expires_at'] ?? null)
             && strtotime($challenge['expires_at']) !== false
             && strtotime($challenge['expires_at']) > time();
+    }
+
+    /**
+     * @param array<string, mixed> $link
+     */
+    private function isActiveLoginLink(array $link): bool
+    {
+        return ($link['consumed_at'] ?? null) === null
+            && ($link['revoked_at'] ?? null) === null
+            && is_string($link['expires_at'] ?? null)
+            && strtotime($link['expires_at']) !== false
+            && strtotime($link['expires_at']) > time();
+    }
+
+    /**
+     * @param array<string, mixed> $link
+     */
+    private function isRetainedLoginLink(array $link): bool
+    {
+        if ($this->isActiveLoginLink($link)) {
+            return true;
+        }
+
+        $createdAt = strtotime((string) ($link['created_at'] ?? ''));
+        return $createdAt !== false && $createdAt > time() - 86400;
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     */
+    private function hasEmailLoginFallback(array $user): bool
+    {
+        if (!$this->emailLoginAvailable) {
+            return false;
+        }
+
+        try {
+            return $this->normalizeEmail((string) ($user['email'] ?? ''), true) !== '';
+        } catch (InvalidArgumentException $exception) {
+            return false;
+        }
     }
 
     /**

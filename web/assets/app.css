@@ -369,6 +369,27 @@ h3 {
   color: var(--brand-ink);
 }
 
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid rgba(var(--brand-rgb), 0.28);
+  border-radius: 8px;
+  color: var(--brand-strong);
+  background: rgba(var(--brand-rgb), 0.12);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  color: var(--brand-ink);
+  background: var(--brand-hover);
+}
+
 .button-subtle {
   min-height: 30px;
   padding: 5px 9px;
@@ -451,6 +472,24 @@ h3 {
   background: var(--surface-muted);
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+.user-pill {
+  gap: 6px;
+}
+
+.account-pill-action {
+  display: inline-flex;
+  align-items: center;
+  color: var(--brand-strong);
+  font-size: 0.95rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.account-pill-action:hover,
+.account-pill-action:focus-visible {
+  color: var(--text);
 }
 
 .version-chip {
@@ -769,6 +808,105 @@ h3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 18px;
+}
+
+.login-email-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 0 18px 18px;
+}
+
+.login-email-form .object-save-state {
+  grid-column: 1 / -1;
+}
+
+.account-page {
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--workspace-pad) var(--workspace-pad-left);
+}
+
+.account-layout {
+  display: grid;
+  gap: 14px;
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.account-toolbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.account-panel {
+  display: grid;
+  gap: 0;
+}
+
+.account-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-form .form-actions,
+.account-state {
+  grid-column: 1 / -1;
+}
+
+.account-static-value {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 0;
+  color: var(--text);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.account-passkey-section {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.account-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.account-passkeys {
+  display: grid;
+  gap: 10px;
+}
+
+.account-passkey {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.account-passkey div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.account-passkey small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .sidebar {
@@ -2543,6 +2681,15 @@ button.object-title-row:focus-visible::before {
 
   .auth-screen {
     width: min(100% - 28px, 860px);
+  }
+
+  .login-email-form,
+  .account-passkey {
+    grid-template-columns: 1fr;
+  }
+
+  .account-page {
+    padding-inline: 14px;
   }
 
   .sidebar {

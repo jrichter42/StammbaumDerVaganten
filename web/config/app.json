@@ -4,6 +4,14 @@
   "show_warnings": true,
   "auth": {
     "base_url": "https://stammbaumdervaganten.de",
+    "login_link_ttl_seconds": 600,
     "initial_admin_username": "admin"
+  },
+  "mail": {
+    "enabled": true,
+    "from_address": "noreply@stammbaumdervaganten.de",
+    "from_name": "Stammbaum der Vaganten",
+    "reply_to": "",
+    "login_subject": "Login-Link für Stammbaum der Vaganten"
   }
 }

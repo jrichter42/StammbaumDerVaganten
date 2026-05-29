@@ -13,6 +13,7 @@ Http::sendSecurityHeaders();
 $storage = $app['storage'];
 $config = $app['config'];
 $auth = $app['auth'];
+$mailer = $app['mailer'];
 $webauthn = WebAuthn::fromRequest($config);
 $version = $app['version'];
 $action = $_GET['action'] ?? 'status';
@@ -108,6 +109,9 @@ try {
                     'warnings' => $config['warnings'] !== [] ? $config['warnings'] : null,
                 ],
                 'auth' => $authStatus,
+                'mail' => [
+                    'login_enabled' => $mailer->isLoginEnabled(),
+                ],
                 'webauthn' => $webauthn->publicContext(),
                 'storage' => $storage->status($access, $includeCounts),
             ]);
@@ -222,6 +226,46 @@ try {
             Http::json(['ok' => true, 'user' => $user, 'csrf' => $auth->csrfToken()]);
             break;
 
+        case 'auth-email-login-request':
+            Http::requireMethod('POST');
+            $body = Http::readJsonBody();
+            if (!$mailer->isLoginEnabled()) {
+                Http::json(['ok' => false, 'error' => 'Email login is not configured.'], 400);
+            }
+
+            $email = trim((string) ($body['email'] ?? ''));
+            if ($email === '') {
+                Http::json(['ok' => false, 'error' => 'Email address is required.'], 400);
+            }
+
+            $link = $auth->createEmailLoginLink($email);
+            if ($link !== null && ($link['created'] ?? false) === true) {
+                $sent = $mailer->sendLoginLink(
+                    (string) ($link['email'] ?? $email),
+                    (string) (($link['user']['display_name'] ?? '') ?: ($link['user']['username'] ?? '')),
+                    (string) ($link['login_url'] ?? ''),
+                    (string) ($link['expires_at'] ?? '')
+                );
+                if (!$sent) {
+                    $auth->revokeEmailLoginLink((string) ($link['id'] ?? ''), 'mail_failed');
+                    error_log('Login email could not be sent.');
+                }
+            }
+
+            Http::json([
+                'ok' => true,
+                'message' => 'If the email address is registered, a login link was sent.',
+            ]);
+            break;
+
+        case 'auth-email-login-verify':
+            Http::requireMethod('POST');
+            $body = Http::readJsonBody();
+            $token = (string) ($body['token'] ?? $body['login'] ?? '');
+            $user = $auth->consumeEmailLoginToken($token);
+            Http::json(['ok' => true, 'user' => $user, 'csrf' => $auth->csrfToken()]);
+            break;
+
         case 'auth-register-options':
             Http::requireMethod('POST');
             $body = Http::readJsonBody();
@@ -274,6 +318,77 @@ try {
             Http::json(['ok' => true]);
             break;
 
+        case 'account':
+            Http::requireMethod('GET');
+            $user = require_user($auth);
+            Http::json(['ok' => true, 'account' => $auth->account((string) $user['username'])]);
+            break;
+
+        case 'account-update':
+            Http::requireMethod('POST');
+            $user = require_user($auth);
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $updated = $auth->updateAccount((string) $user['username'], $body);
+            Http::json([
+                'ok' => true,
+                'user' => $updated,
+                'account' => $auth->account((string) $updated['username']),
+            ]);
+            break;
+
+        case 'account-passkey-options':
+            Http::requireMethod('POST');
+            $user = require_user($auth);
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $registrationUser = $auth->userForPasskeyRegistration((string) $user['username']);
+            $challenge = $auth->createChallenge('account-register', [
+                'username' => (string) $registrationUser['username'],
+            ], 300);
+            Http::json([
+                'ok' => true,
+                'challenge_id' => $challenge['id'],
+                'publicKey' => $webauthn->registrationOptions(
+                    $challenge['challenge'],
+                    $registrationUser,
+                    is_array($registrationUser['credentials'] ?? null) ? $registrationUser['credentials'] : []
+                ),
+            ]);
+            break;
+
+        case 'account-passkey-verify':
+            Http::requireMethod('POST');
+            $user = require_user($auth);
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $challengeId = (string) ($body['challenge_id'] ?? '');
+            $credential = $body['credential'] ?? null;
+            if ($challengeId === '' || !is_array($credential)) {
+                Http::json(['ok' => false, 'error' => 'Missing registration response'], 400);
+            }
+
+            $challenge = $auth->consumeChallengeById('account-register', $challengeId);
+            $context = is_array($challenge['context'] ?? null) ? $challenge['context'] : [];
+            if (($context['username'] ?? '') !== ($user['username'] ?? '')) {
+                Http::json(['ok' => false, 'error' => 'Registration challenge did not match user'], 400);
+            }
+
+            $storedCredential = $webauthn->verifyRegistration($credential, (string) $challenge['challenge']);
+            $auth->addCredential((string) $user['username'], $storedCredential);
+            Http::json(['ok' => true, 'account' => $auth->account((string) $user['username'])]);
+            break;
+
+        case 'account-delete-passkey':
+            Http::requireMethod('POST');
+            $user = require_user($auth);
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $credentialId = (string) ($body['credential_id'] ?? '');
+            $auth->deleteCredential((string) $user['username'], $credentialId);
+            Http::json(['ok' => true, 'account' => $auth->account((string) $user['username'])]);
+            break;
+
         case 'admin-users':
             Http::requireMethod('GET');
             require_permission($auth, 'manage_users');
@@ -316,7 +431,7 @@ try {
                 Http::json(['ok' => false, 'error' => 'Username is required'], 400);
             }
 
-            $user = $auth->updateUser($username, $body, (string) $admin['username']);
+            $user = $auth->updateUser($username, $body, (string) $admin['username'], true, true);
             Http::json(['ok' => true, 'user' => $user]);
             break;
 

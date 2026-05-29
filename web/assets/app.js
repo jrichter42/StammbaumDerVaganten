@@ -202,6 +202,9 @@ const state = {
   users: [],
   setupTokens: [],
   setupResult: null,
+  account: null,
+  accountOpen: false,
+  loginOpen: false,
   createOpen: {},
   collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, sortExplicit: false }])),
   collectionVisibleCounts: Object.fromEntries(collectionTypes.map((type) => [type, collectionVisibleStep])),
@@ -217,12 +220,23 @@ const state = {
 
 const connectionStatus = document.querySelector('#connectionStatus');
 const currentUserLabel = document.querySelector('#currentUserLabel');
+const currentUserName = document.querySelector('#currentUserName');
+const accountButton = document.querySelector('#accountButton');
 const loginButton = document.querySelector('#loginButton');
 const logoutButton = document.querySelector('#logoutButton');
 const passkeyLoginButton = document.querySelector('#passkeyLoginButton');
+const loginPanel = document.querySelector('#loginPanel');
+const loginEmailForm = document.querySelector('#loginEmailForm');
+const loginEmailInput = document.querySelector('#loginEmailInput');
+const loginEmailState = document.querySelector('#loginEmailState');
 const authScreen = document.querySelector('#authScreen');
 const publicOverview = document.querySelector('#publicOverview');
 const workspace = document.querySelector('#workspace');
+const accountPage = document.querySelector('#accountPage');
+const accountForm = document.querySelector('#accountForm');
+const accountUsername = document.querySelector('#accountUsername');
+const accountState = document.querySelector('#accountState');
+const accountPasskeys = document.querySelector('#accountPasskeys');
 const authMessage = document.querySelector('#authMessage');
 const globalSearch = document.querySelector('#globalSearch');
 const globalSearchInput = document.querySelector('#globalSearchInput');
@@ -249,8 +263,11 @@ const contextGraphStatus = document.querySelector('#contextGraphStatus');
 const treeGroupTypeFilters = Array.from(document.querySelectorAll('[data-tree-group-type-filter]'));
 const treeGroupTypeClearButtons = Array.from(document.querySelectorAll('[data-tree-group-type-clear]'));
 
-const urlSetup = new URLSearchParams(window.location.search).get('setup');
+const initialUrlParams = new URLSearchParams(window.location.search);
+const urlSetup = initialUrlParams.get('setup');
+const urlLoginToken = initialUrlParams.get('login');
 let isSetupPage = Boolean(urlSetup);
+let isLoginLinkPage = Boolean(urlLoginToken);
 let publicNetwork = null;
 let publicGraphSignature = '';
 let contextNetwork = null;
@@ -285,8 +302,10 @@ document.querySelectorAll('[data-view]').forEach((button) => {
   });
 });
 
+accountButton?.addEventListener('click', openAccountPage);
 loginButton.addEventListener('click', beginLogin);
 passkeyLoginButton.addEventListener('click', beginLogin);
+loginEmailForm?.addEventListener('submit', requestEmailLoginLink);
 logoutButton.addEventListener('click', logout);
 globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
 sourceInput?.addEventListener('input', handleSourceInput);
@@ -295,6 +314,8 @@ sourceClearButton?.addEventListener('click', clearSourceOverride);
 treeGroupTypeFilters.forEach((filter) => filter.addEventListener('change', handlePublicGraphFilterChange));
 treeGroupTypeClearButtons.forEach((button) => button.addEventListener('click', clearPublicGraphFilter));
 setupForm.addEventListener('submit', beginSetup);
+accountForm?.addEventListener('submit', saveAccount);
+accountPage?.addEventListener('click', handleAccountClick);
 setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
 document.addEventListener('click', handleNavigationJump);
@@ -325,8 +346,34 @@ window.addEventListener('resize', scheduleContextGraphRender);
 window.addEventListener('resize', scheduleTreeGraphRender);
 
 updateBackToTopButton();
-refresh();
+initialize();
 window.setInterval(pollObjects, 12000);
+
+async function initialize() {
+  if (!urlLoginToken) {
+    await refresh();
+    return;
+  }
+
+  state.loginOpen = true;
+  clearAuthMessage();
+  try {
+    await postJson('auth-email-login-verify', { token: normalizeLoginTokenInput(urlLoginToken) });
+    state.loginOpen = false;
+    state.accountOpen = true;
+    isLoginLinkPage = false;
+    window.history.replaceState(null, '', `${window.location.pathname}?view=account`);
+    await refresh();
+    showAccountMessage('Login erfolgreich.', false);
+  } catch (error) {
+    console.error(error);
+    state.loginOpen = true;
+    isLoginLinkPage = false;
+    window.history.replaceState(null, '', window.location.pathname);
+    await refresh();
+    showAuthMessage(localizeErrorMessage(error.message || 'Login-Link ist ungültig.'), true);
+  }
+}
 
 function updateBackToTopButton() {
   if (!backToTopButton) {
@@ -456,6 +503,8 @@ function handleBeforeUnload(event) {
 }
 
 function activateView(viewName, urlExtra = {}) {
+  state.accountOpen = false;
+  state.loginOpen = false;
   if (workspace) {
     workspace.dataset.activeView = viewName;
   }
@@ -484,6 +533,11 @@ function restoreUrlState() {
 
   if (view === 'tree') {
     window.requestAnimationFrame(() => activateView('tree'));
+    return;
+  }
+
+  if (view === 'account') {
+    state.accountOpen = true;
     return;
   }
 
@@ -1041,6 +1095,14 @@ async function refresh() {
     renderShell();
 
     const user = state.status.auth?.user || null;
+    if (user && state.accountOpen) {
+      await loadAccount();
+      renderAccountPage();
+      const writable = Boolean(state.status.storage && state.status.storage.writable);
+      setConnection(writable ? 'Online' : 'Eingeloggt', writable ? 'is-online' : '');
+      return;
+    }
+
     if (!user) {
       state.status = await getJson('api.php?action=status');
       renderShell();
@@ -1068,24 +1130,33 @@ async function refresh() {
 
 function renderShell() {
   const user = state.status?.auth?.user || null;
-  authScreen.hidden = Boolean(user) || !isSetupPage;
-  publicOverview.hidden = Boolean(user) || isSetupPage;
-  workspace.hidden = !user;
+  const accountOpen = Boolean(user && state.accountOpen);
+  authScreen.hidden = Boolean(user) || (!isSetupPage && !state.loginOpen && !isLoginLinkPage);
+  publicOverview.hidden = Boolean(user) || isSetupPage || state.loginOpen || isLoginLinkPage;
+  workspace.hidden = !user || accountOpen;
+  if (accountPage) {
+    accountPage.hidden = !accountOpen;
+  }
   connectionStatus.hidden = !user;
   if (globalSearch) {
-    globalSearch.hidden = !user;
+    globalSearch.hidden = !user || accountOpen;
   }
   if (sourceControl) {
-    sourceControl.hidden = !user || !hasPermission('write');
+    sourceControl.hidden = !user || accountOpen || !hasPermission('write');
   }
   loginButton.hidden = Boolean(user);
   logoutButton.hidden = !user;
   currentUserLabel.hidden = !user;
-  passkeyLoginButton.closest('#loginPanel').hidden = true;
+  if (accountButton) {
+    accountButton.hidden = !user;
+  }
+  if (loginPanel) {
+    loginPanel.hidden = Boolean(user) || isSetupPage || (!state.loginOpen && !isLoginLinkPage);
+  }
   setupPanel.hidden = Boolean(user) || !isSetupPage;
 
   if (user) {
-    currentUserLabel.textContent = user.display_name || user.username || 'Eingeloggt';
+    currentUserName.textContent = user.display_name || user.username || 'Eingeloggt';
   }
   updateSourceControl();
 
@@ -1182,14 +1253,47 @@ function showBootstrapHint() {
   }
 }
 
+function openLoginPanel() {
+  state.loginOpen = true;
+  state.accountOpen = false;
+  clearAuthMessage();
+  clearLoginEmailState();
+  renderShell();
+  window.requestAnimationFrame(() => {
+    loginEmailInput?.focus();
+  });
+}
+
+async function requestEmailLoginLink(event) {
+  event.preventDefault();
+  clearAuthMessage();
+  const email = String(new FormData(loginEmailForm).get('email') || '').trim();
+  if (!email) {
+    showLoginEmailState('E-Mail-Adresse ist erforderlich.', true);
+    loginEmailInput?.focus();
+    return;
+  }
+
+  showLoginEmailState('Login-Link wird gesendet ...', false);
+  try {
+    await postJson('auth-email-login-request', { email });
+    showLoginEmailState('Wenn die Adresse registriert ist, wurde ein Login-Link gesendet.', false);
+  } catch (error) {
+    console.error(error);
+    showLoginEmailState(localizeErrorMessage(error.message || 'Login-Link konnte nicht gesendet werden.'), true);
+  }
+}
+
 async function beginLogin() {
   clearAuthMessage();
   if (!window.PublicKeyCredential) {
-    showAuthMessage('Dieser Browser unterstützt keine Passkeys.', true);
+    openLoginPanel();
+    showLoginEmailState('Dieser Browser unterstützt keine Passkeys. Du kannst stattdessen einen Login-Link anfordern.', true);
     return;
   }
   if (!window.isSecureContext) {
-    showAuthMessage('Passkeys benötigen HTTPS, außer auf lokalen Entwicklungs-Hosts.', true);
+    openLoginPanel();
+    showLoginEmailState('Passkeys benötigen HTTPS, außer auf lokalen Entwicklungs-Hosts. Du kannst stattdessen einen Login-Link anfordern.', true);
     return;
   }
 
@@ -1208,10 +1312,12 @@ async function beginLogin() {
       credential: credentialToJson(credential),
     });
 
+    state.loginOpen = false;
     await refresh();
   } catch (error) {
     console.error(error);
-    showAuthMessage(passkeyErrorMessage(error), true);
+    openLoginPanel();
+    showLoginEmailState(`${passkeyErrorMessage(error)} Du kannst stattdessen einen Login-Link anfordern.`, true);
   }
 }
 
@@ -1262,6 +1368,9 @@ async function logout() {
     await postJson('auth-logout');
   } finally {
     state.users = [];
+    state.account = null;
+    state.accountOpen = false;
+    state.loginOpen = false;
     state.sourceOverride = '';
     writeStoredSourceOverride('');
     clearObjects();
@@ -1303,7 +1412,7 @@ async function reloadObjectData() {
 }
 
 async function pollObjects() {
-  if (document.hidden || !canAccessObjects() || hasPendingObjectEdits()) {
+  if (document.hidden || state.accountOpen || !canAccessObjects() || hasPendingObjectEdits()) {
     return;
   }
 
@@ -1325,6 +1434,135 @@ async function loadManagedUsers() {
   state.setupTokens = response.setup_tokens || [];
   renderUsersManagement();
   renderNavigationCounts();
+}
+
+async function openAccountPage(event) {
+  event?.preventDefault();
+  if (!(await resolveOpenCreateFormBeforeSwitch())) {
+    return;
+  }
+
+  await closeOpenEditorsBeforeSwitch();
+  state.accountOpen = true;
+  state.loginOpen = false;
+  clearAuthMessage();
+  clearAccountMessage();
+  window.history.replaceState(null, '', `${window.location.pathname}?view=account`);
+  renderShell();
+  await loadAccount();
+}
+
+async function loadAccount() {
+  if (!state.status?.auth?.user) {
+    state.account = null;
+    renderAccountPage();
+    return;
+  }
+
+  const response = await getJson('api.php?action=account');
+  state.account = response.account || null;
+  if (state.account?.user && state.status?.auth) {
+    state.status.auth.user = state.account.user;
+  }
+  renderAccountPage();
+}
+
+async function saveAccount(event) {
+  event.preventDefault();
+  const formData = new FormData(accountForm);
+  showAccountMessage('Wird gespeichert ...', false);
+  try {
+    const response = await postJson('account-update', {
+      display_name: String(formData.get('display_name') || '').trim(),
+      email: String(formData.get('email') || '').trim(),
+    });
+    state.account = response.account || null;
+    if (response.user) {
+      state.status.auth.user = response.user;
+    }
+    renderShell();
+    renderAccountPage();
+    showAccountMessage('Gespeichert.', false);
+  } catch (error) {
+    console.error(error);
+    showAccountMessage(localizeErrorMessage(error.message || 'Benutzerkonto konnte nicht gespeichert werden.'), true);
+  }
+}
+
+async function handleAccountClick(event) {
+  if (!event.target.closest('[data-danger-confirm]')) {
+    resetDangerConfirmations();
+  }
+
+  const addButton = event.target.closest('[data-account-action="add-passkey"]');
+  if (addButton) {
+    await addAccountPasskey();
+    return;
+  }
+
+  const deleteButton = event.target.closest('[data-account-passkey-delete]');
+  if (!deleteButton) {
+    return;
+  }
+
+  if (!confirmDangerButton(deleteButton)) {
+    return;
+  }
+
+  try {
+    const response = await postJson('account-delete-passkey', {
+      credential_id: deleteButton.dataset.accountPasskeyDelete || '',
+    });
+    state.account = response.account || null;
+    if (state.account?.user && state.status?.auth) {
+      state.status.auth.user = state.account.user;
+    }
+    resetDangerConfirmations();
+    renderAccountPage();
+    showAccountMessage('Passkey gelöscht.', false);
+  } catch (error) {
+    console.error(error);
+    showAccountMessage(localizeErrorMessage(error.message || 'Passkey konnte nicht gelöscht werden.'), true);
+  }
+}
+
+async function addAccountPasskey() {
+  clearAccountMessage();
+  if (!window.PublicKeyCredential) {
+    showAccountMessage('Dieser Browser unterstützt keine Passkeys.', true);
+    return;
+  }
+  if (!window.isSecureContext) {
+    showAccountMessage('Passkeys benötigen HTTPS, außer auf lokalen Entwicklungs-Hosts.', true);
+    return;
+  }
+
+  showAccountMessage('Passkey wird erstellt ...', false);
+  try {
+    const options = await postJson('account-passkey-options');
+    const credential = await navigator.credentials.create({
+      publicKey: decodeCreationOptions(options.publicKey),
+    });
+
+    if (!credential) {
+      throw new Error('Das Passkey-Setup wurde abgebrochen.');
+    }
+
+    const response = await postJson('account-passkey-verify', {
+      challenge_id: options.challenge_id,
+      credential: credentialToJson(credential),
+    });
+
+    state.account = response.account || null;
+    if (state.account?.user && state.status?.auth) {
+      state.status.auth.user = state.account.user;
+    }
+    renderAccountPage();
+    showAccountMessage('Passkey hinzugefügt.', false);
+  } catch (error) {
+    console.error(error);
+    showAccountMessage(passkeyErrorMessage(error), true);
+  }
 }
 
 async function createUser(form) {
@@ -1438,9 +1676,11 @@ async function handleUserAction(event) {
       const permissions = Array.from(item.querySelectorAll('input[data-permission]:checked'))
         .map((input) => input.value);
       const displayName = item.querySelector('input[data-display-name]')?.value.trim() || '';
+      const email = item.querySelector('input[data-email]')?.value.trim() || '';
       await postJson('admin-update-user', {
         username,
         display_name: displayName,
+        email,
         permissions,
       });
       await reloadAfterUserChange(username);
@@ -2423,7 +2663,7 @@ function addPersonContext(graph, person, options = {}) {
     const group = findReferenceObject('groups', periodEntryGroupId(activity));
     const groupNode = addContextNode(graph, 'groups', group);
     placeRelationContextNode(graph, groupNode, options, 'activity', slot, activityEntries.length);
-    const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet';
+    const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivität';
     addContextEdge(graph, personNode, groupNode, [role, periodYearLabel(activity.period)].filter(Boolean).join('\n'), 'activity', {
       type: 'people',
       id: objectId(person),
@@ -2467,7 +2707,7 @@ function addGroupContext(graph, group, options = {}) {
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
       if (periodEntryGroupId(activity) === objectId(group)) {
         matched = true;
-        const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet';
+        const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivität';
         placeRelationContextNode(graph, personNode, options, 'activity', used, limit);
         addContextEdge(graph, personNode, groupNode, [role, periodYearLabel(activity.period)].filter(Boolean).join('\n'), 'activity', {
           type: 'people',
@@ -2516,7 +2756,7 @@ function addRoleContext(graph, role, options = {}) {
   roleGroupTypeIds(role).forEach((typeId, index) => {
     const typeNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', typeId));
     placeRelationContextNode(graph, typeNode, options, 'groupType', index, roleGroupTypeIds(role).length);
-    addContextEdge(graph, roleNode, typeNode, 'nutzbar fuer', 'type');
+    addContextEdge(graph, roleNode, typeNode, 'nutzbar für', 'type');
   });
 
   const limit = options.compact ? 5 : 18;
@@ -2583,7 +2823,7 @@ function addTimepointContext(graph, timepoint, options = {}) {
       used += 1;
       const personNode = addContextNode(graph, 'people', person);
       placeRelationContextNode(graph, personNode, options, 'activity', used - 1, limit);
-      addContextEdge(graph, personNode, timepointNode, objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivitaet', 'time', {
+      addContextEdge(graph, personNode, timepointNode, objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivität', 'time', {
         type: 'people',
         id: objectId(person),
         edit: `activities:${index}`,
@@ -8051,10 +8291,10 @@ function dateDetailActionAria(detail, target, isConfirming) {
   }
 
   if (dateDetailRank(target) < dateDetailRank(detail)) {
-    return `Datumsgenauigkeit ${targetLabel} bestaetigen`;
+    return `Datumsgenauigkeit ${targetLabel} bestätigen`;
   }
 
-  return `Datumsgenauigkeit ${targetLabel} auswaehlen`;
+  return `Datumsgenauigkeit ${targetLabel} auswählen`;
 }
 
 function referenceInputValue(value, collection, showIds = true) {
@@ -9119,6 +9359,45 @@ function structuredCloneSafe(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function renderAccountPage() {
+  if (!accountPage || !accountForm || !accountPasskeys) {
+    return;
+  }
+
+  const account = state.account || { user: state.status?.auth?.user || {}, passkeys: [] };
+  const user = account.user || {};
+  if (accountUsername) {
+    accountUsername.textContent = user.username || '';
+  }
+  accountForm.querySelector('input[name="display_name"]').value = user.display_name || '';
+  accountForm.querySelector('input[name="email"]').value = user.email || '';
+
+  const passkeys = Array.isArray(account.passkeys) ? account.passkeys : [];
+  accountPasskeys.innerHTML = passkeys.length
+    ? passkeys.map((passkey, index) => renderAccountPasskey(passkey, index)).join('')
+    : '<div class="empty-state">Keine Passkeys registriert.</div>';
+}
+
+function renderAccountPasskey(passkey, index) {
+  const title = `Passkey ${index + 1}`;
+  const meta = [
+    passkey.created_at ? `erstellt ${formatDateTime(passkey.created_at)}` : '',
+    passkey.last_used_at ? `zuletzt ${formatDateTime(passkey.last_used_at)}` : 'noch nicht verwendet',
+    Array.isArray(passkey.transports) && passkey.transports.length ? passkey.transports.join(', ') : '',
+    passkey.client_origin || '',
+  ].filter(Boolean).join(' / ');
+
+  return `
+    <article class="account-passkey">
+      <div>
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(meta)}</small>
+      </div>
+      <button class="button button-danger" type="button" data-account-passkey-delete="${escapeAttribute(passkey.id || '')}" data-danger-confirm>Löschen</button>
+    </article>
+  `;
+}
+
 function renderUsersManagement() {
   if (!hasPermission('manage_users')) {
     return;
@@ -9163,6 +9442,10 @@ function renderUserEditor(user) {
       <label class="object-field">
         <span>Anzeigename</span>
         <input data-display-name value="${escapeAttribute(user.display_name || '')}" placeholder="${escapeAttribute(user.username || '')}">
+      </label>
+      <label class="object-field">
+        <span>E-Mail-Adresse</span>
+        <input data-email type="email" value="${escapeAttribute(user.email || '')}" autocomplete="off">
       </label>
       <fieldset class="object-field users-permissions-field">
         <legend>Berechtigungen</legend>
@@ -9851,6 +10134,16 @@ function normalizeSetupInput(value) {
   }
 }
 
+function normalizeLoginTokenInput(value) {
+  const trimmed = String(value || '').trim();
+  try {
+    const url = new URL(trimmed, window.location.href);
+    return url.searchParams.get('login') || trimmed;
+  } catch (_error) {
+    return trimmed;
+  }
+}
+
 function passkeyErrorMessage(error) {
   if (error?.name === 'NotAllowedError') {
     return 'Die Passkey-Aktion wurde abgebrochen.';
@@ -9912,6 +10205,46 @@ function clearAuthMessage() {
   authMessage.className = 'message global-message';
 }
 
+function showLoginEmailState(text, isError) {
+  if (!loginEmailState) {
+    return;
+  }
+
+  loginEmailState.hidden = false;
+  loginEmailState.textContent = localizeErrorMessage(text);
+  loginEmailState.className = `object-save-state ${isError ? 'is-error' : 'is-good'}`;
+}
+
+function clearLoginEmailState() {
+  if (!loginEmailState) {
+    return;
+  }
+
+  loginEmailState.hidden = true;
+  loginEmailState.textContent = '';
+  loginEmailState.className = 'object-save-state';
+}
+
+function showAccountMessage(text, isError) {
+  if (!accountState) {
+    return;
+  }
+
+  accountState.hidden = false;
+  accountState.textContent = localizeErrorMessage(text);
+  accountState.className = `object-save-state account-state ${isError ? 'is-error' : 'is-good'}`;
+}
+
+function clearAccountMessage() {
+  if (!accountState) {
+    return;
+  }
+
+  accountState.hidden = true;
+  accountState.textContent = '';
+  accountState.className = 'object-save-state account-state';
+}
+
 function formatCount(value = 0, noun) {
   const count = Number(value || 0);
   const forms = countNouns[noun] || [noun, noun];
@@ -9938,6 +10271,15 @@ function localizeErrorMessage(text) {
     'Authentication required.': 'Login erforderlich.',
     'Invalid CSRF token.': 'Ungültiges CSRF-Token.',
     'Unknown user.': 'Unbekannter Benutzer.',
+    'Email address is required.': 'E-Mail-Adresse ist erforderlich.',
+    'Invalid email address.': 'Ungültige E-Mail-Adresse.',
+    'Email login is not configured.': 'E-Mail-Login ist nicht konfiguriert.',
+    'Login email could not be sent.': 'Login-Mail konnte nicht gesendet werden.',
+    'Login link is required.': 'Login-Link ist erforderlich.',
+    'Login link is not valid.': 'Login-Link ist ungültig oder abgelaufen.',
+    'Passkey ID is required.': 'Passkey-ID ist erforderlich.',
+    'At least one login method must remain.': 'Mindestens eine Login-Methode muss erhalten bleiben.',
+    'Registration challenge did not match user': 'Passkey-Anfrage passt nicht zum Benutzer.',
     'You cannot delete your own user.': 'Der eigene Benutzer kann nicht gelöscht werden.',
     'At least one user manager must remain.': 'Mindestens ein Benutzerverwalter muss bestehen bleiben.',
     'This passkey is already registered.': 'Dieser Passkey ist bereits registriert.',

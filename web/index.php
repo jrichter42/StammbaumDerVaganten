@@ -45,7 +45,10 @@ $configWarnings = array_map(
         </div>
         <div class="topbar-actions" aria-label="App-Status">
           <span class="status-pill" id="connectionStatus">Lädt</span>
-          <span class="status-pill" id="currentUserLabel" hidden></span>
+          <span class="status-pill user-pill" id="currentUserLabel" hidden>
+            <span id="currentUserName"></span>
+            <button class="period-toggle account-pill-action" id="accountButton" type="button" hidden aria-label="Benutzerkonto öffnen" title="Benutzerkonto öffnen">(⚙︎)</button>
+          </span>
           <button class="button button-secondary" id="loginButton" type="button" hidden>Login</button>
           <button class="button button-secondary" id="logoutButton" type="button" hidden>Logout</button>
         </div>
@@ -64,13 +67,23 @@ $configWarnings = array_map(
       <section class="auth-screen" id="authScreen" hidden>
         <div class="auth-layout">
           <section class="panel" id="loginPanel">
-            <div class="panel-header">
+            <div class="panel-header login-header">
               <div>
                 <h2>Login</h2>
-                <p>Passkey</p>
+                <p>Passkey oder Login-Link</p>
               </div>
               <button class="button" id="passkeyLoginButton" type="button">Passkey verwenden</button>
             </div>
+            <form class="login-email-form" id="loginEmailForm">
+              <label class="object-field" for="loginEmailInput">
+                <span>E-Mail-Adresse</span>
+                <input id="loginEmailInput" name="email" type="email" autocomplete="email" required>
+              </label>
+              <div class="form-actions">
+                <button class="button button-secondary" type="submit">Login-Link senden</button>
+              </div>
+              <p class="object-save-state" id="loginEmailState" hidden></p>
+            </form>
           </section>
 
           <section class="panel" id="setupPanel" hidden>
@@ -239,6 +252,47 @@ $configWarnings = array_map(
         <aside class="context-panel" id="contextPanel" aria-label="Kontext-Visualisierung">
           <div class="public-graph context-graph" id="contextGraph" data-context-graph aria-label="Kontext-Graph"></div>
         </aside>
+      </main>
+
+      <main class="account-page" id="accountPage" hidden>
+        <div class="account-layout">
+          <div class="account-toolbar">
+            <a class="button button-secondary" href="./">Zurück</a>
+          </div>
+          <section class="panel account-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Benutzerkonto</h2>
+                <p>Profil, E-Mail und Passkeys</p>
+              </div>
+            </div>
+            <form class="account-form" id="accountForm">
+              <label class="object-field">
+                <span>Benutzername</span>
+                <output class="account-static-value" id="accountUsername"></output>
+              </label>
+              <label class="object-field">
+                <span>Anzeigename</span>
+                <input name="display_name" autocomplete="name">
+              </label>
+              <label class="object-field">
+                <span>E-Mail-Adresse</span>
+                <input name="email" type="email" autocomplete="email">
+              </label>
+              <div class="form-actions">
+                <button class="button" type="submit">Speichern</button>
+              </div>
+              <p class="object-save-state account-state" id="accountState" hidden></p>
+            </form>
+            <section class="account-passkey-section" aria-labelledby="accountPasskeysTitle">
+              <div class="account-section-header">
+                <h3 id="accountPasskeysTitle">Passkeys</h3>
+                <button class="button button-secondary" type="button" data-account-action="add-passkey">Passkey hinzufügen</button>
+              </div>
+              <div class="account-passkeys" id="accountPasskeys"></div>
+            </section>
+          </section>
+        </div>
       </main>
       </div>
     </div>

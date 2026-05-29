@@ -5,7 +5,7 @@ Web app for gathering, documenting, and exploring the history of [Stamm der Vaga
 ## Web App
 
 - Plain HTML, CSS, JavaScript, and PHP 8.0+.
-- Passkey-only authentication.
+- Passkey authentication with optional one-time email login links.
 - Permission-aware public, private, and protected fields.
 - Human-readable JSON domain objects under `web/data/`.
 - Private runtime state under `web/var/`.
@@ -23,8 +23,8 @@ Data timestamps stay in UTC; the configured timezone is only for frontend displa
 
 ## Auth
 
-Login uses passkeys only.\
-Users and passkey public keys are stored in `var/auth/users.json`; setup tokens, login challenges, and audit logs stay below `var/auth/`.
+Login uses passkeys and optional email login links.\
+Users, email addresses, and passkey public keys are stored in `var/auth/users.json`; setup tokens, login links, login challenges, and audit logs stay below `var/auth/`.
 These files must not be web-readable.
 
 For production, set a stable passkey relying-party configuration in `config/app.json`:
@@ -34,13 +34,22 @@ For production, set a stable passkey relying-party configuration in `config/app.
     "base_url": "https://stammbaumdervaganten.de",
     "rp_id": "stammbaumdervaganten.de",
     "origin": "https://stammbaumdervaganten.de",
+    "login_link_ttl_seconds": 600,
     "initial_admin_username": "admin"
+  },
+  "mail": {
+    "enabled": true,
+    "from_address": "noreply@stammbaumdervaganten.de",
+    "from_name": "Stammbaum der Vaganten",
+    "reply_to": "",
+    "login_subject": "Login-Link für Stammbaum der Vaganten"
   }
 }
 ```
 
 Passkeys require HTTPS (except on local development origins such as `localhost`).\
-`base_url` is used for generated setup links.
+`base_url` is used for generated setup and login links.
+Email login links are single-use, expire after `auth.login_link_ttl_seconds`, and are not re-sent while an earlier unused link is still valid.
 
 On first run with an empty `var/auth/users.json`, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
 Open that URL on the deployed site to register the initial passkey.
