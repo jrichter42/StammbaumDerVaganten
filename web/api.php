@@ -92,6 +92,21 @@ function require_csrf(AuthStore $auth, array $body): void
     }
 }
 
+/**
+ * @param array<string, mixed> $payload
+ */
+function email_login_json(float $startedAt, array $payload, int $status = 200): void
+{
+    $targetMicros = 1250000 + random_int(0, 500000);
+    $elapsedMicros = (int) ((microtime(true) - $startedAt) * 1000000);
+    $remainingMicros = $targetMicros - $elapsedMicros;
+    if ($remainingMicros > 0) {
+        usleep($remainingMicros);
+    }
+
+    Http::json($payload, $status);
+}
+
 try {
     switch ($action) {
         case 'status':
@@ -227,6 +242,7 @@ try {
             break;
 
         case 'auth-email-login-request':
+            $emailLoginStartedAt = microtime(true);
             Http::requireMethod('POST');
             $body = Http::readJsonBody();
             if (!$mailer->isLoginEnabled()) {
@@ -252,7 +268,7 @@ try {
                 }
             }
 
-            Http::json([
+            email_login_json($emailLoginStartedAt, [
                 'ok' => true,
                 'message' => 'If the email address is registered, a login link was sent.',
             ]);

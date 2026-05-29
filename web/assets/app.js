@@ -262,6 +262,7 @@ const contextGraphContainer = document.querySelector('#contextGraph');
 const contextGraphStatus = document.querySelector('#contextGraphStatus');
 const treeGroupTypeFilters = Array.from(document.querySelectorAll('[data-tree-group-type-filter]'));
 const treeGroupTypeClearButtons = Array.from(document.querySelectorAll('[data-tree-group-type-clear]'));
+let authMessageTimer = 0;
 
 const initialUrlParams = new URLSearchParams(window.location.search);
 const urlSetup = initialUrlParams.get('setup');
@@ -360,11 +361,11 @@ async function initialize() {
   try {
     await postJson('auth-email-login-verify', { token: normalizeLoginTokenInput(urlLoginToken) });
     state.loginOpen = false;
-    state.accountOpen = true;
+    state.accountOpen = false;
     isLoginLinkPage = false;
-    window.history.replaceState(null, '', `${window.location.pathname}?view=account`);
+    window.history.replaceState(null, '', window.location.pathname);
     await refresh();
-    showAccountMessage('Login erfolgreich.', false);
+    showAuthMessage('Login erfolgreich. Du kannst einen Passkey in deinem Benutzerkonto einrichten; die Kontoeinstellungen erreichst du oben rechts neben deinem Namen.', false);
   } catch (error) {
     console.error(error);
     state.loginOpen = true;
@@ -1275,8 +1276,10 @@ async function requestEmailLoginLink(event) {
   }
 
   showLoginEmailState('Login-Link wird gesendet ...', false);
+  const startedAt = performance.now();
   try {
     await postJson('auth-email-login-request', { email });
+    await waitAtLeast(startedAt, 1400);
     showLoginEmailState('Wenn die Adresse registriert ist, wurde ein Login-Link gesendet.', false);
   } catch (error) {
     console.error(error);
@@ -10194,12 +10197,25 @@ function setText(selector, text) {
 }
 
 function showAuthMessage(text, isError) {
+  if (authMessageTimer) {
+    window.clearTimeout(authMessageTimer);
+    authMessageTimer = 0;
+  }
+
   authMessage.hidden = false;
   authMessage.textContent = localizeErrorMessage(text);
   authMessage.className = `message global-message ${isError ? 'is-error' : 'is-good'}`;
+  if (!isError) {
+    authMessageTimer = window.setTimeout(clearAuthMessage, 14000);
+  }
 }
 
 function clearAuthMessage() {
+  if (authMessageTimer) {
+    window.clearTimeout(authMessageTimer);
+    authMessageTimer = 0;
+  }
+
   authMessage.hidden = true;
   authMessage.textContent = '';
   authMessage.className = 'message global-message';
@@ -10355,4 +10371,11 @@ function cssEscape(value) {
   }
 
   return String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+}
+
+function waitAtLeast(startedAt, minimumMs) {
+  const remaining = minimumMs - (performance.now() - startedAt);
+  return remaining > 0
+    ? new Promise((resolve) => window.setTimeout(resolve, remaining))
+    : Promise.resolve();
 }

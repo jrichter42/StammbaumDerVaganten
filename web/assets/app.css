@@ -2511,15 +2511,21 @@ button.object-title-row:focus-visible::before {
 }
 
 .global-message {
+  position: fixed;
+  z-index: 120;
+  top: calc(var(--topbar-height, 58px) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
   align-self: start;
   justify-self: center;
   display: inline-block;
   width: auto;
   max-width: min(42rem, calc(100% - clamp(28px, 5vw, 56px)));
-  margin: 12px auto 0;
+  margin: 0;
   padding: 5px 9px;
   font-size: 0.86rem;
   line-height: 1.22;
+  box-shadow: var(--shadow);
 }
 
 .message.is-error {
@@ -2531,7 +2537,7 @@ button.object-title-row:focus-visible::before {
 .message.is-good {
   border-color: rgba(var(--good-rgb), 0.5);
   color: var(--good);
-  background: rgba(var(--good-rgb), 0.14);
+  background: #14281d;
 }
 
 .setup-result {

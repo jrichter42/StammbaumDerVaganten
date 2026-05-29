@@ -10,6 +10,7 @@ final class Mailer
     private string $fromName;
     private string $replyTo;
     private string $loginSubject;
+    private string $timezone;
 
     /**
      * @param array<string, mixed> $config
@@ -21,6 +22,7 @@ final class Mailer
         $this->fromName = $this->cleanHeader((string) ($mail['from_name'] ?? ($config['name'] ?? 'Stammbaum der Vaganten')));
         $this->replyTo = $this->cleanHeader((string) ($mail['reply_to'] ?? ''));
         $this->loginSubject = $this->cleanHeader((string) ($mail['login_subject'] ?? 'Login-Link für Stammbaum der Vaganten'));
+        $this->timezone = is_string($config['timezone'] ?? null) ? $config['timezone'] : 'UTC';
         $this->enabled = (bool) ($mail['enabled'] ?? false)
             && filter_var($this->fromAddress, FILTER_VALIDATE_EMAIL) !== false;
     }
@@ -42,6 +44,7 @@ final class Mailer
         }
 
         $name = trim($displayName) !== '' ? trim($displayName) : 'Benutzer';
+        $expiresAtDisplay = $this->formatLoginExpiry($expiresAt);
         $body = implode("\n", [
             'Hallo ' . $name . ',',
             '',
@@ -49,7 +52,7 @@ final class Mailer
             $loginUrl,
             '',
             'Der Link ist einmalig nutzbar und läuft ab:',
-            $expiresAt,
+            $expiresAtDisplay,
             '',
             'Falls du keinen Login-Link angefordert hast, kannst du diese Mail ignorieren.',
         ]);
@@ -97,5 +100,17 @@ final class Mailer
     private function cleanHeader(string $value): string
     {
         return trim(str_replace(["\r", "\n"], '', $value));
+    }
+
+    private function formatLoginExpiry(string $expiresAt): string
+    {
+        try {
+            $date = new \DateTimeImmutable($expiresAt);
+            $timezone = new \DateTimeZone($this->timezone);
+        } catch (\Exception) {
+            return $expiresAt;
+        }
+
+        return $date->setTimezone($timezone)->format('d.m.Y \u\m H:i \U\h\r') . ' (' . $timezone->getName() . ')';
     }
 }
