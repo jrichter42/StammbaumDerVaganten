@@ -342,6 +342,7 @@ h3 {
   padding: 6px 12px;
   color: var(--brand-ink);
   background: var(--brand);
+  text-decoration: none;
 }
 
 .topbar .button {

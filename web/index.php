@@ -260,12 +260,6 @@ $configWarnings = array_map(
             <a class="button button-secondary" href="./">Zurück</a>
           </div>
           <section class="panel account-panel">
-            <div class="panel-header">
-              <div>
-                <h2>Benutzerkonto</h2>
-                <p>Profil, E-Mail und Passkeys</p>
-              </div>
-            </div>
             <form class="account-form" id="accountForm">
               <label class="object-field">
                 <span>Benutzername</span>
@@ -279,9 +273,6 @@ $configWarnings = array_map(
                 <span>E-Mail-Adresse</span>
                 <input name="email" type="email" autocomplete="email">
               </label>
-              <div class="form-actions">
-                <button class="button" type="submit">Speichern</button>
-              </div>
               <p class="object-save-state account-state" id="accountState" hidden></p>
             </form>
             <section class="account-passkey-section" aria-labelledby="accountPasskeysTitle">

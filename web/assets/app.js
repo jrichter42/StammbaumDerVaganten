@@ -315,10 +315,16 @@ sourceClearButton?.addEventListener('click', clearSourceOverride);
 treeGroupTypeFilters.forEach((filter) => filter.addEventListener('change', handlePublicGraphFilterChange));
 treeGroupTypeClearButtons.forEach((button) => button.addEventListener('click', clearPublicGraphFilter));
 setupForm.addEventListener('submit', beginSetup);
-accountForm?.addEventListener('submit', saveAccount);
+accountForm?.addEventListener('submit', handleAccountSubmit);
+accountForm?.addEventListener('input', handleAccountInput);
+accountForm?.addEventListener('change', handleAccountInput);
+accountForm?.addEventListener('focusout', handleAccountBlur);
 accountPage?.addEventListener('click', handleAccountClick);
 setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
+userList.addEventListener('input', handleUserEditorInput);
+userList.addEventListener('change', handleUserEditorInput);
+userList.addEventListener('focusout', handleUserEditorBlur);
 document.addEventListener('click', handleNavigationJump);
 document.addEventListener('click', handleGlobalSearchClick);
 document.addEventListener('click', handleExampleDataClick);
@@ -958,11 +964,15 @@ async function closeOpenEditorsBeforeSwitch() {
   }
 
   if (hasUserEditor) {
-    Object.keys(state.editing)
-      .filter((key) => key.startsWith('users:'))
-      .forEach((key) => {
-        state.editing[key] = false;
-      });
+    const userItems = Array.from(document.querySelectorAll('[data-user-editor]'))
+      .map((editor) => editor.closest('[data-username]'))
+      .filter(Boolean);
+    for (const item of userItems) {
+      const username = item.dataset.username || '';
+      window.clearTimeout(state.editTimers[objectKey('users', username)]);
+      await flushUserEdit(item, true);
+      state.editing[objectKey('users', username)] = false;
+    }
     renderUserList();
   }
 
@@ -1470,35 +1480,95 @@ async function loadAccount() {
   renderAccountPage();
 }
 
-async function saveAccount(event) {
+async function handleAccountSubmit(event) {
   event.preventDefault();
+  await flushAccountEdit(true);
+}
+
+function handleAccountInput() {
+  markAccountDirty();
+  scheduleAccountSave(1200);
+}
+
+function handleAccountBlur(event) {
+  if (event.target.closest('input, textarea, select')) {
+    scheduleAccountSave(300);
+  }
+}
+
+function accountPayload() {
   const formData = new FormData(accountForm);
+  return {
+    display_name: String(formData.get('display_name') || '').trim(),
+    email: String(formData.get('email') || '').trim(),
+  };
+}
+
+function markAccountDirty() {
+  accountForm.dataset.dirty = '1';
+  showAccountMessage('Ungespeichert', false);
+}
+
+function scheduleAccountSave(delay) {
+  const key = objectKey('account', 'self');
+  window.clearTimeout(state.editTimers[key]);
+  state.editTimers[key] = window.setTimeout(() => {
+    flushAccountEdit(false);
+  }, delay);
+}
+
+async function flushAccountEdit(force = false) {
+  if (!accountForm || accountForm.dataset.saving === '1') {
+    return;
+  }
+
+  const payload = accountPayload();
+  const payloadKey = JSON.stringify(payload);
+  if (!force && accountForm.dataset.dirty !== '1') {
+    return;
+  }
+  if (payloadKey === accountForm.dataset.lastSavedPayload && accountForm.dataset.dirty !== '1') {
+    return;
+  }
+
+  accountForm.dataset.saving = '1';
   showAccountMessage('Wird gespeichert ...', false);
   try {
-    const response = await postJson('account-update', {
-      display_name: String(formData.get('display_name') || '').trim(),
-      email: String(formData.get('email') || '').trim(),
-    });
+    const response = await postJson('account-update', payload);
     state.account = response.account || null;
     if (response.user) {
       state.status.auth.user = response.user;
     }
     renderShell();
-    renderAccountPage();
-    showAccountMessage('Gespeichert.', false);
+    accountForm.dataset.dirty = '';
+    accountForm.dataset.lastSavedPayload = payloadKey;
+    showAccountMessage('Gespeichert.', false, true);
   } catch (error) {
     console.error(error);
     showAccountMessage(localizeErrorMessage(error.message || 'Benutzerkonto konnte nicht gespeichert werden.'), true);
+  } finally {
+    accountForm.dataset.saving = '';
   }
 }
 
 async function handleAccountClick(event) {
+  const backLink = event.target.closest('.account-toolbar a[href="./"]');
+  if (backLink) {
+    event.preventDefault();
+    await flushAccountEdit(true);
+    state.accountOpen = false;
+    window.history.replaceState(null, '', window.location.pathname);
+    renderShell();
+    return;
+  }
+
   if (!event.target.closest('[data-danger-confirm]')) {
     resetDangerConfirmations();
   }
 
   const addButton = event.target.closest('[data-account-action="add-passkey"]');
   if (addButton) {
+    await flushAccountEdit(true);
     await addAccountPasskey();
     return;
   }
@@ -1606,7 +1676,7 @@ async function handleUserAction(event) {
 
     if (userButton.dataset.userAction === 'toggle-editor') {
       if (state.editing[objectKey('users', username)]) {
-        closeUserEditor(username);
+        await closeUserEditor(username);
       } else {
         focusUserEditor(username);
       }
@@ -1632,6 +1702,7 @@ async function handleUserAction(event) {
 
   try {
     if (button.dataset.action === 'setup') {
+      await flushUserEdit(item, true);
       const response = await postJson('admin-create-setup-token', { username });
       state.setupResult = response.setup;
       await loadManagedUsers();
@@ -1667,6 +1738,7 @@ async function handleUserAction(event) {
     }
 
     if (button.dataset.action === 'toggle') {
+      await flushUserEdit(item, true);
       await postJson('admin-update-user', {
         username,
         enabled: !user.enabled,
@@ -1674,26 +1746,37 @@ async function handleUserAction(event) {
       await reloadAfterUserChange(username);
       return;
     }
-
-    if (button.dataset.action === 'save') {
-      const permissions = Array.from(item.querySelectorAll('input[data-permission]:checked'))
-        .map((input) => input.value);
-      const displayName = item.querySelector('input[data-display-name]')?.value.trim() || '';
-      const email = item.querySelector('input[data-email]')?.value.trim() || '';
-      await postJson('admin-update-user', {
-        username,
-        display_name: displayName,
-        email,
-        permissions,
-      });
-      await reloadAfterUserChange(username);
-    }
   } catch (error) {
     showAuthMessage(localizeErrorMessage(error.message || 'Benutzer konnte nicht aktualisiert werden.'), true);
   }
 }
 
-function closeUserEditor(username) {
+function handleUserEditorInput(event) {
+  const item = event.target.closest('[data-username]');
+  const editor = event.target.closest('[data-user-editor]');
+  if (!item || !editor) {
+    return;
+  }
+
+  markUserDirty(item);
+  scheduleUserSave(item, 900);
+}
+
+function handleUserEditorBlur(event) {
+  const item = event.target.closest('[data-username]');
+  const editor = event.target.closest('[data-user-editor]');
+  if (!item || !editor) {
+    return;
+  }
+
+  scheduleUserSave(item, 250);
+}
+
+async function closeUserEditor(username) {
+  const item = document.querySelector(`[data-username="${cssEscape(username)}"]`);
+  if (item) {
+    await flushUserEdit(item, true);
+  }
   state.editing[objectKey('users', username)] = false;
   renderUserList();
 }
@@ -1787,6 +1870,82 @@ function render() {
   renderUsersManagement();
   applyDeepLinkTarget();
   scheduleContextGraphRender();
+}
+
+function markUserDirty(item) {
+  item.dataset.dirty = '1';
+  setUserSaveState(item, 'Ungespeichert', false);
+}
+
+function scheduleUserSave(item, delay) {
+  const key = objectKey('users', item.dataset.username || '');
+  window.clearTimeout(state.editTimers[key]);
+  state.editTimers[key] = window.setTimeout(() => {
+    flushUserEdit(item, false);
+  }, delay);
+}
+
+function userEditorPayload(item) {
+  return {
+    username: item.dataset.username || '',
+    display_name: item.querySelector('input[data-display-name]')?.value.trim() || '',
+    email: item.querySelector('input[data-email]')?.value.trim() || '',
+    permissions: Array.from(item.querySelectorAll('input[data-permission]:checked')).map((input) => input.value),
+  };
+}
+
+async function flushUserEdit(item, force = false) {
+  if (!item?.isConnected || item.dataset.saving === '1') {
+    return;
+  }
+  if (!force && item.dataset.dirty !== '1') {
+    return;
+  }
+
+  const payload = userEditorPayload(item);
+  const payloadKey = JSON.stringify(payload);
+  if (payloadKey === item.dataset.lastSavedPayload && item.dataset.dirty !== '1') {
+    return;
+  }
+
+  item.dataset.saving = '1';
+  setUserSaveState(item, 'Wird gespeichert', false);
+  try {
+    const response = await postJson('admin-update-user', payload);
+    updateManagedUserInState(response.user || payload);
+    item.dataset.dirty = '';
+    item.dataset.lastSavedPayload = payloadKey;
+    updateUserChrome(item, response.user || payload);
+    setUserSaveState(item, 'Gespeichert', false, true);
+  } catch (error) {
+    setUserSaveState(item, localizeErrorMessage(error.message || 'Benutzer konnte nicht aktualisiert werden.'), true);
+    showAuthMessage(localizeErrorMessage(error.message || 'Benutzer konnte nicht aktualisiert werden.'), true, 4500);
+  } finally {
+    item.dataset.saving = '';
+  }
+}
+
+function updateManagedUserInState(user) {
+  const username = user.username || '';
+  const index = state.users.findIndex((candidate) => candidate.username === username);
+  if (index !== -1) {
+    state.users[index] = { ...state.users[index], ...user };
+  }
+  if (state.status?.auth?.user?.username === username) {
+    state.status.auth.user = { ...state.status.auth.user, ...user };
+    renderShell();
+  }
+}
+
+function updateUserChrome(item, user) {
+  const title = item.querySelector('.object-title-heading');
+  const meta = item.querySelector('.object-subtitle');
+  if (title) {
+    title.textContent = userTitle(user);
+  }
+  if (meta) {
+    meta.textContent = userMeta(user);
+  }
 }
 
 function renderTreeGraph() {
@@ -8541,6 +8700,24 @@ function setObjectSaveState(item, text, isError, autoHide = false) {
   }
 }
 
+function setUserSaveState(item, text, isError, autoHide = false) {
+  const element = item.querySelector('[data-user-save-state]');
+  if (!element) {
+    return;
+  }
+
+  element.hidden = false;
+  element.textContent = localizeErrorMessage(text);
+  element.className = `object-save-state ${isError ? 'is-error' : ''}`;
+  if (autoHide) {
+    window.setTimeout(() => {
+      if (element.textContent === localizeErrorMessage(text)) {
+        element.hidden = true;
+      }
+    }, 1400);
+  }
+}
+
 function setCreateState(form, text, isError) {
   const element = form.querySelector('[data-create-state]');
   if (!element) {
@@ -9393,6 +9570,9 @@ function renderAccountPage() {
   }
   accountForm.querySelector('input[name="display_name"]').value = user.display_name || '';
   accountForm.querySelector('input[name="email"]').value = user.email || '';
+  accountForm.dataset.dirty = '';
+  accountForm.dataset.saving = '';
+  accountForm.dataset.lastSavedPayload = JSON.stringify(accountPayload());
 
   const passkeys = Array.isArray(account.passkeys) ? account.passkeys : [];
   accountPasskeys.innerHTML = passkeys.length
@@ -9442,9 +9622,15 @@ function renderUserItem(user) {
   const username = user.username || '';
   const isEditing = Boolean(state.editing[objectKey('users', username)]);
   const meta = userMeta(user);
+  const payload = {
+    username,
+    display_name: user.display_name || '',
+    email: user.email || '',
+    permissions: Array.isArray(user.permissions) ? user.permissions : [],
+  };
 
   return `
-    <article class="list-item user-item is-clickable ${isEditing ? 'is-editing' : ''}" data-username="${escapeAttribute(username)}">
+    <article class="list-item user-item is-clickable ${isEditing ? 'is-editing' : ''}" data-username="${escapeAttribute(username)}" data-last-saved-payload="${escapeAttribute(JSON.stringify(payload))}">
       <div class="object-main">
         <button class="object-title-row" type="button" data-user-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}">
           <span class="object-title-text">
@@ -9477,11 +9663,11 @@ function renderUserEditor(user) {
         ${renderUserSetupTokens(user)}
       </div>
       <div class="object-editor-actions user-actions">
-        <button class="button button-secondary" type="button" data-action="save">Speichern</button>
         <button class="button button-secondary" type="button" data-action="setup">Setup-Link</button>
         <button class="button button-secondary" type="button" data-action="toggle">${user.enabled ? 'Deaktivieren' : 'Aktivieren'}</button>
         ${state.status?.auth?.user?.username === user.username ? '' : '<button class="button button-danger" type="button" data-action="delete-user" data-danger-confirm>Löschen</button>'}
       </div>
+      <p class="object-save-state" data-user-save-state hidden></p>
     </div>
   `;
 }
@@ -10260,7 +10446,7 @@ function clearLoginEmailState() {
   loginEmailState.className = 'object-save-state';
 }
 
-function showAccountMessage(text, isError) {
+function showAccountMessage(text, isError, autoHide = false) {
   if (!accountState) {
     return;
   }
@@ -10268,6 +10454,13 @@ function showAccountMessage(text, isError) {
   accountState.hidden = false;
   accountState.textContent = localizeErrorMessage(text);
   accountState.className = `object-save-state account-state ${isError ? 'is-error' : 'is-good'}`;
+  if (autoHide) {
+    window.setTimeout(() => {
+      if (accountState.textContent === localizeErrorMessage(text)) {
+        accountState.hidden = true;
+      }
+    }, 1400);
+  }
 }
 
 function clearAccountMessage() {
