@@ -4230,17 +4230,14 @@ function renderObjectItem(type, object) {
   const propertyTags = objectPropertyTags(type, object);
   const propertyTagsHtml = objectPropertyTagsHtml(propertyTags);
   const modified = objectMeta(object);
-  const titleTag = canWrite ? 'button' : 'div';
-  const titleAttrs = canWrite
-    ? `type="button" data-object-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}"`
-    : '';
+  const titleAttrs = `type="button" data-object-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}"`;
   const warnings = objectValidationWarnings(type, object);
   const hasStatusMeta = Boolean(modified || warnings.length);
 
   return `
-    <article class="list-item object-item ${canWrite ? 'is-clickable' : ''} ${isEditing ? 'is-editing' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}" data-initial-object="${state.initialObjects.has(key) ? '1' : '0'}">
+    <article class="list-item object-item is-clickable ${canWrite ? '' : 'is-readonly'} ${isEditing ? 'is-editing' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}" data-initial-object="${state.initialObjects.has(key) ? '1' : '0'}">
       <div class="object-main">
-        <${titleTag} class="object-title-row" ${titleAttrs}>
+        <button class="object-title-row" ${titleAttrs}>
           <span class="object-title-text">
             <span class="object-title-heading" data-object-title>${escapeHtml(objectListTitle(type, object))}</span>
             <small class="object-subtitle" data-object-meta ${meta ? '' : 'hidden'}>${escapeHtml(meta)}</small>
@@ -4253,7 +4250,7 @@ function renderObjectItem(type, object) {
               ${validationListHtml(warnings)}
             </ul>
           </span>
-        </${titleTag}>
+        </button>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
         ${type === 'groups' ? renderGroupReverseView(object) : ''}
@@ -4524,12 +4521,15 @@ function renderObjectEditor(type, object) {
   const deleteLabel = `${objectListTitle(type, object)} löschen`;
   const fields = visibleFields(type);
   const hasSide = editorFieldSections(fields).internal.length > 0;
+  const deleteAction = hasPermission('write')
+    ? `<div class="object-editor-actions">
+        <button class="button button-danger" type="button" data-object-action="delete">${escapeHtml(deleteLabel)}</button>
+      </div>`
+    : '';
   return `
     <form class="object-editor object-editor-layout ${hasSide ? 'has-side' : 'no-side'}" data-object-editor>
       ${renderEditorFields(type, fields, object, false)}
-      <div class="object-editor-actions">
-        <button class="button button-danger" type="button" data-object-action="delete">${escapeHtml(deleteLabel)}</button>
-      </div>
+      ${deleteAction}
     </form>
   `;
 }
@@ -7533,6 +7533,9 @@ async function createObjectFromForm(form) {
     await reloadObjectData();
     return true;
   } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      showPermissionDeniedToast(error);
+    }
     setCreateState(form, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'), true);
     return false;
   }
@@ -8495,6 +8498,10 @@ function updateCompositeRowSummaries(item, type, object) {
 }
 
 function handleObjectSaveError(item, error) {
+  if (isPermissionDeniedError(error)) {
+    showPermissionDeniedToast(error);
+  }
+
   if (error.status === 409 && error.payload?.current) {
     updateObjectInState(item.dataset.objectType, error.payload.current);
     setObjectSaveState(item, 'Konflikt: Bitte vor der nächsten Bearbeitung neu laden.', true);
@@ -8502,6 +8509,14 @@ function handleObjectSaveError(item, error) {
   }
 
   setObjectSaveState(item, localizeErrorMessage(error.message || 'Objekt konnte nicht aktualisiert werden.'), true);
+}
+
+function isPermissionDeniedError(error) {
+  return error?.status === 403 || String(error?.message || '') === localizeErrorMessage('Permission denied');
+}
+
+function showPermissionDeniedToast(error) {
+  showAuthMessage(localizeErrorMessage(error?.message || 'Permission denied'), true, 4500);
 }
 
 function setObjectSaveState(item, text, isError, autoHide = false) {
@@ -10196,7 +10211,7 @@ function setText(selector, text) {
   }
 }
 
-function showAuthMessage(text, isError) {
+function showAuthMessage(text, isError, autoHideMs = 0) {
   if (authMessageTimer) {
     window.clearTimeout(authMessageTimer);
     authMessageTimer = 0;
@@ -10205,8 +10220,8 @@ function showAuthMessage(text, isError) {
   authMessage.hidden = false;
   authMessage.textContent = localizeErrorMessage(text);
   authMessage.className = `message global-message ${isError ? 'is-error' : 'is-good'}`;
-  if (!isError) {
-    authMessageTimer = window.setTimeout(clearAuthMessage, 14000);
+  if (autoHideMs > 0 || !isError) {
+    authMessageTimer = window.setTimeout(clearAuthMessage, autoHideMs > 0 ? autoHideMs : 14000);
   }
 }
 
@@ -10283,6 +10298,7 @@ function localizeErrorMessage(text) {
   const message = String(text || '');
   const exact = {
     'Request failed': 'Anfrage fehlgeschlagen',
+    'Permission denied': 'Keine Berechtigung zum Bearbeiten.',
     'Login failed.': 'Login fehlgeschlagen.',
     'Authentication required.': 'Login erforderlich.',
     'Invalid CSRF token.': 'Ungültiges CSRF-Token.',
