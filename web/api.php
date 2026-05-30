@@ -416,6 +416,15 @@ try {
             ]);
             break;
 
+        case 'admin-audit':
+            Http::requireMethod('GET');
+            require_permission($auth, 'manage_users');
+            Http::json([
+                'ok' => true,
+                'audit' => $auth->listAuditLog(),
+            ]);
+            break;
+
         case 'admin-create-user':
             Http::requireMethod('POST');
             $admin = require_permission($auth, 'manage_users');

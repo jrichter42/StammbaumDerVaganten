@@ -200,6 +200,8 @@ const state = {
   objects: Object.fromEntries(objectCollections.map((type) => [type, []])),
   groupTypes: [],
   users: [],
+  auditLog: [],
+  auditFilters: { event: '', username: '' },
   setupTokens: [],
   setupResult: null,
   account: null,
@@ -248,11 +250,14 @@ const setupForm = document.querySelector('#setupForm');
 const setupPanel = document.querySelector('#setupPanel');
 const setupInput = document.querySelector('#setupInput');
 const usersNav = document.querySelector('#usersNav');
+const auditNav = document.querySelector('#auditNav');
 const usersNavGroup = document.querySelector('#usersNavGroup');
 const setupResult = document.querySelector('#setupResult');
 const exampleDataButton = document.querySelector('#exampleDataButton');
 const exampleDataState = document.querySelector('#exampleDataState');
 const userList = document.querySelector('#userList');
+const auditList = document.querySelector('#auditList');
+const auditControls = document.querySelector('#auditControls');
 const appContent = document.querySelector('.app-content');
 const contentArea = document.querySelector('.content-area');
 const backToTopButton = document.querySelector('#backToTopButton');
@@ -326,6 +331,7 @@ userList.addEventListener('input', handleUserEditorInput);
 userList.addEventListener('change', handleUserEditorInput);
 userList.addEventListener('focusout', handleUserEditorBlur);
 document.addEventListener('click', handleNavigationJump);
+document.addEventListener('click', handleAuditControlClick);
 document.addEventListener('click', handleGlobalSearchClick);
 document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
@@ -335,6 +341,7 @@ document.addEventListener('pointerover', handleObjectGraphHover);
 document.addEventListener('pointerout', handleDateDetailPreviewEnd);
 document.addEventListener('pointerout', handleObjectGraphHoverEnd);
 document.addEventListener('input', handleCollectionControlInput);
+document.addEventListener('change', handleAuditControlChange);
 document.addEventListener('input', handleReferenceFilterInput);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleCollectionControlChange);
@@ -545,6 +552,11 @@ function restoreUrlState() {
 
   if (view === 'account') {
     state.accountOpen = true;
+    return;
+  }
+
+  if (view === 'audit') {
+    window.requestAnimationFrame(() => activateView('audit'));
     return;
   }
 
@@ -988,6 +1000,12 @@ async function refreshActivatedView(viewName) {
     return;
   }
 
+  if (viewName === 'audit') {
+    await loadAuditLog();
+    renderAuditLog();
+    return;
+  }
+
   if (viewName === 'tree') {
     if (canAccessObjects() && !hasPendingObjectEdits()) {
       try {
@@ -1122,6 +1140,7 @@ async function refresh() {
 
     if (hasPermission('manage_users')) {
       await loadManagedUsers();
+      await loadAuditLog();
     }
 
     render();
@@ -1174,7 +1193,13 @@ function renderShell() {
   const canManageUsers = hasPermission('manage_users');
   usersNavGroup.hidden = !canManageUsers;
   usersNav.hidden = !canManageUsers;
+  if (auditNav) {
+    auditNav.hidden = !canManageUsers;
+  }
   if (!canManageUsers && document.querySelector('#view-users')?.classList.contains('is-active')) {
+    activateView('people');
+  }
+  if (!canManageUsers && document.querySelector('#view-audit')?.classList.contains('is-active')) {
     activateView('people');
   }
 
@@ -1446,6 +1471,17 @@ async function loadManagedUsers() {
   state.users = response.users || [];
   state.setupTokens = response.setup_tokens || [];
   renderUsersManagement();
+  renderNavigationCounts();
+}
+
+async function loadAuditLog() {
+  if (!hasPermission('manage_users')) {
+    state.auditLog = [];
+    return;
+  }
+
+  const response = await getJson('api.php?action=admin-audit');
+  state.auditLog = Array.isArray(response.audit) ? response.audit : [];
   renderNavigationCounts();
 }
 
@@ -1868,6 +1904,7 @@ function render() {
   renderCollectionControls();
   renderObjectCollections();
   renderUsersManagement();
+  renderAuditLog();
   applyDeepLinkTarget();
   scheduleContextGraphRender();
 }
@@ -3837,6 +3874,7 @@ function renderNavigationCounts() {
     Number(Array.isArray(state.objects[type]) ? state.objects[type].length : collections[type] || 0),
   ]));
   counts.users = state.users.length;
+  counts.audit = state.auditLog.length;
 
   const countElements = Array.from(document.querySelectorAll('[data-nav-count]'));
   let maxCountLength = 1;
@@ -7454,6 +7492,32 @@ function handleCollectionControlChange(event) {
   updateCollectionControl(control);
 }
 
+function handleAuditControlChange(event) {
+  const control = event.target.closest('[data-audit-control]');
+  if (!control) {
+    return;
+  }
+
+  const name = control.dataset.auditControl || '';
+  if (name === 'event' || name === 'username') {
+    state.auditFilters[name] = control.value || '';
+    renderAuditLog();
+  }
+}
+
+function handleAuditControlClick(event) {
+  const button = event.target.closest('[data-audit-clear-filter]');
+  if (!button) {
+    return;
+  }
+
+  const name = button.dataset.auditClearFilter || '';
+  if (name === 'event' || name === 'username') {
+    state.auditFilters[name] = '';
+    renderAuditLog();
+  }
+}
+
 function updateCollectionControl(control) {
   const type = control.dataset.collectionType;
   const name = control.dataset.collectionControlName;
@@ -9610,6 +9674,195 @@ function renderUsersManagement() {
   renderNavigationCounts();
   renderSetupResult();
   renderUserList();
+}
+
+function renderAuditLog() {
+  if (!auditList || !hasPermission('manage_users')) {
+    return;
+  }
+
+  renderAuditControls();
+  const entries = filteredAuditLog();
+  auditList.innerHTML = `
+    <div class="audit-row audit-header">
+      <span>Zeit</span>
+      <span>Typ</span>
+      <span>Benutzer</span>
+      <span>Details</span>
+    </div>
+    ${entries.length
+      ? entries.map((entry) => renderAuditEntry(entry)).join('')
+      : '<div class="empty-state">Keine Audit-Einträge.</div>'}
+  `;
+}
+
+function renderAuditControls() {
+  if (!auditControls) {
+    return;
+  }
+
+  const eventOptions = auditTypeOptions();
+  const users = [...new Set(state.auditLog.map(auditAffectedUsername).filter(Boolean))].sort(sortCollator.compare);
+  auditControls.innerHTML = `
+    <section class="collection-filter-section">
+      <div class="collection-filter-controls">
+        <label class="collection-control">
+          <span class="collection-filter-label">
+            <span>Typ</span>
+            <button class="period-toggle" type="button" data-audit-clear-filter="event">(reset)</button>
+          </span>
+          <select data-audit-control="event">
+            <option value="">Alle</option>
+            ${eventOptions.map((option) => `<option value="${escapeAttribute(option.value)}" ${state.auditFilters.event === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="collection-control">
+          <span class="collection-filter-label">
+            <span>Benutzer</span>
+            <button class="period-toggle" type="button" data-audit-clear-filter="username">(reset)</button>
+          </span>
+          <select data-audit-control="username">
+            <option value="">Alle</option>
+            ${users.map((username) => `<option value="${escapeAttribute(username)}" ${state.auditFilters.username === username ? 'selected' : ''}>${escapeHtml(username)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+function auditTypeOptions() {
+  const events = [...new Set(state.auditLog.map((entry) => String(entry.event || '')).filter(Boolean))].sort(sortCollator.compare);
+  const groups = new Map();
+  events.forEach((event) => {
+    const category = auditEventCategory(event);
+    if (!groups.has(category)) {
+      groups.set(category, []);
+    }
+    groups.get(category).push(event);
+  });
+
+  const categoryOrder = ['setup', 'login', 'passkey', 'user', 'other'];
+  return categoryOrder.flatMap((category) => {
+    const groupEvents = groups.get(category) || [];
+    if (!groupEvents.length) {
+      return [];
+    }
+
+    return [{
+      value: `category:${category}`,
+      label: auditCategoryLabel(category),
+    }, ...groupEvents.map((event) => ({
+      value: `event:${event}`,
+      label: `- ${auditEventLabel(event)}`,
+    }))];
+  });
+}
+
+function filteredAuditLog() {
+  return state.auditLog.filter((entry) => {
+    const username = auditAffectedUsername(entry);
+    return auditEntryMatchesTypeFilter(entry, state.auditFilters.event)
+      && (!state.auditFilters.username || username === state.auditFilters.username);
+  });
+}
+
+function auditEntryMatchesTypeFilter(entry, filter) {
+  if (!filter) {
+    return true;
+  }
+
+  const event = String(entry.event || '');
+  if (filter.startsWith('category:')) {
+    return auditEventCategory(event) === filter.slice('category:'.length);
+  }
+
+  if (filter.startsWith('event:')) {
+    return event === filter.slice('event:'.length);
+  }
+
+  return event === filter;
+}
+
+function renderAuditEntry(entry) {
+  const event = String(entry.event || 'event');
+  const at = modifiedDateLine(entry.at || '');
+  const username = auditAffectedUsername(entry) || '-';
+  const details = Object.entries(entry)
+    .filter(([key]) => !['at', 'event', 'username'].includes(key))
+    .map(([key, value]) => `${key}: ${auditValue(value)}`)
+    .join(' / ');
+
+  return `
+    <article class="list-item audit-row audit-item">
+      <span class="audit-time">${escapeHtml(at)}</span>
+      <span class="audit-event">${escapeHtml(auditEventLabel(event))}</span>
+      <span class="audit-user">${escapeHtml(username)}</span>
+      <span class="audit-details">${escapeHtml(details || '-')}</span>
+    </article>
+  `;
+}
+
+function auditAffectedUsername(entry) {
+  return String(entry.username || entry.user?.username || '').trim();
+}
+
+function auditEventLabel(event) {
+  const labels = {
+    login: 'Login',
+    email_login: 'E-Mail-Login',
+    email_login_link_created: 'Login-Link erstellt',
+    setup_token_created: 'Setup-Link erstellt',
+    setup_token_deleted: 'Setup-Link gelöscht',
+    passkey_deleted: 'Passkey gelöscht',
+    user_deleted: 'Benutzer gelöscht',
+  };
+
+  return labels[event] || event;
+}
+
+function auditEventCategory(event) {
+  if (event.includes('setup_token')) {
+    return 'setup';
+  }
+  if (event.includes('login')) {
+    return 'login';
+  }
+  if (event.includes('passkey')) {
+    return 'passkey';
+  }
+  if (event.startsWith('user_')) {
+    return 'user';
+  }
+
+  return 'other';
+}
+
+function auditCategoryLabel(category) {
+  const labels = {
+    login: 'Login',
+    setup: 'Setup',
+    passkey: 'Passkey',
+    user: 'Benutzer',
+  };
+
+  return labels[category] || category;
+}
+
+function auditValue(value) {
+  if (value === null || value === undefined) {
+    return '-';
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => auditValue(item)).join(', ');
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
 }
 
 function renderUserList() {

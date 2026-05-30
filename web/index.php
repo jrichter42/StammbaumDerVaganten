@@ -139,6 +139,7 @@ $configWarnings = array_map(
             <button class="nav-item" id="exampleDataButton" type="button" hidden><span class="nav-count"></span><span>Beispieldaten</span></button>
             <span class="nav-feedback object-save-state" id="exampleDataState" hidden></span>
             <button class="nav-item" id="usersNav" type="button" data-view="users"><span class="nav-count" data-nav-count="users">0</span><span>Benutzer</span></button>
+            <button class="nav-item" id="auditNav" type="button" data-view="audit"><span class="nav-count" data-nav-count="audit">0</span><span>Audit</span></button>
           </div>
         </nav>
 
@@ -244,6 +245,17 @@ $configWarnings = array_map(
               <div class="object-create" data-create-panel="users" hidden></div>
               <div class="setup-result" id="setupResult" hidden></div>
               <div class="list user-list" id="userList"></div>
+            </section>
+          </div>
+
+          <div class="view" id="view-audit">
+            <section class="panel">
+              <div class="panel-header collection-header audit-filter-header">
+                <div class="collection-heading">
+                  <div class="collection-controls audit-controls" id="auditControls"></div>
+                </div>
+              </div>
+              <div class="list audit-list" id="auditList"></div>
             </section>
           </div>
         </section>

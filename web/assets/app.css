@@ -1041,17 +1041,17 @@ body.is-context-resizing {
 }
 
 @media (min-width: 1180px) {
-  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]) {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]) {
     grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) 8px minmax(280px, var(--context-panel-width));
     align-items: stretch;
     column-gap: 8px;
   }
 
-  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]) .context-resizer {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]) .context-resizer {
     display: block;
   }
 
-  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]) .context-panel {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]) .context-panel {
     position: relative;
     top: auto;
     display: grid;
@@ -1139,7 +1139,8 @@ body.is-context-resizing {
 #view-roles .panel,
 #view-timepoints .panel,
 #view-tree .panel,
-#view-users .panel {
+#view-users .panel,
+#view-audit .panel {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1369,6 +1370,65 @@ body.is-context-resizing {
 .user-list {
   gap: 12px;
   background: transparent;
+}
+
+.audit-list {
+  gap: 1px;
+  --audit-grid-columns: minmax(13rem, 1.15fr) minmax(12rem, 1fr) minmax(11rem, 0.95fr) minmax(18rem, 2fr);
+}
+
+.audit-filter-header {
+  min-height: 0;
+  padding: 12px 18px;
+}
+
+.audit-controls {
+  justify-content: flex-start;
+}
+
+.audit-row {
+  grid-template-columns: var(--audit-grid-columns);
+  align-items: start;
+}
+
+.audit-header {
+  position: sticky;
+  z-index: 12;
+  top: 0;
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  background: #11181d;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.audit-header span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.audit-time,
+.audit-event,
+.audit-user,
+.audit-details {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.audit-time,
+.audit-details {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.audit-event,
+.audit-user {
+  color: var(--text);
+  font-weight: 650;
 }
 
 .object-list .list-item,
@@ -2663,6 +2723,7 @@ button.object-title-row:focus-visible::before {
   }
 
   .public-section-heading,
+  .audit-row,
   .timeline-item {
     align-items: start;
     grid-template-columns: 1fr;

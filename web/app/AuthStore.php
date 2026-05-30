@@ -73,6 +73,36 @@ final class AuthStore
     }
 
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listAuditLog(int $limit = 200): array
+    {
+        if (!is_file($this->auditPath)) {
+            return [];
+        }
+
+        $lines = file($this->auditPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            return [];
+        }
+
+        $rows = [];
+        foreach (array_slice($lines, -max(1, min($limit, 1000))) as $line) {
+            try {
+                $row = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                continue;
+            }
+
+            if (is_array($row)) {
+                $rows[] = $row;
+            }
+        }
+
+        return array_reverse($rows);
+    }
+
+    /**
      * @param array<int, string> $permissions
      * @return array<string, mixed>
      */
