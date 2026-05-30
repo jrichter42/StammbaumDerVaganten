@@ -1424,7 +1424,14 @@ body.is-context-resizing {
 }
 
 .change-log-details {
+  display: grid;
+  gap: 2px;
   color: var(--muted);
+}
+
+.change-log-details small {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .change-log-object.is-created {

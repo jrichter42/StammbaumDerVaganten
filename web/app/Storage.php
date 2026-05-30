@@ -214,6 +214,7 @@ final class Storage
                     'user' => (string) ($currentRaw['_modifiedBy'] ?? ''),
                     'action' => $this->changeAction($previous, $current),
                     'part' => $part,
+                    'fields' => $this->changedFields($previous, $current),
                 ];
             }
         }
@@ -236,6 +237,36 @@ final class Storage
         }
 
         return $object;
+    }
+
+    /**
+     * @param array<string, mixed>|null $previous
+     * @param array<string, mixed> $current
+     * @return array<int, string>
+     */
+    private function changedFields(?array $previous, array $current): array
+    {
+        if (($current['_deleted'] ?? false) === true) {
+            return [];
+        }
+
+        $currentPayload = $this->visibleChangePayload($current);
+        if ($previous === null) {
+            return array_values(array_filter(array_keys($currentPayload), static function (string $field) use ($currentPayload): bool {
+                return $currentPayload[$field] !== null && $currentPayload[$field] !== '' && $currentPayload[$field] !== [];
+            }));
+        }
+
+        $previousPayload = $this->visibleChangePayload($previous);
+        $fields = array_unique(array_merge(array_keys($previousPayload), array_keys($currentPayload)));
+        $changed = [];
+        foreach ($fields as $field) {
+            if (($previousPayload[$field] ?? null) !== ($currentPayload[$field] ?? null)) {
+                $changed[] = $field;
+            }
+        }
+
+        return $changed;
     }
 
     /**

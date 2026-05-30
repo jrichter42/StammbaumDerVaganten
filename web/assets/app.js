@@ -203,7 +203,7 @@ const state = {
   auditLog: [],
   changeLog: [],
   auditFilters: { event: '', username: '' },
-  changeLogFilters: { type: '', username: '', action: '' },
+  changeLogFilters: { type: '', username: '', action: '', fields: [] },
   setupTokens: [],
   setupResult: null,
   account: null,
@@ -3998,7 +3998,7 @@ function collectionControlsHtml(type) {
         <span class="collection-filter-label">
           <span>Sortierung</span>
           <span class="collection-sort-direction">${escapeHtml(ui.sortDirection === 'desc' ? 'desc' : 'asc')}</span>
-          <button class="period-toggle" type="button" data-collection-sort-direction="${escapeAttribute(type)}" aria-label="${escapeAttribute(sortDirectionLabel(ui.sortDirection))}" title="${escapeAttribute(sortDirectionLabel(ui.sortDirection))}">(↻)</button>
+          <button class="period-toggle" type="button" data-collection-sort-direction="${escapeAttribute(type)}" aria-label="${escapeAttribute(sortDirectionLabel(ui.sortDirection))}" title="${escapeAttribute(sortDirectionLabel(ui.sortDirection))}">(↓↑)</button>
         </span>
         <select data-collection-control data-collection-type="${escapeAttribute(type)}" data-collection-control-name="sort">
           ${sortOptions.map(([value, label]) => `<option value="${escapeAttribute(value)}" ${activeSort === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
@@ -7599,6 +7599,12 @@ function handleChangeLogControlChange(event) {
   }
 
   const name = control.dataset.changeLogControl || '';
+  if (name === 'fields') {
+    state.changeLogFilters.fields = Array.from(control.selectedOptions || []).map((option) => option.value).filter(Boolean);
+    renderChangeLog();
+    return;
+  }
+
   if (name === 'type' || name === 'username' || name === 'action') {
     state.changeLogFilters[name] = control.value || '';
     renderChangeLog();
@@ -7625,6 +7631,12 @@ function handleChangeLogControlClick(event) {
   }
 
   const name = button.dataset.changeLogClearFilter || '';
+  if (name === 'fields') {
+    state.changeLogFilters.fields = [];
+    renderChangeLog();
+    return;
+  }
+
   if (name === 'type' || name === 'username' || name === 'action') {
     state.changeLogFilters[name] = '';
     renderChangeLog();
@@ -9843,6 +9855,7 @@ function renderChangeLogEntry(entry) {
     partLabel,
     action,
   ].filter(Boolean).join(' · ');
+  const changedFields = changeFieldLabels(type, entry.fields || []);
   const at = entry.at ? modifiedDateLine(entry.at) : '-';
   const user = entry.user || '-';
 
@@ -9851,7 +9864,10 @@ function renderChangeLogEntry(entry) {
       <span class="change-log-time">${escapeHtml(at)}</span>
       <span class="change-log-object ${escapeAttribute(actionClass)}">${escapeHtml(title)}</span>
       <span class="change-log-user">${escapeHtml(user)}</span>
-      <span class="change-log-details">${escapeHtml(details || '-')}</span>
+      <span class="change-log-details">
+        <span>${escapeHtml(details || '-')}</span>
+        ${changedFields ? `<small>${escapeHtml(changedFields)}</small>` : ''}
+      </span>
     </button>
   `;
 }
@@ -9876,6 +9892,19 @@ function changeActionClass(action) {
   return 'is-updated';
 }
 
+function changeFieldLabels(type, fields) {
+  if (!Array.isArray(fields) || fields.length === 0) {
+    return '';
+  }
+
+  const configFields = objectConfigs[type]?.fields || [];
+  const labelsByName = Object.fromEntries(configFields.map((field) => [field.name, field.label || field.name]));
+  const labels = fields
+    .map((field) => labelsByName[String(field || '')] || String(field || ''))
+    .filter(Boolean);
+  return labels.join(', ');
+}
+
 function renderChangeLogControls() {
   if (!changeLogControls) {
     return;
@@ -9884,6 +9913,8 @@ function renderChangeLogControls() {
   const types = [...new Set(state.changeLog.map((entry) => String(entry.type || '')).filter(Boolean))].sort(sortCollator.compare);
   const users = [...new Set(state.changeLog.map((entry) => String(entry.user || '').trim()).filter(Boolean))].sort(sortCollator.compare);
   const actions = [...new Set(state.changeLog.map((entry) => String(entry.action || '').trim()).filter(Boolean))].sort(sortCollator.compare);
+  const fieldOptions = changeLogFieldOptions();
+  const selectedFields = new Set(Array.isArray(state.changeLogFilters.fields) ? state.changeLogFilters.fields : []);
   changeLogControls.innerHTML = `
     <section class="collection-filter-section">
       <div class="collection-filter-controls">
@@ -9917,9 +9948,36 @@ function renderChangeLogControls() {
             ${actions.map((action) => `<option value="${escapeAttribute(action)}" ${state.changeLogFilters.action === action ? 'selected' : ''}>${escapeHtml(changeActionLabel(action))}</option>`).join('')}
           </select>
         </label>
+        <label class="collection-control">
+          <span class="collection-filter-label">
+            <span>Eigenschaft</span>
+            <button class="period-toggle" type="button" data-change-log-clear-filter="fields">(reset)</button>
+          </span>
+          <select multiple size="3" data-change-log-control="fields">
+            ${fieldOptions.map(([field, label]) => `<option value="${escapeAttribute(field)}" ${selectedFields.has(field) ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+          </select>
+        </label>
       </div>
     </section>
   `;
+}
+
+function changeLogFieldOptions() {
+  const labelsByName = {};
+  Object.entries(objectConfigs).forEach(([_type, config]) => {
+    (config.fields || []).forEach((field) => {
+      labelsByName[field.name] = labelsByName[field.name] || field.label || field.name;
+    });
+  });
+
+  const fields = [...new Set(state.changeLog
+    .flatMap((entry) => (Array.isArray(entry.fields) ? entry.fields : []))
+    .map((field) => String(field || ''))
+    .filter(Boolean))];
+
+  return fields
+    .map((field) => [field, labelsByName[field] || field])
+    .sort((left, right) => sortCollator.compare(left[1], right[1]));
 }
 
 function filteredChangeLog() {
@@ -9927,9 +9985,12 @@ function filteredChangeLog() {
     const type = String(entry.type || '');
     const username = String(entry.user || '').trim();
     const action = String(entry.action || '').trim();
+    const fields = Array.isArray(entry.fields) ? entry.fields.map((field) => String(field || '')) : [];
+    const selectedFields = Array.isArray(state.changeLogFilters.fields) ? state.changeLogFilters.fields : [];
     return (!state.changeLogFilters.type || type === state.changeLogFilters.type)
       && (!state.changeLogFilters.username || username === state.changeLogFilters.username)
-      && (!state.changeLogFilters.action || action === state.changeLogFilters.action);
+      && (!state.changeLogFilters.action || action === state.changeLogFilters.action)
+      && (!selectedFields.length || selectedFields.some((field) => fields.includes(field)));
   });
 }
 
