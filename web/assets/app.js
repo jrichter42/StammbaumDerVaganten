@@ -6485,9 +6485,6 @@ function handleListAction(button) {
       if (personKey) {
         if (willOpen) {
           collapseRelationshipRowsForPerson(fieldRoot, item);
-          state.relationshipEditing[personKey] = item.dataset.relationshipRowKey || '';
-        } else if (state.relationshipEditing[personKey] === (item.dataset.relationshipRowKey || '')) {
-          delete state.relationshipEditing[personKey];
         }
       }
       item.classList.toggle('is-collapsed', !willOpen);
