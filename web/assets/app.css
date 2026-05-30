@@ -1047,12 +1047,15 @@ h3 {
 
 .context-type-toggles .context-type-group-toggle {
   width: fit-content;
+  min-height: 0;
+  padding: 0;
+  border: 0;
   color: var(--text);
   font-weight: 700;
-  background: rgba(24, 30, 35, 0.82);
+  background: transparent;
 }
 
-.context-type-toggles label:has(input:checked) {
+.context-type-toggles label:has(input:checked):not(.context-type-group-toggle) {
   color: var(--text);
   border-color: var(--line);
   background: rgba(24, 30, 35, 0.82);
