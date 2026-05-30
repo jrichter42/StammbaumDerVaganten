@@ -41,13 +41,13 @@ const sortCollator = new Intl.Collator('de', { numeric: true, sensitivity: 'base
 const pickerActionShowAllGroups = '__picker_show_all_groups__';
 const pickerActionShowAllRoles = '__picker_show_all_roles__';
 const certaintyOptions = [
-  ['none', 'Keine'],
-  ['no_idea', 'Unbekannt'],
-  ['estimation_bad', 'Grobe Schätzung'],
-  ['estimation_medium', 'Mittlere Schätzung'],
-  ['estimation_good', 'Gute Schätzung'],
-  ['confident', 'Sicher'],
-  ['set_in_stone', 'Gesichert'],
+  ['none', '0 - Keine Angabe'],
+  ['no_idea', '1 - Unbekannt / sehr unsicher'],
+  ['estimation_bad', '2 - Grobe Schätzung'],
+  ['estimation_medium', '3 - Plausible Schätzung'],
+  ['estimation_good', '4 - Gute Schätzung'],
+  ['confident', '5 - Sicher'],
+  ['set_in_stone', '6 - Belegt / gesichert'],
 ];
 
 const stockGroupTypeLabelGroups = [
