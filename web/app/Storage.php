@@ -176,6 +176,69 @@ final class Storage
     }
 
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function recentChanges(string $access = 'public', int $limit = 200): array
+    {
+        $this->assertAccess($access);
+
+        $changes = [];
+        foreach (array_keys(self::COLLECTIONS) as $type) {
+            foreach ($this->objectFiles($type) as $file) {
+                $currentRaw = $this->readJson($file);
+                if ($this->isDeletedObject($currentRaw) && !$this->canReadPrivate($access)) {
+                    continue;
+                }
+
+                $revision = (int) ($currentRaw['_revision'] ?? 0);
+                $id = (string) ($currentRaw['_id'] ?? '');
+                if ($revision < 1 || $id === '') {
+                    continue;
+                }
+
+                $previousRaw = $this->readArchivedRevision($type, $id, $revision - 1);
+                $current = $this->objectForRead($type, $currentRaw, $access);
+                $previous = $previousRaw !== null ? $this->objectForRead($type, $previousRaw, $access) : null;
+                if ($previous !== null
+                    && ($current['_deleted'] ?? false) !== true
+                    && $this->visibleChangePayload($previous) === $this->visibleChangePayload($current)) {
+                    continue;
+                }
+
+                $part = $this->changePart($type, $previous, $current);
+                $changes[] = [
+                    'type' => $type,
+                    'id' => $id,
+                    'revision' => $revision,
+                    'at' => (string) ($currentRaw['_modified'] ?? $currentRaw['_created'] ?? ''),
+                    'user' => (string) ($currentRaw['_modifiedBy'] ?? ''),
+                    'action' => $this->changeAction($previous, $current),
+                    'part' => $part,
+                ];
+            }
+        }
+
+        usort($changes, static function (array $left, array $right): int {
+            return strcmp((string) ($right['at'] ?? ''), (string) ($left['at'] ?? ''));
+        });
+
+        return array_slice($changes, 0, max(1, min($limit, 1000)));
+    }
+
+    /**
+     * @param array<string, mixed> $object
+     * @return array<string, mixed>
+     */
+    private function visibleChangePayload(array $object): array
+    {
+        foreach (self::META_FIELDS as $field) {
+            unset($object[$field]);
+        }
+
+        return $object;
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
@@ -752,6 +815,91 @@ final class Storage
         if (!is_file($archive)) {
             $this->writeJson($archive, $object);
         }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function readArchivedRevision(string $type, string $id, int $revision): ?array
+    {
+        if ($revision < 1) {
+            return null;
+        }
+
+        $this->assertId($id);
+        $archive = $this->objectDirectory($type) . '/' . $id . '_' . $revision . '.json';
+        return is_file($archive) ? $this->readJson($archive) : null;
+    }
+
+    /**
+     * @param array<string, mixed>|null $previous
+     * @param array<string, mixed> $current
+     * @return array{field: string, edit: string, label: string}
+     */
+    private function changePart(string $type, ?array $previous, array $current): array
+    {
+        if ($previous === null || ($current['_deleted'] ?? false) === true) {
+            return ['field' => '', 'edit' => '', 'label' => 'Eintrag'];
+        }
+
+        foreach ($this->nestedChangeFields($type) as $field => $label) {
+            if (!array_key_exists($field, $current)) {
+                continue;
+            }
+
+            if ($field === 'mainPhase') {
+                if (($previous[$field] ?? null) !== ($current[$field] ?? null)) {
+                    return ['field' => $field, 'edit' => 'mainPhase', 'label' => $label];
+                }
+                continue;
+            }
+
+            $previousItems = is_array($previous[$field] ?? null) ? $previous[$field] : [];
+            $currentItems = is_array($current[$field] ?? null) ? $current[$field] : [];
+            $count = max(count($previousItems), count($currentItems));
+            for ($index = 0; $index < $count; $index++) {
+                if (($previousItems[$index] ?? null) !== ($currentItems[$index] ?? null)) {
+                    return ['field' => $field, 'edit' => $field . ':' . $index, 'label' => $label];
+                }
+            }
+        }
+
+        return ['field' => '', 'edit' => '', 'label' => 'Eintrag'];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function nestedChangeFields(string $type): array
+    {
+        if ($type === 'people') {
+            return [
+                'memberships' => 'Mitgliedschaft',
+                'activities' => 'Aktivität',
+            ];
+        }
+
+        if ($type === 'groups') {
+            return [
+                'mainPhase' => 'Hauptphase',
+                'additionalPhases' => 'Weitere Phase',
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed>|null $previous
+     * @param array<string, mixed> $current
+     */
+    private function changeAction(?array $previous, array $current): string
+    {
+        if (($current['_deleted'] ?? false) === true) {
+            return 'deleted';
+        }
+
+        return $previous === null ? 'created' : 'updated';
     }
 
     /**

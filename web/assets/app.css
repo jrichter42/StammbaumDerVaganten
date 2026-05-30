@@ -1041,17 +1041,17 @@ body.is-context-resizing {
 }
 
 @media (min-width: 1180px) {
-  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]) {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) {
     grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) 8px minmax(280px, var(--context-panel-width));
     align-items: stretch;
     column-gap: 8px;
   }
 
-  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]) .context-resizer {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) .context-resizer {
     display: block;
   }
 
-  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]) .context-panel {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) .context-panel {
     position: relative;
     top: auto;
     display: grid;
@@ -1140,7 +1140,8 @@ body.is-context-resizing {
 #view-timepoints .panel,
 #view-tree .panel,
 #view-users .panel,
-#view-audit .panel {
+#view-audit .panel,
+#view-log .panel {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1372,17 +1373,81 @@ body.is-context-resizing {
   background: transparent;
 }
 
+.change-log-list {
+  gap: 1px;
+  --change-log-grid-columns: minmax(13rem, 1.15fr) minmax(16rem, 1.4fr) minmax(11rem, 0.95fr) minmax(18rem, 2fr);
+}
+
+.change-log-item {
+  width: 100%;
+  border: 0;
+  appearance: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.change-log-row {
+  grid-template-columns: var(--change-log-grid-columns);
+  align-items: start;
+}
+
+.change-log-header {
+  position: sticky;
+  z-index: 12;
+  top: 0;
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  background: #11181d;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.change-log-header span,
+.change-log-time,
+.change-log-object,
+.change-log-user,
+.change-log-details {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.change-log-time,
+.change-log-details {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.change-log-object,
+.change-log-user {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.change-log-item:hover,
+.change-log-item:focus-visible {
+  background: var(--surface-raised);
+  outline: 0;
+}
+
 .audit-list {
   gap: 1px;
   --audit-grid-columns: minmax(13rem, 1.15fr) minmax(12rem, 1fr) minmax(11rem, 0.95fr) minmax(18rem, 2fr);
 }
 
-.audit-filter-header {
+.audit-filter-header,
+.change-log-filter-header {
   min-height: 0;
   padding: 12px 18px;
 }
 
-.audit-controls {
+.audit-controls,
+.change-log-controls {
   justify-content: flex-start;
 }
 
@@ -2724,6 +2789,7 @@ button.object-title-row:focus-visible::before {
 
   .public-section-heading,
   .audit-row,
+  .change-log-row,
   .timeline-item {
     align-items: start;
     grid-template-columns: 1fr;

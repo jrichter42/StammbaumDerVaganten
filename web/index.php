@@ -138,8 +138,9 @@ $configWarnings = array_map(
             <span class="nav-label">Admin</span>
             <button class="nav-item" id="exampleDataButton" type="button" hidden><span class="nav-count"></span><span>Beispieldaten</span></button>
             <span class="nav-feedback object-save-state" id="exampleDataState" hidden></span>
-            <button class="nav-item" id="usersNav" type="button" data-view="users"><span class="nav-count" data-nav-count="users">0</span><span>Benutzer</span></button>
+            <button class="nav-item" id="logNav" type="button" data-view="log"><span class="nav-count" data-nav-count="log">0</span><span>Log</span></button>
             <button class="nav-item" id="auditNav" type="button" data-view="audit"><span class="nav-count" data-nav-count="audit">0</span><span>Audit</span></button>
+            <button class="nav-item" id="usersNav" type="button" data-view="users"><span class="nav-count" data-nav-count="users">0</span><span>Benutzer</span></button>
           </div>
         </nav>
 
@@ -207,6 +208,17 @@ $configWarnings = array_map(
               </div>
               <div class="object-create" data-create-panel="timepoints" hidden></div>
               <div class="list object-list" id="timepointsList"></div>
+            </section>
+          </div>
+
+          <div class="view" id="view-log">
+            <section class="panel">
+              <div class="panel-header collection-header change-log-filter-header">
+                <div class="collection-heading">
+                  <div class="collection-controls change-log-controls" id="changeLogControls"></div>
+                </div>
+              </div>
+              <div class="list change-log-list" id="changeLogList"></div>
             </section>
           </div>
 

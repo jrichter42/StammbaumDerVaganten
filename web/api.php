@@ -143,6 +143,15 @@ try {
             ]);
             break;
 
+        case 'object-changes':
+            Http::requireMethod('GET');
+            require_permission($auth, 'manage_users');
+            Http::json([
+                'ok' => true,
+                'changes' => $storage->recentChanges(object_access($auth)),
+            ]);
+            break;
+
         case 'object':
             Http::requireMethod('GET');
             $access = object_access($auth);

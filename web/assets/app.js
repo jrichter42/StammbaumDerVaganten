@@ -201,7 +201,9 @@ const state = {
   groupTypes: [],
   users: [],
   auditLog: [],
+  changeLog: [],
   auditFilters: { event: '', username: '' },
+  changeLogFilters: { type: '', username: '', action: '' },
   setupTokens: [],
   setupResult: null,
   account: null,
@@ -251,6 +253,7 @@ const setupPanel = document.querySelector('#setupPanel');
 const setupInput = document.querySelector('#setupInput');
 const usersNav = document.querySelector('#usersNav');
 const auditNav = document.querySelector('#auditNav');
+const logNav = document.querySelector('#logNav');
 const usersNavGroup = document.querySelector('#usersNavGroup');
 const setupResult = document.querySelector('#setupResult');
 const exampleDataButton = document.querySelector('#exampleDataButton');
@@ -258,6 +261,8 @@ const exampleDataState = document.querySelector('#exampleDataState');
 const userList = document.querySelector('#userList');
 const auditList = document.querySelector('#auditList');
 const auditControls = document.querySelector('#auditControls');
+const changeLogControls = document.querySelector('#changeLogControls');
+const changeLogList = document.querySelector('#changeLogList');
 const appContent = document.querySelector('.app-content');
 const contentArea = document.querySelector('.content-area');
 const backToTopButton = document.querySelector('#backToTopButton');
@@ -331,7 +336,9 @@ userList.addEventListener('input', handleUserEditorInput);
 userList.addEventListener('change', handleUserEditorInput);
 userList.addEventListener('focusout', handleUserEditorBlur);
 document.addEventListener('click', handleNavigationJump);
+document.addEventListener('click', handleChangeLogClick);
 document.addEventListener('click', handleAuditControlClick);
+document.addEventListener('click', handleChangeLogControlClick);
 document.addEventListener('click', handleGlobalSearchClick);
 document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
@@ -342,6 +349,7 @@ document.addEventListener('pointerout', handleDateDetailPreviewEnd);
 document.addEventListener('pointerout', handleObjectGraphHoverEnd);
 document.addEventListener('input', handleCollectionControlInput);
 document.addEventListener('change', handleAuditControlChange);
+document.addEventListener('change', handleChangeLogControlChange);
 document.addEventListener('input', handleReferenceFilterInput);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleCollectionControlChange);
@@ -517,6 +525,7 @@ function handleBeforeUnload(event) {
 }
 
 function activateView(viewName, urlExtra = {}) {
+  const previousViewName = currentViewName();
   state.accountOpen = false;
   state.loginOpen = false;
   if (workspace) {
@@ -536,7 +545,16 @@ function activateView(viewName, urlExtra = {}) {
     publicGraphSignature = '';
     renderTreeGraph();
   }
+  if ((viewName === 'log' || viewName === 'audit') && previousViewName !== viewName) {
+    scrollCurrentViewToTop();
+  }
   scheduleContextGraphRender();
+}
+
+function scrollCurrentViewToTop() {
+  const scrollRoot = appScrollRoot();
+  scrollRoot.scrollTo({ top: 0, left: 0 });
+  updateBackToTopButton();
 }
 
 function restoreUrlState() {
@@ -557,6 +575,11 @@ function restoreUrlState() {
 
   if (view === 'audit') {
     window.requestAnimationFrame(() => activateView('audit'));
+    return;
+  }
+
+  if (view === 'log') {
+    window.requestAnimationFrame(() => activateView('log'));
     return;
   }
 
@@ -882,6 +905,42 @@ async function followNestedEditLink(link) {
   openNestedEditRow(type, id, edit);
 }
 
+async function handleChangeLogClick(event) {
+  const button = event.target.closest('[data-change-log]');
+  if (!button) {
+    return;
+  }
+
+  const type = button.dataset.linkView || '';
+  const id = button.dataset.linkId || '';
+  const edit = button.dataset.linkEdit || '';
+  if (!objectCollections.includes(type) || !id) {
+    return;
+  }
+
+  if (focusExistingCreateForm(button) || !(await canSwitchToView(type))) {
+    return;
+  }
+
+  clearCollectionNarrowingForDeepLink(type);
+  activateView(type, edit ? { id, edit } : { id });
+  await refreshActivatedView(type);
+
+  const item = objectItemElement(type, id);
+  if (!item) {
+    state.deepLinkTarget = { view: type, id, edit };
+    return;
+  }
+
+  if (edit && validNestedEditKey(edit)) {
+    state.relationshipEditing[objectKey(type, id)] = edit;
+  }
+  await focusObjectEditor(item);
+  if (edit && validNestedEditKey(edit)) {
+    openNestedEditRow(type, id, edit);
+  }
+}
+
 function objectItemElement(type, id) {
   return document.querySelector(`[data-object-type="${cssEscape(type)}"][data-object-id="${cssEscape(id)}"]`);
 }
@@ -1003,6 +1062,12 @@ async function refreshActivatedView(viewName) {
   if (viewName === 'audit') {
     await loadAuditLog();
     renderAuditLog();
+    return;
+  }
+
+  if (viewName === 'log') {
+    await loadChangeLog();
+    renderChangeLog();
     return;
   }
 
@@ -1137,6 +1202,9 @@ async function refresh() {
       renderShell();
     }
     await loadObjects();
+    if (hasPermission('manage_users')) {
+      await loadChangeLog();
+    }
 
     if (hasPermission('manage_users')) {
       await loadManagedUsers();
@@ -1196,10 +1264,16 @@ function renderShell() {
   if (auditNav) {
     auditNav.hidden = !canManageUsers;
   }
+  if (logNav) {
+    logNav.hidden = !canManageUsers;
+  }
   if (!canManageUsers && document.querySelector('#view-users')?.classList.contains('is-active')) {
     activateView('people');
   }
   if (!canManageUsers && document.querySelector('#view-audit')?.classList.contains('is-active')) {
+    activateView('people');
+  }
+  if (!canManageUsers && document.querySelector('#view-log')?.classList.contains('is-active')) {
     activateView('people');
   }
 
@@ -1482,6 +1556,17 @@ async function loadAuditLog() {
 
   const response = await getJson('api.php?action=admin-audit');
   state.auditLog = Array.isArray(response.audit) ? response.audit : [];
+  renderNavigationCounts();
+}
+
+async function loadChangeLog() {
+  if (!hasPermission('manage_users')) {
+    state.changeLog = [];
+    return;
+  }
+
+  const response = await getJson('api.php?action=object-changes');
+  state.changeLog = Array.isArray(response.changes) ? response.changes : [];
   renderNavigationCounts();
 }
 
@@ -1905,6 +1990,7 @@ function render() {
   renderObjectCollections();
   renderUsersManagement();
   renderAuditLog();
+  renderChangeLog();
   applyDeepLinkTarget();
   scheduleContextGraphRender();
 }
@@ -3875,6 +3961,7 @@ function renderNavigationCounts() {
   ]));
   counts.users = state.users.length;
   counts.audit = state.auditLog.length;
+  counts.log = state.changeLog.length;
 
   const countElements = Array.from(document.querySelectorAll('[data-nav-count]'));
   let maxCountLength = 1;
@@ -4038,7 +4125,7 @@ function renderObjectCollection(type) {
 
   renderCreatePanel(type);
   if (!canAccessObjects()) {
-    list.innerHTML = '<div class="empty-state">Kein Zugriff auf Objekte.</div>';
+    list.innerHTML = '<div class="empty-state">Kein Zugriff auf Einträge.</div>';
     return;
   }
 
@@ -6565,7 +6652,7 @@ async function createObjectImmediately(type, triggerButton = null) {
     return true;
   } catch (error) {
     if (triggerButton) {
-      showInlineActionFeedback(triggerButton, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'));
+      showInlineActionFeedback(triggerButton, localizeErrorMessage(error.message || 'Eintrag konnte nicht erstellt werden.'));
     }
     return false;
   } finally {
@@ -7121,7 +7208,7 @@ function smartReferenceCreateCandidate(collection, query, config = {}, objects =
       type: 'people',
       payload: { scoutname: text },
       title: `Person "${text}" erstellen`,
-      detail: 'Neues Objekt wird angelegt und ausgewählt',
+      detail: 'Neuer Eintrag wird angelegt und ausgewählt',
     };
   }
 
@@ -7138,8 +7225,8 @@ function smartReferenceCreateCandidate(collection, query, config = {}, objects =
   return {
     type: collection,
     payload,
-    title: `${objectTypeLabels[collection] || 'Objekt'} "${text}" erstellen`,
-    detail: 'Neues Objekt wird angelegt und ausgewählt',
+    title: `${objectTypeLabels[collection] || 'Eintrag'} "${text}" erstellen`,
+    detail: 'Neuer Eintrag wird angelegt und ausgewählt',
   };
 }
 
@@ -7505,6 +7592,19 @@ function handleAuditControlChange(event) {
   }
 }
 
+function handleChangeLogControlChange(event) {
+  const control = event.target.closest('[data-change-log-control]');
+  if (!control) {
+    return;
+  }
+
+  const name = control.dataset.changeLogControl || '';
+  if (name === 'type' || name === 'username' || name === 'action') {
+    state.changeLogFilters[name] = control.value || '';
+    renderChangeLog();
+  }
+}
+
 function handleAuditControlClick(event) {
   const button = event.target.closest('[data-audit-clear-filter]');
   if (!button) {
@@ -7515,6 +7615,19 @@ function handleAuditControlClick(event) {
   if (name === 'event' || name === 'username') {
     state.auditFilters[name] = '';
     renderAuditLog();
+  }
+}
+
+function handleChangeLogControlClick(event) {
+  const button = event.target.closest('[data-change-log-clear-filter]');
+  if (!button) {
+    return;
+  }
+
+  const name = button.dataset.changeLogClearFilter || '';
+  if (name === 'type' || name === 'username' || name === 'action') {
+    state.changeLogFilters[name] = '';
+    renderChangeLog();
   }
 }
 
@@ -7761,7 +7874,7 @@ async function createObjectFromForm(form) {
       await reloadObjectData();
       return false;
     }
-    setCreateState(form, localizeErrorMessage(error.message || 'Objekt konnte nicht erstellt werden.'), true);
+    setCreateState(form, localizeErrorMessage(error.message || 'Eintrag konnte nicht erstellt werden.'), true);
     return false;
   }
 }
@@ -8735,7 +8848,7 @@ async function handleObjectSaveError(item, error) {
     return;
   }
 
-  setObjectSaveState(item, localizeErrorMessage(error.message || 'Objekt konnte nicht aktualisiert werden.'), true);
+  setObjectSaveState(item, localizeErrorMessage(error.message || 'Eintrag konnte nicht aktualisiert werden.'), true);
 }
 
 function isPermissionDeniedError(error) {
@@ -9694,6 +9807,119 @@ function renderAuditLog() {
       ? entries.map((entry) => renderAuditEntry(entry)).join('')
       : '<div class="empty-state">Keine Audit-Einträge.</div>'}
   `;
+}
+
+function renderChangeLog() {
+  if (!changeLogList || !hasPermission('manage_users')) {
+    return;
+  }
+
+  renderChangeLogControls();
+  const entries = filteredChangeLog();
+  changeLogList.innerHTML = `
+    <div class="change-log-row change-log-header">
+      <span>Zeit</span>
+      <span>Eintrag</span>
+      <span>Benutzer</span>
+      <span>Änderung</span>
+    </div>
+    ${entries.length
+      ? entries.map((entry) => renderChangeLogEntry(entry)).join('')
+      : '<div class="empty-state">Keine Änderungen.</div>'}
+  `;
+}
+
+function renderChangeLogEntry(entry) {
+  const type = String(entry.type || '');
+  const id = String(entry.id || '');
+  const edit = String(entry.part?.edit || '');
+  const object = findReferenceObject(type, id);
+  const title = object ? objectListTitle(type, object) : fallbackObjectTitle(type, id);
+  const partLabel = String(entry.part?.label || 'Eintrag');
+  const action = changeActionLabel(String(entry.action || 'updated'));
+  const details = [
+    objectTypeLabels[type] || type,
+    partLabel,
+    action,
+  ].filter(Boolean).join(' · ');
+  const at = entry.at ? modifiedDateLine(entry.at) : '-';
+  const user = entry.user || '-';
+
+  return `
+    <button class="list-item change-log-row change-log-item" type="button" data-change-log data-link-view="${escapeAttribute(type)}" data-link-id="${escapeAttribute(id)}" data-link-edit="${escapeAttribute(edit)}">
+      <span class="change-log-time">${escapeHtml(at)}</span>
+      <span class="change-log-object">${escapeHtml(title)}</span>
+      <span class="change-log-user">${escapeHtml(user)}</span>
+      <span class="change-log-details">${escapeHtml(details || '-')}</span>
+    </button>
+  `;
+}
+
+function changeActionLabel(action) {
+  const labels = {
+    created: 'erstellt',
+    updated: 'geändert',
+    deleted: 'gelöscht',
+  };
+
+  return labels[action] || action;
+}
+
+function renderChangeLogControls() {
+  if (!changeLogControls) {
+    return;
+  }
+
+  const types = [...new Set(state.changeLog.map((entry) => String(entry.type || '')).filter(Boolean))].sort(sortCollator.compare);
+  const users = [...new Set(state.changeLog.map((entry) => String(entry.user || '').trim()).filter(Boolean))].sort(sortCollator.compare);
+  const actions = [...new Set(state.changeLog.map((entry) => String(entry.action || '').trim()).filter(Boolean))].sort(sortCollator.compare);
+  changeLogControls.innerHTML = `
+    <section class="collection-filter-section">
+      <div class="collection-filter-controls">
+        <label class="collection-control">
+          <span class="collection-filter-label">
+            <span>Eintrag</span>
+            <button class="period-toggle" type="button" data-change-log-clear-filter="type">(reset)</button>
+          </span>
+          <select data-change-log-control="type">
+            <option value="">Alle</option>
+            ${types.map((type) => `<option value="${escapeAttribute(type)}" ${state.changeLogFilters.type === type ? 'selected' : ''}>${escapeHtml(labels[type] || type)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="collection-control">
+          <span class="collection-filter-label">
+            <span>Benutzer</span>
+            <button class="period-toggle" type="button" data-change-log-clear-filter="username">(reset)</button>
+          </span>
+          <select data-change-log-control="username">
+            <option value="">Alle</option>
+            ${users.map((username) => `<option value="${escapeAttribute(username)}" ${state.changeLogFilters.username === username ? 'selected' : ''}>${escapeHtml(username)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="collection-control">
+          <span class="collection-filter-label">
+            <span>Änderung</span>
+            <button class="period-toggle" type="button" data-change-log-clear-filter="action">(reset)</button>
+          </span>
+          <select data-change-log-control="action">
+            <option value="">Alle</option>
+            ${actions.map((action) => `<option value="${escapeAttribute(action)}" ${state.changeLogFilters.action === action ? 'selected' : ''}>${escapeHtml(changeActionLabel(action))}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+function filteredChangeLog() {
+  return state.changeLog.filter((entry) => {
+    const type = String(entry.type || '');
+    const username = String(entry.user || '').trim();
+    const action = String(entry.action || '').trim();
+    return (!state.changeLogFilters.type || type === state.changeLogFilters.type)
+      && (!state.changeLogFilters.username || username === state.changeLogFilters.username)
+      && (!state.changeLogFilters.action || action === state.changeLogFilters.action);
+  });
 }
 
 function renderAuditControls() {
@@ -10772,12 +10998,12 @@ function localizeErrorMessage(text) {
     'Challenge expired or was already used.': 'Die Anfrage ist abgelaufen oder wurde bereits verwendet.',
     'Username is already in use.': 'Benutzername wird bereits verwendet.',
     'Unknown permission.': 'Unbekannte Berechtigung.',
-    'Unknown object.': 'Unbekanntes Objekt.',
-    'Object has been deleted.': 'Objekt wurde gelöscht.',
-    'Object has already been deleted.': 'Objekt wurde bereits gelöscht.',
+    'Unknown object.': 'Unbekannter Eintrag.',
+    'Object has been deleted.': 'Eintrag wurde gelöscht.',
+    'Object has already been deleted.': 'Eintrag wurde bereits gelöscht.',
     'Sensitive permission is required for this field.': 'Für dieses Feld ist die Berechtigung für sensible Daten erforderlich.',
     'Unknown collection.': 'Unbekannte Sammlung.',
-    'Invalid object ID.': 'Ungültige Objekt-ID.',
+    'Invalid object ID.': 'Ungültige Eintrags-ID.',
     'Unsupported credential type.': 'Nicht unterstützter Anmeldedatentyp.',
     'Invalid attestation object.': 'Ungültiges Attestation-Objekt.',
     'Passkey was created for a different site.': 'Der Passkey wurde für eine andere Website erstellt.',
