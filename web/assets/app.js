@@ -4047,6 +4047,13 @@ function collectionFilterControls(type, filters) {
     ];
   }
 
+  if (type === 'timepoints') {
+    return [
+      collectionStaticSelectControl(type, 'timepointNames', 'Zeitpunkt', collectionTextFilterOptions('timepoints', 'name'), filters.timepointNames, true),
+      collectionStaticSelectControl(type, 'locations', 'Ort', collectionTextFilterOptions('timepoints', 'location'), filters.locations, true),
+    ];
+  }
+
   if (type === 'users') {
     return [
       collectionStaticSelectControl(type, 'permissions', 'Berechtigung', [
@@ -4063,6 +4070,22 @@ function collectionFilterControls(type, filters) {
   }
 
   return [];
+}
+
+function collectionTextFilterOptions(collection, field) {
+  const byKey = new Map();
+  (state.objects[collection] || []).forEach((object) => {
+    const text = String(object?.[field] || '').trim();
+    const key = foldSearchText(text);
+    if (!text || byKey.has(key)) {
+      return;
+    }
+    byKey.set(key, text);
+  });
+
+  return [...byKey.values()]
+    .sort(sortCollator.compare)
+    .map((value) => [value, value]);
 }
 
 function collectionMultiSelectControl(type, name, label, collection, selectedValues = []) {
@@ -4231,6 +4254,11 @@ function collectionObjectMatches(type, object) {
     return roleMatchesGroupTypeFilter(object, filters.groupTypes);
   }
 
+  if (type === 'timepoints') {
+    return objectTextMatchesAny(object.name, filters.timepointNames)
+      && objectTextMatchesAny(object.location, filters.locations);
+  }
+
   return true;
 }
 
@@ -4266,6 +4294,15 @@ function objectMatchesAny(actualIds, selectedIds = []) {
   }
 
   return (actualIds || []).some((id) => selectedIds.includes(id));
+}
+
+function objectTextMatchesAny(value, selectedValues = []) {
+  if (!Array.isArray(selectedValues) || !selectedValues.length) {
+    return true;
+  }
+
+  const foldedValue = foldSearchText(value);
+  return selectedValues.some((selected) => foldSearchText(selected) === foldedValue);
 }
 
 function roleMatchesGroupTypeFilter(role, selectedIds = []) {
