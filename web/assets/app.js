@@ -9837,6 +9837,7 @@ function renderChangeLogEntry(entry) {
   const title = object ? objectListTitle(type, object) : fallbackObjectTitle(type, id);
   const partLabel = String(entry.part?.label || 'Eintrag');
   const action = changeActionLabel(String(entry.action || 'updated'));
+  const actionClass = changeActionClass(String(entry.action || 'updated'));
   const details = [
     objectTypeLabels[type] || type,
     partLabel,
@@ -9848,7 +9849,7 @@ function renderChangeLogEntry(entry) {
   return `
     <button class="list-item change-log-row change-log-item" type="button" data-change-log data-link-view="${escapeAttribute(type)}" data-link-id="${escapeAttribute(id)}" data-link-edit="${escapeAttribute(edit)}">
       <span class="change-log-time">${escapeHtml(at)}</span>
-      <span class="change-log-object">${escapeHtml(title)}</span>
+      <span class="change-log-object ${escapeAttribute(actionClass)}">${escapeHtml(title)}</span>
       <span class="change-log-user">${escapeHtml(user)}</span>
       <span class="change-log-details">${escapeHtml(details || '-')}</span>
     </button>
@@ -9863,6 +9864,16 @@ function changeActionLabel(action) {
   };
 
   return labels[action] || action;
+}
+
+function changeActionClass(action) {
+  if (action === 'created') {
+    return 'is-created';
+  }
+  if (action === 'deleted') {
+    return 'is-deleted';
+  }
+  return 'is-updated';
 }
 
 function renderChangeLogControls() {
@@ -10014,6 +10025,7 @@ function renderAuditEntry(entry) {
   const event = String(entry.event || 'event');
   const at = modifiedDateLine(entry.at || '');
   const username = auditAffectedUsername(entry) || '-';
+  const categoryClass = auditEventClass(event);
   const details = Object.entries(entry)
     .filter(([key]) => !['at', 'event', 'username'].includes(key))
     .map(([key, value]) => `${key}: ${auditValue(value)}`)
@@ -10022,7 +10034,7 @@ function renderAuditEntry(entry) {
   return `
     <article class="list-item audit-row audit-item">
       <span class="audit-time">${escapeHtml(at)}</span>
-      <span class="audit-event">${escapeHtml(auditEventLabel(event))}</span>
+      <span class="audit-event ${escapeAttribute(categoryClass)}">${escapeHtml(auditEventLabel(event))}</span>
       <span class="audit-user">${escapeHtml(username)}</span>
       <span class="audit-details">${escapeHtml(details || '-')}</span>
     </article>
@@ -10036,7 +10048,7 @@ function auditAffectedUsername(entry) {
 function auditEventLabel(event) {
   const labels = {
     login: 'Login',
-    email_login: 'E-Mail-Login',
+    email_login: 'Login-Link verwendet',
     email_login_link_created: 'Login-Link erstellt',
     setup_token_created: 'Setup-Link erstellt',
     setup_token_deleted: 'Setup-Link gelöscht',
@@ -10073,6 +10085,18 @@ function auditCategoryLabel(category) {
   };
 
   return labels[category] || category;
+}
+
+function auditCategoryClass(category) {
+  return `is-${category || 'other'}`;
+}
+
+function auditEventClass(event) {
+  if (String(event || '').includes('deleted')) {
+    return 'is-deleted';
+  }
+
+  return auditCategoryClass(auditEventCategory(event));
 }
 
 function auditValue(value) {

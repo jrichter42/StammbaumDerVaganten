@@ -1423,9 +1423,28 @@ body.is-context-resizing {
   font-size: 0.84rem;
 }
 
-.change-log-object,
+.change-log-details {
+  color: var(--muted);
+}
+
+.change-log-object.is-created {
+  color: var(--good);
+}
+
+.change-log-object.is-updated {
+  color: var(--text);
+}
+
+.change-log-object.is-deleted {
+  color: var(--danger);
+}
+
 .change-log-user {
   color: var(--text);
+  font-weight: 650;
+}
+
+.change-log-object {
   font-weight: 650;
 }
 
@@ -1490,10 +1509,34 @@ body.is-context-resizing {
   font-size: 0.84rem;
 }
 
-.audit-event,
 .audit-user {
   color: var(--text);
   font-weight: 650;
+}
+
+.audit-event {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.audit-event.is-login {
+  color: var(--text);
+}
+
+.audit-event.is-setup {
+  color: var(--good);
+}
+
+.audit-event.is-passkey {
+  color: var(--text);
+}
+
+.audit-event.is-user {
+  color: var(--danger);
+}
+
+.audit-event.is-deleted {
+  color: var(--danger);
 }
 
 .object-list .list-item,
