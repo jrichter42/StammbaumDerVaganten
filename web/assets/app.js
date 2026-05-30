@@ -2828,12 +2828,13 @@ function placeRelationContextNode(graph, nodeId, options = {}, relation = 'conte
       activity: 250,
       child: 250,
       group: 250,
+      role: 250,
     }[relation] || 180;
     const unorderedX = x + compactOffset;
-    const y = ['child', 'group', 'person', 'parent', 'groupType'].includes(relation)
+    const y = ['child', 'group', 'person', 'parent', 'groupType', 'role'].includes(relation)
       ? baseY
       : baseY + compactOffset;
-    placeContextNode(graph, nodeId, ['child', 'group', 'person', 'parent', 'groupType'].includes(relation) ? unorderedX : x, y, priority);
+    placeContextNode(graph, nodeId, ['child', 'group', 'person', 'parent', 'groupType', 'role'].includes(relation) ? unorderedX : x, y, priority);
     return;
   }
 
@@ -2849,8 +2850,8 @@ function placeRelationContextNode(graph, nodeId, options = {}, relation = 'conte
     return;
   }
 
-  if (relation === 'activity' || relation === 'child' || relation === 'group' || relation === 'person') {
-    const unordered = relation === 'child' || relation === 'group' || relation === 'person';
+  if (relation === 'activity' || relation === 'child' || relation === 'group' || relation === 'person' || relation === 'role') {
+    const unordered = relation === 'child' || relation === 'group' || relation === 'person' || relation === 'role';
     placeContextNode(
       graph,
       nodeId,
@@ -2890,6 +2891,7 @@ function contextRelationPriority(relation) {
     child: 11,
     group: 11,
     person: 11,
+    role: 11,
   }[relation] || 10;
 }
 
@@ -3014,24 +3016,46 @@ function addGroupTypeContext(graph, groupType, options = {}) {
   placePrimaryContextNode(graph, typeNode, options);
   const parentNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', groupTypeParentGroupTypeId(groupType)));
   placeRelationContextNode(graph, parentNode, options, 'parent', 0, 1);
-  addContextEdge(graph, parentNode, typeNode, 'untergeordnet', 'type');
+  addContextEdge(graph, parentNode, typeNode, 'untergeordnet', 'type', {
+    type: 'group-types',
+    id: objectId(groupType),
+  });
 
   (state.groupTypes || []).sort((left, right) => sortCollator.compare(objectListTitle('group-types', left), objectListTitle('group-types', right))).forEach((candidate, index) => {
     if (groupTypeParentGroupTypeId(candidate) === objectId(groupType)) {
       const childNode = addContextNode(graph, 'group-types', candidate);
       placeRelationContextNode(graph, childNode, options, 'child', index, 8);
-      addContextEdge(graph, typeNode, childNode, 'untergeordnet', 'type');
+      addContextEdge(graph, typeNode, childNode, 'untergeordnet', 'type', {
+        type: 'group-types',
+        id: objectId(candidate),
+      });
     }
   });
 
   (state.objects.groups || [])
     .filter((group) => groupTypeIds(group).includes(objectId(groupType)))
-    .sort((left, right) => compareObjects('groups', left, right))
+    .sort((left, right) => compareCollectionObjects('groups', left, right))
     .slice(0, options.compact ? 5 : 18)
     .forEach((group, index) => {
       const groupNode = addContextNode(graph, 'groups', group);
       placeRelationContextNode(graph, groupNode, options, 'group', index, options.compact ? 5 : 18);
-      addContextEdge(graph, typeNode, groupNode, 'Gruppe', 'type');
+      addContextEdge(graph, typeNode, groupNode, 'Gruppe', 'type', {
+        type: 'groups',
+        id: objectId(group),
+      });
+    });
+
+  (state.objects.roles || [])
+    .filter((role) => roleGroupTypeIds(role).includes(objectId(groupType)))
+    .sort((left, right) => compareCollectionObjects('roles', left, right))
+    .slice(0, options.compact ? 5 : 18)
+    .forEach((role, index) => {
+      const roleNode = addContextNode(graph, 'roles', role);
+      placeRelationContextNode(graph, roleNode, options, 'role', index, options.compact ? 5 : 18);
+      addContextEdge(graph, roleNode, typeNode, 'nutzbar für', 'type', {
+        type: 'roles',
+        id: objectId(role),
+      });
     });
 }
 
