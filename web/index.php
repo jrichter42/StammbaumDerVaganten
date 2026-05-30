@@ -274,6 +274,26 @@ $configWarnings = array_map(
 
         <button class="context-resizer" id="contextResizer" type="button" aria-label="Visualisierungsbreite anpassen" aria-orientation="vertical"></button>
         <aside class="context-panel" id="contextPanel" aria-label="Kontext-Visualisierung">
+          <div class="context-panel-header">
+            <p id="contextGraphStatus" data-tree-graph-status hidden></p>
+            <div class="context-type-toggles" aria-label="Kontext-Typen">
+              <section class="context-type-group" aria-label="Daten">
+                <label class="context-type-group-toggle"><input type="checkbox" data-context-graph-type-group-toggle value="data" checked><span>Daten</span></label>
+                <div>
+                  <label><input type="checkbox" data-context-graph-type-toggle value="people" checked><span>Personen</span></label>
+                  <label><input type="checkbox" data-context-graph-type-toggle value="groups" checked><span>Gruppen</span></label>
+                  <label><input type="checkbox" data-context-graph-type-toggle value="timepoints" checked><span>Zeitpunkte</span></label>
+                </div>
+              </section>
+              <section class="context-type-group" aria-label="Struktur">
+                <label class="context-type-group-toggle"><input type="checkbox" data-context-graph-type-group-toggle value="structure" checked><span>Struktur</span></label>
+                <div>
+                  <label><input type="checkbox" data-context-graph-type-toggle value="roles" checked><span>Rollen</span></label>
+                  <label><input type="checkbox" data-context-graph-type-toggle value="group-types" checked><span>Gruppenarten</span></label>
+                </div>
+              </section>
+            </div>
+          </div>
           <div class="public-graph context-graph" id="contextGraph" data-context-graph aria-label="Kontext-Graph"></div>
         </aside>
       </main>

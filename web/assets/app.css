@@ -986,9 +986,93 @@ h3 {
 .context-panel {
   display: none;
   grid-template-rows: minmax(0, 1fr);
+  position: relative;
   min-width: 0;
   overflow: hidden;
   overscroll-behavior: contain;
+}
+
+.context-panel-header {
+  position: absolute;
+  z-index: 7;
+  top: 12px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(var(--brand-rgb), 0.26);
+  border-radius: 8px;
+  background: rgba(13, 17, 20, 0.88);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(10px);
+}
+
+.context-type-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.context-type-group {
+  display: grid;
+  gap: 8px;
+  min-width: 154px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(9, 12, 14, 0.58);
+}
+
+.context-type-group > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.context-type-toggles label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: rgba(15, 20, 24, 0.78);
+  font-size: 0.78rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.context-type-toggles .context-type-group-toggle {
+  width: fit-content;
+  color: var(--text);
+  font-weight: 700;
+  background: rgba(24, 30, 35, 0.82);
+}
+
+.context-type-toggles label:has(input:checked) {
+  color: var(--text);
+  border-color: var(--line);
+  background: rgba(24, 30, 35, 0.82);
+}
+
+.context-type-toggles .context-type-group-toggle.is-partial {
+  color: var(--muted);
+}
+
+.context-type-toggles label.is-forced {
+  cursor: default;
+  pointer-events: none;
+}
+
+.context-type-toggles input {
+  accent-color: var(--brand);
+}
+
+.context-type-toggles input:disabled {
+  opacity: 1;
 }
 
 .context-resizer {

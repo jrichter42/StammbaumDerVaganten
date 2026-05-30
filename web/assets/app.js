@@ -35,6 +35,10 @@ const emptyCollectionLabels = {
 };
 
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
+const contextGraphTypeGroups = {
+  data: ['people', 'groups', 'timepoints'],
+  structure: ['roles', 'group-types'],
+};
 const collectionTypes = [...objectCollections, 'users'];
 const collectionVisibleStep = 100;
 const sortCollator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
@@ -209,6 +213,7 @@ const state = {
   account: null,
   accountOpen: false,
   loginOpen: false,
+  contextGraphTypes: Object.fromEntries(objectCollections.map((type) => [type, true])),
   createOpen: {},
   collectionUi: Object.fromEntries(collectionTypes.map((type) => [type, { sort: collectionDefaultSorts[type], sortDirection: collectionDefaultSortDirection(type, collectionDefaultSorts[type]), search: '', filters: {}, sortExplicit: false }])),
   collectionVisibleCounts: Object.fromEntries(collectionTypes.map((type) => [type, collectionVisibleStep])),
@@ -270,6 +275,8 @@ const contextResizer = document.querySelector('#contextResizer');
 const contextPanel = document.querySelector('#contextPanel');
 const contextGraphContainer = document.querySelector('#contextGraph');
 const contextGraphStatus = document.querySelector('#contextGraphStatus');
+const contextGraphTypeToggles = Array.from(document.querySelectorAll('[data-context-graph-type-toggle]'));
+const contextGraphTypeGroupToggles = Array.from(document.querySelectorAll('[data-context-graph-type-group-toggle]'));
 const treeGroupTypeFilters = Array.from(document.querySelectorAll('[data-tree-group-type-filter]'));
 const treeGroupTypeClearButtons = Array.from(document.querySelectorAll('[data-tree-group-type-clear]'));
 let authMessageTimer = 0;
@@ -324,6 +331,9 @@ sourceInput?.addEventListener('blur', () => updateSourceControl());
 sourceClearButton?.addEventListener('click', clearSourceOverride);
 treeGroupTypeFilters.forEach((filter) => filter.addEventListener('change', handlePublicGraphFilterChange));
 treeGroupTypeClearButtons.forEach((button) => button.addEventListener('click', clearPublicGraphFilter));
+contextGraphTypeToggles.forEach((toggle) => toggle.addEventListener('change', handleContextGraphTypeToggle));
+contextGraphTypeGroupToggles.forEach((toggle) => toggle.addEventListener('change', handleContextGraphTypeGroupToggle));
+renderContextGraphTypeToggles();
 setupForm.addEventListener('submit', beginSetup);
 accountForm?.addEventListener('submit', handleAccountSubmit);
 accountForm?.addEventListener('input', handleAccountInput);
@@ -548,6 +558,7 @@ function activateView(viewName, urlExtra = {}) {
   if ((viewName === 'log' || viewName === 'audit') && previousViewName !== viewName) {
     scrollCurrentViewToTop();
   }
+  renderContextGraphTypeToggles();
   scheduleContextGraphRender();
 }
 
@@ -2115,6 +2126,71 @@ function clearPublicGraphFilter() {
   renderTreeGraph();
 }
 
+function handleContextGraphTypeToggle(event) {
+  const toggle = event.target.closest('[data-context-graph-type-toggle]');
+  if (!toggle) {
+    return;
+  }
+
+  const type = toggle.value || '';
+  if (!objectCollections.includes(type)) {
+    return;
+  }
+
+  if (type === currentContextGraphForcedType()) {
+    toggle.checked = true;
+    return;
+  }
+
+  state.contextGraphTypes[type] = toggle.checked;
+  contextGraphSignature = '';
+  renderContextGraphTypeToggles();
+  scheduleContextGraphRender();
+}
+
+function handleContextGraphTypeGroupToggle(event) {
+  const toggle = event.target.closest('[data-context-graph-type-group-toggle]');
+  if (!toggle) {
+    return;
+  }
+
+  const types = contextGraphTypeGroups[toggle.value || ''] || [];
+  const forcedType = currentContextGraphForcedType();
+  types.forEach((type) => {
+    if (type !== forcedType) {
+      state.contextGraphTypes[type] = toggle.checked;
+    }
+  });
+
+  contextGraphSignature = '';
+  renderContextGraphTypeToggles();
+  scheduleContextGraphRender();
+}
+
+function renderContextGraphTypeToggles() {
+  const forcedType = currentContextGraphForcedType();
+  const enabled = (type) => type === forcedType || state.contextGraphTypes[type] !== false;
+  contextGraphTypeToggles.forEach((toggle) => {
+    const type = toggle.value || '';
+    const forced = type === forcedType;
+    toggle.checked = enabled(type);
+    toggle.disabled = forced;
+    toggle.closest('label')?.classList.toggle('is-forced', forced);
+  });
+  contextGraphTypeGroupToggles.forEach((toggle) => {
+    const types = contextGraphTypeGroups[toggle.value || ''] || [];
+    const enabledCount = types.filter(enabled).length;
+    toggle.checked = Boolean(types.length && enabledCount === types.length);
+    toggle.indeterminate = enabledCount > 0 && enabledCount < types.length;
+    toggle.closest('label')?.classList.toggle('is-partial', toggle.indeterminate);
+  });
+}
+
+function currentContextGraphForcedType() {
+  const view = currentViewName();
+  return objectCollections.includes(view) ? view : '';
+}
+
 function renderPublicGraphFilter(root, groupTypes, groups = []) {
   const filter = root.querySelector('[data-tree-group-type-filter]');
   if (!filter) {
@@ -2273,7 +2349,7 @@ function renderContextGraph() {
   contextGraphNodeIds = new Set(graph.nodes.map((node) => node.id));
   contextGraphEdgeTargets = new Map(graph.edges.map((edge) => [edge.id, edge.target || null]));
   contextGraphEdges = graph.edges;
-  setTreeGraphStatus(contextGraphStatus, graph.status || '');
+  setTreeGraphStatus(contextGraphStatus, '');
   if (contextNetwork) {
     contextNetwork.destroy();
   }
@@ -2699,7 +2775,7 @@ function highlightContextEdgeTargetForNode(nodeId) {
 function contextGraphData() {
   const activeObject = activeContextObject();
   if (activeObject) {
-    return objectContextGraphData(activeObject.type, activeObject.object, { focus: true, status: 'Bearbeitung' });
+    return filterContextGraphData(objectContextGraphData(activeObject.type, activeObject.object, { focus: true, status: 'Bearbeitung' }));
   }
 
   const view = currentViewName();
@@ -2708,7 +2784,28 @@ function contextGraphData() {
   }
 
   const objects = collectionObjects(view).slice(0, 28);
-  return collectionContextGraphData(view, objects);
+  return filterContextGraphData(collectionContextGraphData(view, objects));
+}
+
+function filterContextGraphData(graph) {
+  const enabledTypes = enabledContextGraphTypes();
+  if (enabledTypes.size >= objectCollections.length) {
+    return graph;
+  }
+
+  const nodes = graph.nodes.filter((node) => enabledTypes.has(node.type || contextTypeFromNodeId(node.id)));
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  return {
+    ...graph,
+    nodes,
+    edges: graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to)),
+    status: graph.nodes.length && !nodes.length ? 'Keine passenden Kontext-Typen.' : graph.status,
+  };
+}
+
+function enabledContextGraphTypes() {
+  const forcedType = currentContextGraphForcedType();
+  return new Set(objectCollections.filter((type) => type === forcedType || state.contextGraphTypes[type] !== false));
 }
 
 function activeContextObject() {
@@ -3163,6 +3260,7 @@ function addContextNode(graph, type, object, focus = false) {
   const meta = objectListMeta(type, object);
   graph.nodeMap.set(id, {
     id,
+    type,
     label: publicGraphEntryLabel([
       objectListTitle(type, object),
       meta,
@@ -3235,6 +3333,12 @@ function contextEdgeSmooth(graph, from, to) {
 
 function contextNodeId(type, id) {
   return `${type}:${id}`;
+}
+
+function contextTypeFromNodeId(nodeId) {
+  const text = String(nodeId || '');
+  const index = text.indexOf(':');
+  return index === -1 ? '' : text.slice(0, index);
 }
 
 function contextNodeGroup(type) {
