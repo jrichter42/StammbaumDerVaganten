@@ -62,6 +62,8 @@ JSON API bodies are limited to 65,536 bytes in both PHP and Apache configuration
 
 Anonymous `status` responses expose only login availability and an empty auth identity. After login, the browser verifies that `config/app.json` is blocked, records the result under `var/auth/access_control_check.json`, reuses success for 24 hours, and shows a persistent warning when protection for `/app`, `/config`, `/data`, `/var`, or `/bootstrap_setup.txt` cannot be confirmed.
 
+User sessions carry an `auth_epoch`; disabling a user, changing their email address, deleting them, or explicitly logging out all sessions invalidates existing sessions immediately. Login-link expiry normalization is shared by auth storage and mail wording. Security audit events include request correlation IDs and selected failures, but deliberately omit tokens, credential payloads, CSRF values, raw email addresses, user agents, source IPs, and genealogy data.
+
 On first run with an empty `var/auth/users.json`, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
 Open that URL on the deployed site to register the initial passkey.
 

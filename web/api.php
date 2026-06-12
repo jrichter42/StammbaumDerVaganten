@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Stammbaum\AuthStore;
+use Stammbaum\Base64Url;
 use Stammbaum\Http;
 use Stammbaum\RateLimitException;
 use Stammbaum\StorageConflictException;
@@ -18,6 +19,9 @@ $mailer = $app['mailer'];
 $webauthn = WebAuthn::fromConfig($config);
 $version = $app['version'];
 $action = $_GET['action'] ?? 'status';
+$requestId = Base64Url::encode(random_bytes(12));
+$auth->setRequestId($requestId);
+header('X-Request-ID: ' . $requestId);
 
 /**
  * @return array<string, mixed>
@@ -413,6 +417,15 @@ try {
             Http::json(['ok' => true]);
             break;
 
+        case 'account-logout-all':
+            Http::requireMethod('POST');
+            $user = require_user($auth);
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $auth->logoutAll((string) $user['username']);
+            Http::json(['ok' => true]);
+            break;
+
         case 'account':
             Http::requireMethod('GET');
             $user = require_user($auth);
@@ -596,6 +609,7 @@ try {
         'current' => $exception->currentObject(),
     ], 409);
 } catch (RateLimitException $exception) {
+    $auth->recordSecurityEvent('rate_limit_exceeded', ['action' => $action]);
     Http::json(['ok' => false, 'error' => 'Too many requests'], 429);
 } catch (InvalidArgumentException $exception) {
     if (in_array($action, [
@@ -604,9 +618,14 @@ try {
         'auth-register-options',
         'auth-register-verify',
     ], true)) {
+        $event = str_starts_with($action, 'auth-register')
+            ? 'setup_verification_failed'
+            : 'auth_verification_failed';
+        $auth->recordSecurityEvent($event, ['action' => $action]);
         try {
             $auth->enforceRateLimit('failed-auth-ip', auth_client_ip($config), 20, 900);
         } catch (RateLimitException) {
+            $auth->recordSecurityEvent('rate_limit_exceeded', ['action' => $action]);
             Http::json(['ok' => false, 'error' => 'Too many requests'], 429);
         }
     }

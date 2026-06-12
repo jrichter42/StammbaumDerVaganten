@@ -11,6 +11,7 @@ final class Mailer
     private string $replyTo;
     private string $loginSubject;
     private string $timezone;
+    private int $loginLinkTtlSeconds;
 
     /**
      * @param array<string, mixed> $config
@@ -23,6 +24,7 @@ final class Mailer
         $this->replyTo = $this->cleanHeader((string) ($mail['reply_to'] ?? ''));
         $this->loginSubject = $this->cleanHeader((string) ($mail['login_subject'] ?? 'Login-Link für Stammbaum der Vaganten'));
         $this->timezone = is_string($config['timezone'] ?? null) ? $config['timezone'] : 'UTC';
+        $this->loginLinkTtlSeconds = Config::loginLinkTtlSeconds($config);
         $this->enabled = (bool) ($mail['enabled'] ?? false)
             && filter_var($this->fromAddress, FILTER_VALIDATE_EMAIL) !== false;
     }
@@ -45,17 +47,7 @@ final class Mailer
 
         $name = trim($displayName) !== '' ? trim($displayName) : 'Benutzer';
         $expiresAtDisplay = $this->formatLoginExpiry($expiresAt);
-        $body = implode("\n", [
-            'Hallo ' . $name . ',',
-            '',
-            'hier ist dein Login-Link:',
-            $loginUrl,
-            '',
-            'Der Link ist einmalig nutzbar und läuft ab:',
-            $expiresAtDisplay,
-            '',
-            'Falls du keinen Login-Link angefordert hast, kannst du diese Mail ignorieren.',
-        ]);
+        $body = $this->loginLinkBody($name, $loginUrl, $expiresAtDisplay);
 
         $headers = [
             'From: ' . $this->mailbox($this->fromAddress, $this->fromName),
@@ -73,6 +65,27 @@ final class Mailer
             $body,
             implode("\r\n", $headers)
         );
+    }
+
+    private function loginLinkBody(string $name, string $loginUrl, string $expiresAtDisplay): string
+    {
+        return implode("\n", [
+            'Hallo ' . $name . ',',
+            '',
+            'hier ist dein Login-Link:',
+            $loginUrl,
+            '',
+            'Der Link ist einmalig nutzbar und läuft in ' . $this->loginLinkDuration() . ' ab:',
+            $expiresAtDisplay,
+            '',
+            'Falls du keinen Login-Link angefordert hast, kannst du diese Mail ignorieren.',
+        ]);
+    }
+
+    private function loginLinkDuration(): string
+    {
+        $minutes = (int) ceil($this->loginLinkTtlSeconds / 60);
+        return $minutes === 1 ? '1 Minute' : $minutes . ' Minuten';
     }
 
     private function mailbox(string $address, string $name): string

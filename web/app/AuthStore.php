@@ -23,6 +23,7 @@ final class AuthStore
     private ?string $baseUrl = null;
     private int $loginLinkTtlSeconds = 600;
     private bool $emailLoginAvailable = false;
+    private ?string $requestId = null;
 
     /**
      * @param array<string, mixed> $config
@@ -96,7 +97,34 @@ final class AuthStore
             }
         );
 
+        if (!$success) {
+            $this->appendAudit('access_control_check_failed', ['checked_by' => $checkedBy]);
+        }
+
         return $this->accessControlCheck();
+    }
+
+    public function setRequestId(string $requestId): void
+    {
+        $this->requestId = preg_match('/^[A-Za-z0-9_-]{8,64}$/', $requestId) === 1
+            ? $requestId
+            : null;
+    }
+
+    /**
+     * @param array<string, scalar|null> $fields
+     */
+    public function recordSecurityEvent(string $event, array $fields = []): void
+    {
+        if (!in_array($event, [
+            'auth_verification_failed',
+            'setup_verification_failed',
+            'rate_limit_exceeded',
+        ], true)) {
+            throw new InvalidArgumentException('Unknown security audit event.');
+        }
+
+        $this->appendAudit($event, $fields);
     }
 
     /**
@@ -168,6 +196,7 @@ final class AuthStore
                 'display_name' => $displayName,
                 'email' => $email,
                 'enabled' => true,
+                'auth_epoch' => 1,
                 'permissions' => $permissions,
                 'user_handle' => Base64Url::encode(random_bytes(32)),
                 'credentials' => [],
@@ -215,7 +244,15 @@ final class AuthStore
             }
 
             if (array_key_exists('enabled', $patch)) {
+                $wasEnabled = ($user['enabled'] ?? false) === true;
                 $user['enabled'] = (bool) $patch['enabled'];
+                if ($wasEnabled && !$user['enabled']) {
+                    $user['auth_epoch'] = $this->userAuthEpoch($user) + 1;
+                }
+            }
+
+            if ($emailChanged) {
+                $user['auth_epoch'] = $this->userAuthEpoch($user) + 1;
             }
 
             if (array_key_exists('permissions', $patch) && is_array($patch['permissions'])) {
@@ -431,7 +468,7 @@ final class AuthStore
             return [$data, $this->publicCredential($deletedCredential)];
         });
 
-        $this->appendAudit('passkey_deleted', ['username' => $username, 'credential_id' => $credentialId]);
+        $this->appendAudit('passkey_deleted', ['username' => $username]);
         return $deleted;
     }
 
@@ -448,7 +485,14 @@ final class AuthStore
 
         $user = $this->findUserByUsername($username);
         if ($user === null || !($user['enabled'] ?? false)) {
-            unset($_SESSION['username']);
+            $this->clearSessionIdentity();
+            return null;
+        }
+
+        $sessionEpoch = $_SESSION['auth_epoch'] ?? null;
+        $userEpoch = $this->userAuthEpoch($user);
+        if (!is_int($sessionEpoch) || $sessionEpoch !== $userEpoch) {
+            $this->clearSessionIdentity();
             return null;
         }
 
@@ -471,8 +515,12 @@ final class AuthStore
             if ($index === null) {
                 throw new InvalidArgumentException('Unknown user.');
             }
+            if (!($data['users'][$index]['enabled'] ?? false)) {
+                throw new InvalidArgumentException('User is disabled.');
+            }
 
             $_SESSION['username'] = (string) ($data['users'][$index]['username'] ?? $username);
+            $_SESSION['auth_epoch'] = $this->userAuthEpoch($data['users'][$index]);
             $data['users'][$index]['last_login_at'] = $this->now();
             return [$data, null];
         });
@@ -496,6 +544,24 @@ final class AuthStore
         }
 
         session_destroy();
+    }
+
+    public function logoutAll(string $username): void
+    {
+        $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username): array {
+            $index = $this->findUserIndex($data, $username);
+            if ($index === null) {
+                throw new InvalidArgumentException('Unknown user.');
+            }
+
+            $data['users'][$index]['auth_epoch'] = $this->userAuthEpoch($data['users'][$index]) + 1;
+            $data['users'][$index]['updated_at'] = $this->now();
+            $data['users'][$index]['updated_by'] = $username;
+            return [$data, null];
+        });
+
+        $this->appendAudit('sessions_revoked', ['username' => $username]);
+        $this->logout();
     }
 
     public function csrfToken(): string
@@ -1560,6 +1626,9 @@ final class AuthStore
     private function appendAudit(string $event, array $fields): void
     {
         $row = ['at' => $this->now(), 'event' => $event] + $fields;
+        if ($this->requestId !== null) {
+            $row['request_id'] = $this->requestId;
+        }
         $json = json_encode($row, JSON_UNESCAPED_SLASHES);
         if ($json !== false) {
             file_put_contents($this->auditPath, $json . PHP_EOL, FILE_APPEND | LOCK_EX);
@@ -1571,6 +1640,19 @@ final class AuthStore
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
+    }
+
+    private function clearSessionIdentity(): void
+    {
+        unset($_SESSION['username'], $_SESSION['auth_epoch'], $_SESSION['csrf']);
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     */
+    private function userAuthEpoch(array $user): int
+    {
+        return max(1, (int) ($user['auth_epoch'] ?? 1));
     }
 
     private function randomId(string $prefix): string

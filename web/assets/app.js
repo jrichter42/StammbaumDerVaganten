@@ -1832,6 +1832,22 @@ async function handleAccountClick(event) {
     return;
   }
 
+  const logoutAllButton = event.target.closest('[data-account-action="logout-all"]');
+  if (logoutAllButton) {
+    if (!confirmDangerButton(logoutAllButton)) {
+      return;
+    }
+    await flushAccountEdit(true);
+    try {
+      await postJson('account-logout-all');
+      window.location.assign(`${window.location.pathname}${window.location.search}`);
+    } catch (error) {
+      console.error(error);
+      showAccountMessage(localizeErrorMessage(error.message || 'Sitzungen konnten nicht abgemeldet werden.'), true);
+    }
+    return;
+  }
+
   const deleteButton = event.target.closest('[data-account-passkey-delete]');
   if (!deleteButton) {
     return;
@@ -11015,6 +11031,11 @@ function auditEventLabel(event) {
     email_login_link_created: 'Login-Link erstellt',
     setup_token_created: 'Setup-Link erstellt',
     setup_token_deleted: 'Setup-Link gelöscht',
+    auth_verification_failed: 'Login-Prüfung fehlgeschlagen',
+    setup_verification_failed: 'Setup-Prüfung fehlgeschlagen',
+    rate_limit_exceeded: 'Anfragelimit erreicht',
+    access_control_check_failed: 'Web-Zugriffsschutz fehlgeschlagen',
+    sessions_revoked: 'Sitzungen abgemeldet',
     passkey_deleted: 'Passkey gelöscht',
     user_deleted: 'Benutzer gelöscht',
   };

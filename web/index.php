@@ -331,6 +331,12 @@ $configWarnings = array_map(
               </div>
               <div class="account-passkeys" id="accountPasskeys"></div>
             </section>
+            <section class="account-passkey-section">
+              <div class="account-section-header">
+                <h3>Sitzungen</h3>
+                <button class="button button-danger" type="button" data-account-action="logout-all" data-danger-confirm>Alle Sitzungen abmelden</button>
+              </div>
+            </section>
           </section>
         </div>
       </main>
