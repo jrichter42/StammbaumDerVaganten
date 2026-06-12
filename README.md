@@ -54,6 +54,7 @@ For production, set a stable passkey relying-party configuration in `config/app.
 Auth configuration is required and validated before auth storage or sessions initialize. `base_url` and `origin` must use HTTPS; `rp_id` and `allowed_hosts` must contain hostnames; `trusted_proxies` accepts only literal IP addresses. Keep local-development values in a separate local `config/app.json` rather than deriving them from request headers.
 `base_url` is used for generated setup and login links.
 Email login links are single-use, expire after `auth.login_link_ttl_seconds`, and are not re-sent while an earlier unused link is still valid.
+Setup and email-login tokens are carried in URL fragments (`#setup=...` and `#login=...`). The browser removes the fragment immediately after copying the token into memory, so tokens are not sent in HTTP request targets.
 
 Every request must use an `allowed_hosts` hostname. Plain HTTP is redirected with status `308` to the configured HTTPS `origin` while preserving a validated path and query. `X-Forwarded-Proto` is honored only when `REMOTE_ADDR` exactly matches a configured `trusted_proxies` IP; leave that list empty when Apache terminates TLS directly. Session cookies are always `Secure`, `HttpOnly`, `SameSite=Strict`, and scoped to `/`. HTTPS responses include one-year HSTS.
 

@@ -332,6 +332,6 @@ $configWarnings = array_map(
       </div>
     </div>
     <script src="assets/vis-network.min.js"></script>
-    <script type="module" src="assets/app.js"></script>
+    <script type="module" src="assets/app.js?v=<?= rawurlencode($version) ?>"></script>
   </body>
 </html>

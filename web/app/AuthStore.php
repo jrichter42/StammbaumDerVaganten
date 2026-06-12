@@ -481,7 +481,7 @@ final class AuthStore
     public function createSetupToken(string $username, ?string $createdBy, int $ttlHours = 168): array
     {
         $user = $this->findUserByUsername($username);
-        if ($user === null) {
+        if ($user === null || !($user['enabled'] ?? false)) {
             throw new InvalidArgumentException('Unknown user.');
         }
 
@@ -617,6 +617,75 @@ final class AuthStore
             }
 
             throw new InvalidArgumentException('Setup token is not valid.');
+        });
+
+        if (!$this->bootstrapPending()) {
+            $this->deleteBootstrapFiles();
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $credential
+     */
+    public function completeSetupRegistration(
+        string $input,
+        string $tokenId,
+        string $username,
+        array $credential
+    ): void {
+        $tokenHash = hash('sha256', trim($input));
+        $reservationId = $this->randomId('setup_registration');
+        $reservedAt = $this->now();
+
+        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use (
+            $tokenHash,
+            $tokenId,
+            $username,
+            $reservationId,
+            $reservedAt
+        ): array {
+            foreach (($data['tokens'] ?? []) as $index => $token) {
+                if (($token['id'] ?? '') !== $tokenId
+                    || strcasecmp((string) ($token['username'] ?? ''), $username) !== 0
+                    || !$this->isActiveToken($token)
+                    || !hash_equals((string) ($token['token_hash'] ?? ''), $tokenHash)
+                ) {
+                    continue;
+                }
+
+                $data['tokens'][$index]['registration_reservation_id'] = $reservationId;
+                $data['tokens'][$index]['registration_reserved_at'] = $reservedAt;
+                return [$data, null];
+            }
+
+            throw new InvalidArgumentException('Setup token is not valid.');
+        });
+
+        try {
+            $this->addCredential($username, $credential);
+        } catch (\Throwable $exception) {
+            $this->releaseSetupRegistrationReservation($tokenId, $reservationId);
+            throw $exception;
+        }
+
+        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId, $reservationId): array {
+            foreach (($data['tokens'] ?? []) as $index => $token) {
+                if (($token['id'] ?? '') !== $tokenId
+                    || !hash_equals((string) ($token['registration_reservation_id'] ?? ''), $reservationId)
+                    || ($token['consumed_at'] ?? null) !== null
+                ) {
+                    continue;
+                }
+
+                $data['tokens'][$index]['consumed_at'] = $this->now();
+                unset(
+                    $data['tokens'][$index]['registration_reservation_id'],
+                    $data['tokens'][$index]['registration_reserved_at']
+                );
+                return [$data, null];
+            }
+
+            throw new RuntimeException('Could not finalize setup token consumption.');
         });
 
         if (!$this->bootstrapPending()) {
@@ -931,7 +1000,7 @@ final class AuthStore
             throw new RuntimeException('auth.base_url must be configured before setup links can be generated.');
         }
 
-        return $this->baseUrl . '/?setup=' . rawurlencode($token);
+        return $this->baseUrl . '/#setup=' . rawurlencode($token);
     }
 
     private function loginUrl(string $token): string
@@ -940,7 +1009,7 @@ final class AuthStore
             throw new RuntimeException('auth.base_url must be configured before login links can be generated.');
         }
 
-        return $this->baseUrl . '/?login=' . rawurlencode($token);
+        return $this->baseUrl . '/#login=' . rawurlencode($token);
     }
 
     /**
@@ -1247,11 +1316,36 @@ final class AuthStore
      */
     private function isActiveToken(array $token): bool
     {
+        $reservedAt = strtotime((string) ($token['registration_reserved_at'] ?? ''));
+        $hasActiveReservation = ($token['registration_reservation_id'] ?? '') !== ''
+            && $reservedAt !== false
+            && $reservedAt > time() - 300;
+
         return ($token['consumed_at'] ?? null) === null
             && ($token['revoked_at'] ?? null) === null
+            && !$hasActiveReservation
             && is_string($token['expires_at'] ?? null)
             && strtotime($token['expires_at']) !== false
             && strtotime($token['expires_at']) > time();
+    }
+
+    private function releaseSetupRegistrationReservation(string $tokenId, string $reservationId): void
+    {
+        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId, $reservationId): array {
+            foreach (($data['tokens'] ?? []) as $index => $token) {
+                if (($token['id'] ?? '') === $tokenId
+                    && hash_equals((string) ($token['registration_reservation_id'] ?? ''), $reservationId)
+                ) {
+                    unset(
+                        $data['tokens'][$index]['registration_reservation_id'],
+                        $data['tokens'][$index]['registration_reserved_at']
+                    );
+                    break;
+                }
+            }
+
+            return [$data, null];
+        });
     }
 
     /**

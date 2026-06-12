@@ -282,9 +282,8 @@ const treeGroupTypeFilters = Array.from(document.querySelectorAll('[data-tree-gr
 const treeGroupTypeClearButtons = Array.from(document.querySelectorAll('[data-tree-group-type-clear]'));
 let authMessageTimer = 0;
 
-const initialUrlParams = new URLSearchParams(window.location.search);
-const urlSetup = initialUrlParams.get('setup');
-const urlLoginToken = initialUrlParams.get('login');
+let urlSetup = '';
+let urlLoginToken = '';
 let isSetupPage = Boolean(urlSetup);
 let isLoginLinkPage = Boolean(urlLoginToken);
 let publicNetwork = null;
@@ -302,10 +301,7 @@ let contextHighlightedListKey = '';
 let contextResizeActive = false;
 let contextPanelRatio = 0.4;
 let treeGraphFrame = 0;
-if (urlSetup) {
-  setupInput.value = urlSetup;
-  setupPanel.hidden = false;
-}
+captureAuthFragment();
 
 restoreUrlState();
 
@@ -377,6 +373,7 @@ window.addEventListener('beforeunload', handleBeforeUnload);
 window.addEventListener('resize', handleContextLayoutResize);
 window.addEventListener('resize', scheduleContextGraphRender);
 window.addEventListener('resize', scheduleTreeGraphRender);
+window.addEventListener('hashchange', handleAuthFragmentChange);
 
 updateBackToTopButton();
 initialize();
@@ -392,17 +389,17 @@ async function initialize() {
   clearAuthMessage();
   try {
     await postJson('auth-email-login-verify', { token: normalizeLoginTokenInput(urlLoginToken) });
+    urlLoginToken = '';
     state.loginOpen = false;
     state.accountOpen = false;
     isLoginLinkPage = false;
-    window.history.replaceState(null, '', window.location.pathname);
     await refresh();
     showAuthMessage('Login erfolgreich. Du kannst einen Passkey in deinem Benutzerkonto einrichten; die Kontoeinstellungen erreichst du oben rechts neben deinem Namen.', false);
   } catch (error) {
     console.error(error);
+    urlLoginToken = '';
     state.loginOpen = true;
     isLoginLinkPage = false;
-    window.history.replaceState(null, '', window.location.pathname);
     await refresh();
     showAuthMessage(localizeErrorMessage(error.message || 'Login-Link ist ungültig.'), true);
   }
@@ -561,6 +558,35 @@ function activateView(viewName, urlExtra = {}) {
   }
   renderContextGraphTypeToggles();
   scheduleContextGraphRender();
+}
+
+function captureAuthFragment() {
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const setup = fragment.get('setup') || '';
+  const login = fragment.get('login') || '';
+  if (!setup && !login) {
+    return false;
+  }
+
+  urlSetup = setup;
+  urlLoginToken = login;
+  isSetupPage = Boolean(setup);
+  isLoginLinkPage = Boolean(login);
+  if (setup) {
+    setupInput.value = setup;
+    setupPanel.hidden = false;
+  }
+
+  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+  return true;
+}
+
+async function handleAuthFragmentChange() {
+  if (!captureAuthFragment()) {
+    return;
+  }
+
+  await initialize();
 }
 
 function scrollCurrentViewToTop() {
@@ -1303,9 +1329,9 @@ async function refresh() {
 function renderShell() {
   const user = state.status?.auth?.user || null;
   const accountOpen = Boolean(user && state.accountOpen);
-  authScreen.hidden = Boolean(user) || (!isSetupPage && !state.loginOpen && !isLoginLinkPage);
+  authScreen.hidden = !isSetupPage && (Boolean(user) || (!state.loginOpen && !isLoginLinkPage));
   publicOverview.hidden = Boolean(user) || isSetupPage || state.loginOpen || isLoginLinkPage;
-  workspace.hidden = !user || accountOpen;
+  workspace.hidden = !user || accountOpen || isSetupPage;
   if (accountPage) {
     accountPage.hidden = !accountOpen;
   }
@@ -1325,7 +1351,7 @@ function renderShell() {
   if (loginPanel) {
     loginPanel.hidden = Boolean(user) || isSetupPage || (!state.loginOpen && !isLoginLinkPage);
   }
-  setupPanel.hidden = Boolean(user) || !isSetupPage;
+  setupPanel.hidden = !isSetupPage;
 
   if (user) {
     currentUserName.textContent = user.display_name || user.username || 'Eingeloggt';
@@ -1538,7 +1564,7 @@ async function beginSetup(event) {
       credential: credentialToJson(credential),
     });
 
-    window.history.replaceState(null, '', window.location.pathname);
+    urlSetup = '';
     isSetupPage = false;
     setupPanel.hidden = true;
     passkeyLoginButton.closest('#loginPanel').hidden = false;
@@ -11067,7 +11093,7 @@ function renderUserEditor(user) {
         ${renderUserSetupTokens(user)}
       </div>
       <div class="object-editor-actions user-actions">
-        <button class="button button-secondary" type="button" data-action="setup">Setup-Link</button>
+        <button class="button button-secondary" type="button" data-action="setup" ${user.enabled ? '' : 'disabled'}>Setup-Link</button>
         <button class="button button-secondary" type="button" data-action="toggle">${user.enabled ? 'Deaktivieren' : 'Aktivieren'}</button>
         ${state.status?.auth?.user?.username === user.username ? '' : '<button class="button button-danger" type="button" data-action="delete-user" data-danger-confirm>Löschen</button>'}
       </div>
@@ -11740,7 +11766,7 @@ function normalizeSetupInput(value) {
   const trimmed = String(value || '').trim();
   try {
     const url = new URL(trimmed, window.location.href);
-    return url.searchParams.get('setup') || trimmed;
+    return new URLSearchParams(url.hash.slice(1)).get('setup') || trimmed;
   } catch (_error) {
     return trimmed;
   }
@@ -11750,7 +11776,7 @@ function normalizeLoginTokenInput(value) {
   const trimmed = String(value || '').trim();
   try {
     const url = new URL(trimmed, window.location.href);
-    return url.searchParams.get('login') || trimmed;
+    return new URLSearchParams(url.hash.slice(1)).get('login') || trimmed;
   } catch (_error) {
     return trimmed;
   }

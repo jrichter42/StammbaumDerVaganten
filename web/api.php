@@ -329,8 +329,12 @@ try {
             }
 
             $storedCredential = $webauthn->verifyRegistration($credential, (string) $challenge['challenge']);
-            $auth->addCredential((string) $resolved['user']['username'], $storedCredential);
-            $auth->consumeSetupToken((string) $resolved['token']['id']);
+            $auth->completeSetupRegistration(
+                $setupInput,
+                (string) $resolved['token']['id'],
+                (string) $resolved['user']['username'],
+                $storedCredential
+            );
             $user = $auth->loginUser((string) $resolved['user']['username']);
             Http::json(['ok' => true, 'user' => $user, 'csrf' => $auth->csrfToken()]);
             break;
