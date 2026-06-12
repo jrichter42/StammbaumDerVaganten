@@ -137,6 +137,20 @@ try {
     switch ($action) {
         case 'status':
             Http::requireMethod('GET');
+            $currentUser = $auth->currentUser();
+            if ($currentUser === null) {
+                Http::json([
+                    'ok' => true,
+                    'auth' => [
+                        'user' => null,
+                        'bootstrap_pending' => false,
+                    ],
+                    'mail' => [
+                        'login_enabled' => $mailer->isLoginEnabled(),
+                    ],
+                ]);
+            }
+
             $authStatus = $auth->status();
             $access = object_access($auth);
             $includeCounts = ($_GET['counts'] ?? '1') !== '0';
@@ -155,6 +169,23 @@ try {
                 ],
                 'webauthn' => $webauthn->publicContext(),
                 'storage' => $storage->status($access, $includeCounts),
+            ]);
+            break;
+
+        case 'access-control-check':
+            Http::requireMethod('POST');
+            $user = require_user($auth);
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            if (!is_bool($body['success'] ?? null)) {
+                Http::json(['ok' => false, 'error' => 'Access-control result is required'], 400);
+            }
+            Http::json([
+                'ok' => true,
+                'access_control_check' => $auth->recordAccessControlCheck(
+                    $body['success'],
+                    (string) $user['username']
+                ),
             ]);
             break;
 

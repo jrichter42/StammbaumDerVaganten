@@ -6,12 +6,13 @@ $app = require __DIR__ . '/app/bootstrap.php';
 \Stammbaum\Http::sendSecurityHeaders();
 
 $config = $app['config'];
+$currentUser = $app['auth']->currentUser();
 $version = htmlspecialchars((string) $app['version'], ENT_QUOTES, 'UTF-8');
 $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
 $appTitle = preg_replace('/(der Vaganten)/u', '<span class="logo-word">$1</span>', $appName, 1);
 $configWarnings = array_map(
     static fn (string $warning): string => htmlspecialchars($warning, ENT_QUOTES, 'UTF-8'),
-    $config['show_warnings'] ? ($config['warnings'] ?? []) : []
+    $currentUser !== null && $config['show_warnings'] ? ($config['warnings'] ?? []) : []
 );
 ?>
 <!doctype html>
@@ -63,6 +64,10 @@ $configWarnings = array_map(
           <?php endforeach; ?>
         </aside>
       <?php endif; ?>
+        <aside class="app-warning" id="accessControlWarning" role="alert" hidden>
+          <strong>Kritische Sicherheitswarnung</strong>
+          <span>Web-Zugriffsschutz konnte nicht bestätigt werden. Prüfe /app, /config, /data, /var und /bootstrap_setup.txt.</span>
+        </aside>
 
       <section class="auth-screen" id="authScreen" hidden>
         <div class="auth-layout">

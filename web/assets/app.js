@@ -280,7 +280,9 @@ const contextGraphTypeToggles = Array.from(document.querySelectorAll('[data-cont
 const contextGraphTypeGroupToggles = Array.from(document.querySelectorAll('[data-context-graph-type-group-toggle]'));
 const treeGroupTypeFilters = Array.from(document.querySelectorAll('[data-tree-group-type-filter]'));
 const treeGroupTypeClearButtons = Array.from(document.querySelectorAll('[data-tree-group-type-clear]'));
+const accessControlWarning = document.querySelector('#accessControlWarning');
 let authMessageTimer = 0;
+let accessControlCheckAttempted = false;
 
 let urlSetup = '';
 let urlLoginToken = '';
@@ -1289,6 +1291,9 @@ async function refresh() {
     renderShell();
 
     const user = state.status.auth?.user || null;
+    if (user) {
+      await verifyAccessControls();
+    }
     if (user && state.accountOpen) {
       await loadAccount();
       renderAccountPage();
@@ -1329,6 +1334,9 @@ async function refresh() {
 function renderShell() {
   const user = state.status?.auth?.user || null;
   const accountOpen = Boolean(user && state.accountOpen);
+  if (!user && accessControlWarning) {
+    accessControlWarning.hidden = true;
+  }
   authScreen.hidden = !isSetupPage && (Boolean(user) || (!state.loginOpen && !isLoginLinkPage));
   publicOverview.hidden = Boolean(user) || isSetupPage || state.loginOpen || isLoginLinkPage;
   workspace.hidden = !user || accountOpen || isSetupPage;
@@ -1447,20 +1455,48 @@ function writeStoredSourceOverride(value) {
 }
 
 function showBootstrapHint() {
-  const auth = state.status?.auth || {};
-  const webauthn = state.status?.webauthn || {};
-  if (webauthn.secure_context_required) {
-    showAuthMessage(`Passkeys benötigen HTTPS für ${webauthn.rp_id}.`, true);
-    return;
+  if (!window.isSecureContext) {
+    showAuthMessage('Passkeys benötigen einen sicheren HTTPS-Kontext.', true);
   }
-  if (webauthn.openssl_available === false) {
-    showAuthMessage('Die PHP-Erweiterung OpenSSL ist für den Passkey-Login erforderlich.', true);
+}
+
+async function verifyAccessControls() {
+  const current = state.status?.auth?.access_control_check || {};
+  if (current.fresh || accessControlCheckAttempted) {
+    renderAccessControlWarning(current);
     return;
   }
 
-  if (auth.bootstrap_pending) {
-    showAuthMessage(auth.setup_url_hint || 'Das initiale Setup steht noch aus.', false);
+  accessControlCheckAttempted = true;
+  let success = false;
+  for (let attempt = 0; attempt < 2 && !success; attempt += 1) {
+    try {
+      const response = await fetch('config/app.json', {
+        method: 'HEAD',
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      success = response.status === 403 || response.status === 404;
+    } catch (_error) {
+      success = false;
+    }
   }
+
+  try {
+    const response = await postJson('access-control-check', { success });
+    state.status.auth.access_control_check = response.access_control_check;
+  } catch (error) {
+    console.error(error);
+    state.status.auth.access_control_check = { success: false, fresh: false };
+  }
+  renderAccessControlWarning(state.status.auth.access_control_check);
+}
+
+function renderAccessControlWarning(check = {}) {
+  if (!accessControlWarning) {
+    return;
+  }
+  accessControlWarning.hidden = check.success === true;
 }
 
 function openLoginPanel() {

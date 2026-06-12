@@ -60,6 +60,8 @@ Every request must use an `allowed_hosts` hostname. Plain HTTP is redirected wit
 
 JSON API bodies are limited to 65,536 bytes in both PHP and Apache configuration. Authentication challenge counts and time-window request counters are stored atomically under `var/auth`; source IPs use forwarded headers only from configured trusted proxies.
 
+Anonymous `status` responses expose only login availability and an empty auth identity. After login, the browser verifies that `config/app.json` is blocked, records the result under `var/auth/access_control_check.json`, reuses success for 24 hours, and shows a persistent warning when protection for `/app`, `/config`, `/data`, `/var`, or `/bootstrap_setup.txt` cannot be confirmed.
+
 On first run with an empty `var/auth/users.json`, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
 Open that URL on the deployed site to register the initial passkey.
 
