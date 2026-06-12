@@ -58,6 +58,8 @@ Setup and email-login tokens are carried in URL fragments (`#setup=...` and `#lo
 
 Every request must use an `allowed_hosts` hostname. Plain HTTP is redirected with status `308` to the configured HTTPS `origin` while preserving a validated path and query. `X-Forwarded-Proto` is honored only when `REMOTE_ADDR` exactly matches a configured `trusted_proxies` IP; leave that list empty when Apache terminates TLS directly. Session cookies are always `Secure`, `HttpOnly`, `SameSite=Strict`, and scoped to `/`. HTTPS responses include one-year HSTS.
 
+JSON API bodies are limited to 65,536 bytes in both PHP and Apache configuration. Authentication challenge counts and time-window request counters are stored atomically under `var/auth`; source IPs use forwarded headers only from configured trusted proxies.
+
 On first run with an empty `var/auth/users.json`, the app creates one admin account and writes a single-use setup URL to `web/bootstrap_setup.txt`.
 Open that URL on the deployed site to register the initial passkey.
 

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use Stammbaum\AuthStore;
 use Stammbaum\Http;
+use Stammbaum\RateLimitException;
 use Stammbaum\StorageConflictException;
 use Stammbaum\WebAuthn;
 
@@ -105,6 +106,31 @@ function email_login_json(float $startedAt, array $payload, int $status = 200): 
     }
 
     Http::json($payload, $status);
+}
+
+/**
+ * @param array<string, mixed> $config
+ */
+function auth_client_ip(array $config): string
+{
+    $authConfig = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+    return Http::clientIp($authConfig);
+}
+
+/**
+ * @param array<string, mixed> $config
+ */
+function enforce_auth_rate(
+    AuthStore $auth,
+    array $config,
+    string $scope,
+    string $key,
+    int $limit,
+    int $windowSeconds
+): void {
+    $clientIp = auth_client_ip($config);
+    $auth->enforceRateLimit('auth-global-ip', $clientIp, 300, 300);
+    $auth->enforceRateLimit($scope, $key, $limit, $windowSeconds);
 }
 
 try {
@@ -220,6 +246,7 @@ try {
 
         case 'auth-login-options':
             Http::requireMethod('POST');
+            enforce_auth_rate($auth, $config, 'passkey-options-ip', auth_client_ip($config), 30, 300);
             $challenge = $auth->createChallenge('login', [], 300);
             Http::json([
                 'ok' => true,
@@ -230,6 +257,7 @@ try {
 
         case 'auth-login-verify':
             Http::requireMethod('POST');
+            enforce_auth_rate($auth, $config, 'passkey-verify-ip', auth_client_ip($config), 30, 900);
             $body = Http::readJsonBody();
             $challengeId = (string) ($body['challenge_id'] ?? '');
             $credential = $body['credential'] ?? null;
@@ -263,6 +291,9 @@ try {
                 Http::json(['ok' => false, 'error' => 'Email address is required.'], 400);
             }
 
+            $clientIp = auth_client_ip($config);
+            enforce_auth_rate($auth, $config, 'email-login-ip', $clientIp, 20, 900);
+            $auth->enforceRateLimit('email-login-address', hash('sha256', strtolower($email)), 5, 900);
             $link = $auth->createEmailLoginLink($email);
             if ($link !== null && ($link['created'] ?? false) === true) {
                 $sent = $mailer->sendLoginLink(
@@ -285,6 +316,7 @@ try {
 
         case 'auth-email-login-verify':
             Http::requireMethod('POST');
+            enforce_auth_rate($auth, $config, 'email-login-verify-ip', auth_client_ip($config), 20, 900);
             $body = Http::readJsonBody();
             $token = (string) ($body['token'] ?? $body['login'] ?? '');
             $user = $auth->consumeEmailLoginToken($token);
@@ -295,6 +327,8 @@ try {
             Http::requireMethod('POST');
             $body = Http::readJsonBody();
             $setupInput = (string) ($body['setup'] ?? $body['token'] ?? '');
+            enforce_auth_rate($auth, $config, 'setup-options-ip', auth_client_ip($config), 20, 900);
+            $auth->enforceRateLimit('setup-token', hash('sha256', $setupInput), 10, 900);
             $resolved = $auth->resolveSetupToken($setupInput);
             $user = $resolved['user'];
 
@@ -312,6 +346,7 @@ try {
 
         case 'auth-register-verify':
             Http::requireMethod('POST');
+            enforce_auth_rate($auth, $config, 'setup-verify-ip', auth_client_ip($config), 20, 900);
             $body = Http::readJsonBody();
             $setupInput = (string) ($body['setup'] ?? $body['token'] ?? '');
             $challengeId = (string) ($body['challenge_id'] ?? '');
@@ -529,7 +564,21 @@ try {
         'conflict' => true,
         'current' => $exception->currentObject(),
     ], 409);
+} catch (RateLimitException $exception) {
+    Http::json(['ok' => false, 'error' => 'Too many requests'], 429);
 } catch (InvalidArgumentException $exception) {
+    if (in_array($action, [
+        'auth-login-verify',
+        'auth-email-login-verify',
+        'auth-register-options',
+        'auth-register-verify',
+    ], true)) {
+        try {
+            $auth->enforceRateLimit('failed-auth-ip', auth_client_ip($config), 20, 900);
+        } catch (RateLimitException) {
+            Http::json(['ok' => false, 'error' => 'Too many requests'], 429);
+        }
+    }
     Http::json(['ok' => false, 'error' => $exception->getMessage()], 400);
 } catch (Throwable $exception) {
     error_log($exception->getMessage());

@@ -5,6 +5,8 @@ namespace Stammbaum;
 
 final class Http
 {
+    public const MAX_JSON_BODY_BYTES = 65536;
+
     /**
      * @param array<string, mixed> $config
      */
@@ -50,6 +52,42 @@ final class Http
         return strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))) === 'https';
     }
 
+    /**
+     * @param array<string, mixed> $authConfig
+     */
+    public static function clientIp(array $authConfig): string
+    {
+        $remoteAddress = self::normalizeIp((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        if ($remoteAddress === '') {
+            return 'unknown';
+        }
+
+        $trustedProxies = is_array($authConfig['trusted_proxies'] ?? null)
+            ? $authConfig['trusted_proxies']
+            : [];
+        if (!in_array($remoteAddress, $trustedProxies, true)) {
+            return $remoteAddress;
+        }
+
+        $forwarded = array_map('trim', explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '')));
+        $chain = [];
+        foreach ($forwarded as $candidate) {
+            $normalized = self::normalizeIp($candidate);
+            if ($normalized !== '') {
+                $chain[] = $normalized;
+            }
+        }
+        $chain[] = $remoteAddress;
+
+        for ($index = count($chain) - 1; $index >= 0; $index--) {
+            if (!in_array($chain[$index], $trustedProxies, true)) {
+                return $chain[$index];
+            }
+        }
+
+        return $remoteAddress;
+    }
+
     public static function configureSession(): void
     {
         if (session_status() !== PHP_SESSION_NONE) {
@@ -81,7 +119,20 @@ final class Http
      */
     public static function readJsonBody(): array
     {
-        $raw = file_get_contents('php://input');
+        $contentLength = trim((string) ($_SERVER['CONTENT_LENGTH'] ?? ''));
+        if ($contentLength !== '') {
+            if (preg_match('/^\d+$/', $contentLength) !== 1) {
+                self::json(['ok' => false, 'error' => 'Invalid Content-Length'], 400);
+            }
+            if ((int) $contentLength > self::MAX_JSON_BODY_BYTES) {
+                self::json(['ok' => false, 'error' => 'JSON body too large'], 413);
+            }
+        }
+
+        $raw = file_get_contents('php://input', false, null, 0, self::MAX_JSON_BODY_BYTES + 1);
+        if (is_string($raw) && strlen($raw) > self::MAX_JSON_BODY_BYTES) {
+            self::json(['ok' => false, 'error' => 'JSON body too large'], 413);
+        }
         if ($raw === false || trim($raw) === '') {
             return [];
         }
@@ -178,5 +229,11 @@ final class Http
         header('Content-Type: text/plain; charset=utf-8');
         echo $message;
         exit;
+    }
+
+    private static function normalizeIp(string $value): string
+    {
+        $value = strtolower(trim($value));
+        return filter_var($value, FILTER_VALIDATE_IP) !== false ? $value : '';
     }
 }

@@ -1,5 +1,9 @@
 DirectoryIndex index.php
 
+<Files "api.php">
+  LimitRequestBody 65536
+</Files>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule ^(app|config|data|var)(/|$) - [F,L]

@@ -15,6 +15,7 @@ final class AuthStore
     private string $tokensPath;
     private string $challengesPath;
     private string $loginLinksPath;
+    private string $rateLimitsPath;
     private string $auditPath;
     private string $bootstrapPath;
     private string $initialAdminUsername = 'admin';
@@ -32,6 +33,7 @@ final class AuthStore
         $this->tokensPath = $this->authPath . '/setup_tokens.json';
         $this->challengesPath = $this->authPath . '/challenges.json';
         $this->loginLinksPath = $this->authPath . '/login_links.json';
+        $this->rateLimitsPath = $this->authPath . '/rate_limits.json';
         $this->auditPath = $this->authPath . '/audit.jsonl';
         $this->bootstrapPath = rtrim($basePath, '/\\') . '/bootstrap_setup.txt';
         $this->configureInitialAdmin($config);
@@ -851,11 +853,98 @@ final class AuthStore
             $data['challenges'] = array_values(array_filter($data['challenges'] ?? [], function (array $challenge): bool {
                 return $this->isActiveChallenge($challenge);
             }));
+
+            if (count($data['challenges']) >= 1000) {
+                throw new RateLimitException('Too many active authentication challenges.');
+            }
+
+            if ($row['purpose'] === 'login') {
+                $anonymousLoginCount = count(array_filter(
+                    $data['challenges'],
+                    static fn (array $challenge): bool => ($challenge['purpose'] ?? '') === 'login'
+                ));
+                if ($anonymousLoginCount >= 100) {
+                    throw new RateLimitException('Too many active login challenges.');
+                }
+            }
+
+            $username = strtolower(trim((string) ($row['context']['username'] ?? '')));
+            if ($username !== '') {
+                $userChallengeCount = count(array_filter(
+                    $data['challenges'],
+                    static function (array $challenge) use ($username): bool {
+                        $context = is_array($challenge['context'] ?? null) ? $challenge['context'] : [];
+                        return strtolower(trim((string) ($context['username'] ?? ''))) === $username;
+                    }
+                ));
+                if ($userChallengeCount >= 10) {
+                    throw new RateLimitException('Too many active challenges for this user.');
+                }
+            }
+
             $data['challenges'][] = $row;
             return [$data, null];
         });
 
         return ['id' => $row['id'], 'challenge' => $challenge];
+    }
+
+    public function enforceRateLimit(
+        string $scope,
+        string $key,
+        int $limit,
+        int $windowSeconds
+    ): void {
+        $limit = max(1, $limit);
+        $windowSeconds = max(1, $windowSeconds);
+        $now = time();
+        $bucketId = hash('sha256', $scope . "\0" . $key);
+
+        $this->updateJson($this->rateLimitsPath, $this->defaultRateLimits(), function (array $data) use (
+            $bucketId,
+            $scope,
+            $limit,
+            $windowSeconds,
+            $now
+        ): array {
+            $buckets = is_array($data['buckets'] ?? null) ? $data['buckets'] : [];
+            foreach ($buckets as $id => $bucket) {
+                $events = is_array($bucket['events'] ?? null) ? $bucket['events'] : [];
+                $events = array_values(array_filter(
+                    $events,
+                    static fn ($timestamp): bool => is_int($timestamp) && $timestamp > $now - 86400
+                ));
+                if ($events === []) {
+                    unset($buckets[$id]);
+                    continue;
+                }
+                $buckets[$id]['events'] = $events;
+            }
+
+            $bucket = is_array($buckets[$bucketId] ?? null) ? $buckets[$bucketId] : [];
+            $events = array_values(array_filter(
+                is_array($bucket['events'] ?? null) ? $bucket['events'] : [],
+                static fn ($timestamp): bool => is_int($timestamp) && $timestamp > $now - $windowSeconds
+            ));
+            if (count($events) >= $limit) {
+                throw new RateLimitException('Too many requests.');
+            }
+
+            $events[] = $now;
+            $buckets[$bucketId] = [
+                'scope' => $scope,
+                'events' => $events,
+                'updated_at' => $this->now(),
+            ];
+            if (count($buckets) > 10000) {
+                uasort($buckets, static function (array $left, array $right): int {
+                    return strcmp((string) ($right['updated_at'] ?? ''), (string) ($left['updated_at'] ?? ''));
+                });
+                $buckets = array_slice($buckets, 0, 10000, true);
+            }
+            $data['buckets'] = $buckets;
+            return [$data, null];
+        });
     }
 
     /**
@@ -920,6 +1009,7 @@ final class AuthStore
         $this->ensureJsonFile($this->tokensPath, $this->defaultTokens());
         $this->ensureJsonFile($this->challengesPath, $this->defaultChallenges());
         $this->ensureJsonFile($this->loginLinksPath, $this->defaultLoginLinks());
+        $this->ensureJsonFile($this->rateLimitsPath, $this->defaultRateLimits());
     }
 
     /**
@@ -1225,6 +1315,14 @@ final class AuthStore
     private function defaultLoginLinks(): array
     {
         return ['schema_version' => 1, 'links' => []];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultRateLimits(): array
+    {
+        return ['schema_version' => 1, 'buckets' => []];
     }
 
     /**
