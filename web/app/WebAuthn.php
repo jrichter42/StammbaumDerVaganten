@@ -26,21 +26,14 @@ final class WebAuthn
     /**
      * @param array<string, mixed> $config
      */
-    public static function fromRequest(array $config): self
+    public static function fromConfig(array $config): self
     {
         $authConfig = is_array($config['auth'] ?? null) ? $config['auth'] : [];
-        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
-        $hostWithoutPort = preg_replace('/:\d+$/', '', $host) ?: 'localhost';
-        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
-        $scheme = $https ? 'https' : 'http';
-
-        $rpId = is_string($authConfig['rp_id'] ?? null) && $authConfig['rp_id'] !== ''
-            ? strtolower($authConfig['rp_id'])
-            : $hostWithoutPort;
-        $origin = is_string($authConfig['origin'] ?? null) && $authConfig['origin'] !== ''
-            ? rtrim($authConfig['origin'], '/')
-            : $scheme . '://' . $host;
+        $rpId = (string) ($authConfig['rp_id'] ?? '');
+        $origin = (string) ($authConfig['origin'] ?? '');
+        if ($rpId === '' || $origin === '') {
+            throw new RuntimeException('Explicit auth.rp_id and auth.origin configuration is required.');
+        }
         $rpName = (string) ($config['name'] ?? 'Stammbaum der Vaganten');
 
         return new self($rpId, $origin, $rpName);

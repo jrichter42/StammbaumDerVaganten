@@ -14,7 +14,7 @@ $storage = $app['storage'];
 $config = $app['config'];
 $auth = $app['auth'];
 $mailer = $app['mailer'];
-$webauthn = WebAuthn::fromRequest($config);
+$webauthn = WebAuthn::fromConfig($config);
 $version = $app['version'];
 $action = $_GET['action'] ?? 'status';
 
