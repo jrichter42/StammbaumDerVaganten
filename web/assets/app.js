@@ -221,6 +221,7 @@ const state = {
   editing: {},
   initialObjects: new Set(),
   relationshipEditing: {},
+  groupRelationEditing: {},
   editTimers: {},
   exampleDataCreating: false,
   publicGraphGroupType: '',
@@ -887,6 +888,10 @@ async function followNestedEditLink(link) {
     return;
   }
 
+  if (!(await flushGroupEditsBeforePersonLink(link))) {
+    return;
+  }
+
   if (focusExistingCreateForm(link)) {
     return;
   }
@@ -914,6 +919,40 @@ async function followNestedEditLink(link) {
   }
 
   openNestedEditRow(type, id, edit);
+}
+
+async function flushGroupEditsBeforePersonLink(link) {
+  const groupItem = link.closest('[data-object-type="groups"][data-object-id]');
+  if (!groupItem) {
+    return true;
+  }
+
+  const drafts = Array.from(groupItem.querySelectorAll('[data-group-relation-add][data-dirty="1"]'));
+  for (const draft of drafts) {
+    window.clearTimeout(state.editTimers[groupRelationDraftTimerKey(draft)]);
+    if (!(await flushGroupRelationDraft(draft))) {
+      draft.querySelector('[data-nested-field="person"]')?.focus();
+      return false;
+    }
+  }
+
+  const rows = Array.from(groupItem.querySelectorAll('[data-group-reverse-row][data-dirty="1"]'));
+  for (const row of rows) {
+    window.clearTimeout(state.editTimers[groupReverseTimerKey(row)]);
+    if (!(await flushGroupReverseRow(row))) {
+      return false;
+    }
+  }
+
+  const key = objectKey('groups', groupItem.dataset.objectId || '');
+  window.clearTimeout(state.editTimers[key]);
+  if (groupItem.dataset.saving === '1') {
+    await waitForElementSave(groupItem);
+  }
+  if (groupItem.dataset.dirty === '1') {
+    await flushObjectEdit(groupItem, false);
+  }
+  return groupItem.dataset.dirty !== '1' && groupItem.dataset.saving !== '1';
 }
 
 async function handleChangeLogClick(event) {
@@ -993,8 +1032,7 @@ async function canSwitchToView(viewName) {
     return false;
   }
 
-  await closeOpenEditorsBeforeSwitch();
-  return true;
+  return closeOpenEditorsBeforeSwitch();
 }
 
 function currentViewName() {
@@ -1025,12 +1063,28 @@ async function resolveOpenCreateFormBeforeSwitch() {
 }
 
 async function closeOpenEditorsBeforeSwitch() {
+  const drafts = Array.from(document.querySelectorAll('[data-group-relation-add][data-dirty="1"]'));
+  for (const draft of drafts) {
+    window.clearTimeout(state.editTimers[groupRelationDraftTimerKey(draft)]);
+    if (!(await flushGroupRelationDraft(draft))) {
+      return false;
+    }
+  }
+
+  const reverseRows = Array.from(document.querySelectorAll('[data-group-reverse-row][data-dirty="1"]'));
+  for (const row of reverseRows) {
+    window.clearTimeout(state.editTimers[groupReverseTimerKey(row)]);
+    if (!(await flushGroupReverseRow(row))) {
+      return false;
+    }
+  }
+
   const objectItems = Array.from(document.querySelectorAll('[data-object-editor]'))
     .map((editor) => editor.closest('[data-object-type][data-object-id]'))
     .filter(Boolean);
   const hasUserEditor = Boolean(document.querySelector('[data-user-editor]'));
   if (!objectItems.length && !hasUserEditor) {
-    return;
+    return true;
   }
 
   const renderTypes = new Set();
@@ -1040,6 +1094,9 @@ async function closeOpenEditorsBeforeSwitch() {
     const key = objectKey(type, id);
     window.clearTimeout(state.editTimers[key]);
     await flushObjectEdit(item, true);
+    if (item.dataset.dirty === '1' || item.dataset.saving === '1') {
+      return false;
+    }
     state.editing[key] = false;
     delete state.relationshipEditing[key];
     renderTypes.add(type);
@@ -1053,6 +1110,9 @@ async function closeOpenEditorsBeforeSwitch() {
       const username = item.dataset.username || '';
       window.clearTimeout(state.editTimers[objectKey('users', username)]);
       await flushUserEdit(item, true);
+      if (item.dataset.dirty === '1' || item.dataset.saving === '1') {
+        return false;
+      }
       state.editing[objectKey('users', username)] = false;
     }
     renderUserList();
@@ -1061,6 +1121,7 @@ async function closeOpenEditorsBeforeSwitch() {
   renderTypes.forEach((type) => {
     renderObjectCollection(type);
   });
+  return true;
 }
 
 async function refreshActivatedView(viewName) {
@@ -1135,7 +1196,9 @@ async function handleGlobalSearchClick(event) {
     return;
   }
 
-  await closeOpenEditorsBeforeSwitch();
+  if (!(await closeOpenEditorsBeforeSwitch())) {
+    return;
+  }
   activateView(type);
   hideGlobalSearchResults();
   globalSearchInput.value = '';
@@ -1587,7 +1650,9 @@ async function openAccountPage(event) {
     return;
   }
 
-  await closeOpenEditorsBeforeSwitch();
+  if (!(await closeOpenEditorsBeforeSwitch())) {
+    return;
+  }
   state.accountOpen = true;
   state.loginOpen = false;
   clearAuthMessage();
@@ -4702,7 +4767,7 @@ function renderObjectItem(type, object) {
         </button>
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
-        ${type === 'groups' ? renderGroupReverseView(object) : ''}
+        ${type === 'groups' ? renderGroupReverseView(object, { editable: isEditing && canWrite }) : ''}
         ${type === 'timepoints' ? renderTimepointReverseView(object) : ''}
         <p class="object-save-state" data-save-state hidden></p>
       </div>
@@ -4710,7 +4775,7 @@ function renderObjectItem(type, object) {
   `;
 }
 
-function renderGroupReverseView(group) {
+function renderGroupReverseView(group, options = {}) {
   const groupId = objectId(group);
   const memberships = [];
   const activities = [];
@@ -4718,16 +4783,20 @@ function renderGroupReverseView(group) {
   (state.objects.people || []).forEach((person) => {
     (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
       if (periodEntryGroupId(membership) === groupId) {
-        memberships.push({ person, period: membership.period, rowKey: `memberships:${index}` });
+        memberships.push({ person, value: membership, period: membership.period, rowKey: `memberships:${index}`, index });
       }
     });
 
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
       if (periodEntryGroupId(activity) === groupId) {
-        activities.push({ person, role: findReferenceObject('roles', activity.role), period: activity.period, rowKey: `activities:${index}` });
+        activities.push({ person, value: activity, role: findReferenceObject('roles', activityRoleId(activity)), period: activity.period, rowKey: `activities:${index}`, index });
       }
     });
   });
+
+  if (options.editable) {
+    return renderEditableGroupReverseView(group, memberships, activities);
+  }
 
   if (!memberships.length && !activities.length) {
     return '';
@@ -4995,6 +5064,147 @@ function renderEditorFields(type, fields, object, isCreate) {
     sections.internal.length ? `<aside class="object-editor-side">${renderFields(sections.internal)}</aside>` : '',
     sections.relations.length ? `<div class="object-editor-relations">${renderFields(sections.relations)}</div>` : '',
   ].join('');
+}
+
+function renderEditableGroupReverseView(group, memberships, activities) {
+  return `
+    <div class="reverse-view group-reverse-edit" aria-label="Abgeleitete Gruppendaten bearbeiten">
+      ${renderEditableGroupRelationColumn('membership', 'Mitglieder', group, memberships)}
+      ${renderEditableGroupRelationColumn('activity', 'Aktivitäten', group, activities)}
+    </div>
+  `;
+}
+
+function renderEditableGroupRelationColumn(kind, title, group, entries) {
+  return `
+    <section class="reverse-column composite-field group-reverse-field" data-group-reverse-field="${escapeAttribute(kind)}" data-group-id="${escapeAttribute(objectId(group))}">
+      <div class="composite-header">
+        <span>${escapeHtml(title)} <strong>${entries.length}</strong></span>
+        <button class="icon-button add-list-button" type="button" data-group-relation-add-toggle="${escapeAttribute(kind)}" aria-label="${escapeAttribute(title)} hinzufügen">+</button>
+      </div>
+      <div class="composite-list" data-group-reverse-list>
+        ${entries.map((entry) => renderGroupReverseRelationRow(kind, group, entry)).join('') || `<small class="group-reverse-empty">Keine ${escapeHtml(title.toLocaleLowerCase('de-DE'))}</small>`}
+      </div>
+      <div class="group-relation-add-slot" data-group-relation-add-slot="${escapeAttribute(kind)}" hidden>
+        ${renderGroupRelationAddSection(kind, group)}
+      </div>
+    </section>
+  `;
+}
+
+function renderGroupReverseRelationRow(kind, group, entry) {
+  const personId = objectId(entry.person);
+  const groupId = objectId(group);
+  const field = kind === 'activity' ? 'activities' : 'memberships';
+  const edit = `${field}:${entry.index}`;
+  const localKey = groupReverseRelationKey(kind, personId, entry.index);
+  const groupKey = objectKey('groups', groupId);
+  const isOpen = state.groupRelationEditing[groupKey] === localKey;
+  const summary = kind === 'activity'
+    ? reverseActivityLineText(entry)
+    : reversePersonLineText(entry.person, entry.period);
+  const warnings = kind === 'activity'
+    ? complexItemValidationWarnings('activity-list', entry.value, { ownerType: 'people', ownerObject: entry.person, listField: 'activities', listIndex: entry.index })
+    : complexItemValidationWarnings('membership-list', entry.value, { ownerType: 'people', ownerObject: entry.person, listField: 'memberships', listIndex: entry.index });
+  return `
+    <div class="composite-item group-reverse-row has-summary ${isOpen ? '' : 'is-collapsed'}" data-group-reverse-row data-group-reverse-kind="${escapeAttribute(kind)}" data-group-id="${escapeAttribute(groupId)}" data-person-id="${escapeAttribute(personId)}" data-relation-field="${escapeAttribute(field)}" data-relation-index="${entry.index}" data-group-reverse-key="${escapeAttribute(localKey)}">
+      <div class="group-reverse-summary-row">
+        <button class="composite-summary" type="button" data-group-reverse-action="toggle" aria-expanded="${isOpen ? 'true' : 'false'}">
+          ${compositeSummaryHtml(summary, warnings)}
+        </button>
+        ${groupReversePersonLink(personId, edit)}
+      </div>
+      <div class="composite-editor" data-composite-editor>
+        ${renderGroupReverseRelationEditor(kind, group, entry)}
+        <div class="composite-editor-actions">
+          <p class="object-save-state" data-group-reverse-state hidden></p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderGroupReverseRelationEditor(kind, group, entry) {
+  const idBase = `group-reverse-${kind}-${Math.random().toString(36).slice(2)}`;
+  const value = entry.value || {};
+  const roleControl = kind === 'activity'
+    ? renderReferenceControl({
+      id: `${idBase}-role`,
+      label: 'Rolle',
+      value: activityRoleId(value),
+      collection: 'roles',
+      nestedField: 'role',
+      objectFieldAttrs: `data-reference-fixed-group="${escapeAttribute(objectId(group))}"`,
+      pickerContext: { ownerType: 'groups', ownerObject: group, picker: 'activity-role', activity: { ...value, group: objectId(group) } },
+    })
+    : '';
+  return `
+    <div class="nested-editor">
+      <div class="object-field source-display-field">
+        <span>Person</span>
+        <div class="source-display-text">${escapeHtml(objectListTitle('people', entry.person))}</div>
+      </div>
+      ${roleControl}
+      ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, { ownerType: 'people', ownerObject: entry.person })}
+      ${renderNestedCertaintyField(`${idBase}-certainty`, value._certainty || 'none')}
+      ${renderNestedSourceDisplayField(`${idBase}-sources`, value._sources || '')}
+    </div>
+  `;
+}
+
+function groupReversePersonLink(personId, edit) {
+  return `
+    <a class="reference-link group-reverse-person-link" href="${escapeAttribute(nestedEditUrl('people', personId, edit))}" data-nested-edit-link data-link-view="people" data-link-id="${escapeAttribute(personId)}" data-link-edit="${escapeAttribute(edit)}">Person öffnen</a>
+  `;
+}
+
+function groupReverseRelationKey(kind, personId, index) {
+  return `${kind}:${personId}:${index}`;
+}
+
+function reversePersonLineText(person, period) {
+  return [objectListTitle('people', person), periodYearLabel(period)].filter(Boolean).join(' · ');
+}
+
+function reverseActivityLineText(entry) {
+  return [
+    objectLabel(entry.role, 'roles'),
+    objectListTitle('people', entry.person),
+    periodYearLabel(entry.period),
+  ].filter(Boolean).join(' · ');
+}
+
+function renderGroupRelationAddSection(kind, group) {
+  const groupId = objectId(group);
+  const idBase = `group-relation-${kind}-${Math.random().toString(36).slice(2)}`;
+  const isActivity = kind === 'activity';
+  const title = isActivity ? 'Aktivität hinzufügen' : 'Mitglied hinzufügen';
+  const roleControl = isActivity
+    ? renderReferenceControl({
+      id: `${idBase}-role`,
+      label: 'Rolle',
+      value: '',
+      collection: 'roles',
+      nestedField: 'role',
+      objectFieldAttrs: `data-reference-fixed-group="${escapeAttribute(groupId)}"`,
+      pickerContext: { ownerType: 'groups', ownerObject: group, picker: 'activity-role', activity: { group: groupId } },
+    })
+    : '';
+
+  return `
+    <section class="object-field object-field-wide composite-field group-relation-add" data-group-relation-add="${escapeAttribute(kind)}" data-group-id="${escapeAttribute(groupId)}">
+      <div class="composite-header">
+        <span>${escapeHtml(title)}</span>
+      </div>
+      <div class="nested-editor">
+        ${renderReferenceControl({ id: `${idBase}-person`, label: 'Person', value: '', collection: 'people', nestedField: 'person', pickerContext: { ownerType: 'groups', ownerObject: group } })}
+        ${roleControl}
+        ${renderPeriodEditor(emptyPeriod(), `${idBase}-period`, false, { ownerType: 'groups', ownerObject: group })}
+        ${renderNestedCertaintyField(`${idBase}-certainty`, 'none')}
+      </div>
+      <p class="object-save-state" data-group-relation-state hidden></p>
+    </section>
+  `;
 }
 
 function editorFieldSections(fields) {
@@ -6144,6 +6354,19 @@ function resetDateConfirmFromElement(element, relatedTarget) {
 }
 
 function markDateControlChanged(input) {
+  const groupReverseRow = input.closest('[data-group-reverse-row]');
+  if (groupReverseRow) {
+    refreshPeriodDependentPickers(input.closest('[data-period-editor]'), input);
+    markGroupReverseRowChanged(groupReverseRow, 1800);
+    return;
+  }
+
+  if (input.closest('[data-group-relation-add]')) {
+    refreshPeriodDependentPickers(input.closest('[data-period-editor]'), input);
+    markGroupRelationDraftChanged(input.closest('[data-group-relation-add]'), 1800);
+    return;
+  }
+
   const objectInput = input.closest('[data-object-field]');
   const item = objectInput?.closest('[data-object-type][data-object-id]');
   if (item) {
@@ -6224,6 +6447,18 @@ async function handleObjectClick(event) {
     return;
   }
 
+  const groupReverseButton = event.target.closest('[data-group-reverse-action]');
+  if (groupReverseButton) {
+    handleGroupReverseAction(groupReverseButton);
+    return;
+  }
+
+  const groupRelationToggle = event.target.closest('[data-group-relation-add-toggle]');
+  if (groupRelationToggle) {
+    toggleGroupRelationAddPanel(groupRelationToggle);
+    return;
+  }
+
   const listButton = event.target.closest('[data-list-action]');
   if (listButton) {
     handleListAction(listButton);
@@ -6246,7 +6481,9 @@ async function handleObjectClick(event) {
       return;
     }
 
-    await closeOpenEditorsBeforeSwitch();
+    if (!(await closeOpenEditorsBeforeSwitch())) {
+      return;
+    }
     collectionTypes.forEach((type) => {
       state.createOpen[type] = false;
     });
@@ -6311,9 +6548,29 @@ async function closeObjectEditor(item) {
   const type = item.dataset.objectType;
   const id = item.dataset.objectId;
   const key = objectKey(type, id);
+  if (type === 'groups') {
+    const drafts = Array.from(item.querySelectorAll('[data-group-relation-add][data-dirty="1"]'));
+    for (const draft of drafts) {
+      window.clearTimeout(state.editTimers[groupRelationDraftTimerKey(draft)]);
+      if (!(await flushGroupRelationDraft(draft))) {
+        return;
+      }
+    }
+    const reverseRows = Array.from(item.querySelectorAll('[data-group-reverse-row][data-dirty="1"]'));
+    for (const row of reverseRows) {
+      window.clearTimeout(state.editTimers[groupReverseTimerKey(row)]);
+      if (!(await flushGroupReverseRow(row))) {
+        return;
+      }
+    }
+  }
   await flushObjectEdit(item, true);
+  if (item.dataset.dirty === '1' || item.dataset.saving === '1') {
+    return;
+  }
   state.editing[key] = false;
   delete state.relationshipEditing[key];
+  delete state.groupRelationEditing[key];
   writeUrlState({ view: type, id: '' });
   renderObjectCollection(type);
   scheduleContextGraphRender();
@@ -6332,8 +6589,28 @@ async function focusObjectEditor(item) {
     const key = objectKey(openItem.dataset.objectType, openItem.dataset.objectId);
     window.clearTimeout(state.editTimers[key]);
     if (key !== targetKey) {
+      if (openItem.dataset.objectType === 'groups') {
+        const drafts = Array.from(openItem.querySelectorAll('[data-group-relation-add][data-dirty="1"]'));
+        for (const draft of drafts) {
+          window.clearTimeout(state.editTimers[groupRelationDraftTimerKey(draft)]);
+          if (!(await flushGroupRelationDraft(draft))) {
+            return;
+          }
+        }
+        const reverseRows = Array.from(openItem.querySelectorAll('[data-group-reverse-row][data-dirty="1"]'));
+        for (const row of reverseRows) {
+          window.clearTimeout(state.editTimers[groupReverseTimerKey(row)]);
+          if (!(await flushGroupReverseRow(row))) {
+            return;
+          }
+        }
+      }
       await flushObjectEdit(openItem, true);
+      if (openItem.dataset.dirty === '1' || openItem.dataset.saving === '1') {
+        return;
+      }
       delete state.relationshipEditing[key];
+      delete state.groupRelationEditing[key];
     }
   }
 
@@ -6606,6 +6883,17 @@ function setPeriodBoundaryMode(boundary, mode) {
 }
 
 function markPeriodBoundaryChanged(boundary) {
+  const groupReverseRow = boundary?.closest('[data-group-reverse-row]');
+  if (groupReverseRow) {
+    markGroupReverseRowChanged(groupReverseRow, 1800);
+    return;
+  }
+
+  if (boundary?.closest('[data-group-relation-add]')) {
+    markGroupRelationDraftChanged(boundary.closest('[data-group-relation-add]'), 1800);
+    return;
+  }
+
   const item = boundary.closest('[data-object-type][data-object-id]');
   if (item) {
     markObjectDirty(item);
@@ -6617,6 +6905,342 @@ function markPeriodBoundaryChanged(boundary) {
   if (createForm) {
     clearCreateState(createForm);
   }
+}
+
+function handleGroupReverseAction(button) {
+  const row = button.closest('[data-group-reverse-row]');
+  if (!row || button.dataset.groupReverseAction !== 'toggle') {
+    return;
+  }
+
+  const willOpen = row.classList.contains('is-collapsed');
+  const groupItem = row.closest('[data-object-type="groups"][data-object-id]');
+  if (willOpen) {
+    collapseGroupEditRows(groupItem, row);
+    state.groupRelationEditing[objectKey('groups', groupItem?.dataset.objectId || '')] = row.dataset.groupReverseKey || '';
+  } else {
+    delete state.groupRelationEditing[objectKey('groups', groupItem?.dataset.objectId || '')];
+  }
+  row.classList.toggle('is-collapsed', !willOpen);
+  button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+}
+
+function toggleGroupRelationAddPanel(button) {
+  const field = button.closest('[data-group-reverse-field]');
+  const kind = button.dataset.groupRelationAddToggle || '';
+  const slot = field?.querySelector(`[data-group-relation-add-slot="${cssEscape(kind)}"]`);
+  if (!slot) {
+    return;
+  }
+
+  const willOpen = slot.hidden;
+  if (willOpen) {
+    collapseGroupEditRows(field.closest('[data-object-type="groups"][data-object-id]'));
+  }
+  slot.hidden = !willOpen;
+  button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  if (willOpen) {
+    slot.querySelector('[data-reference-filter], [data-reference-input], input, select')?.focus();
+  }
+}
+
+function collapseGroupEditRows(groupItem, exceptRow = null) {
+  if (!groupItem) {
+    return;
+  }
+
+  groupItem.querySelectorAll('[data-object-field] [data-list-item][data-list-collapsible="1"]').forEach((item) => {
+    item.classList.add('is-collapsed');
+    item.querySelector('[data-list-action="toggle"]')?.setAttribute('aria-expanded', 'false');
+  });
+  groupItem.querySelectorAll('[data-group-reverse-row]').forEach((row) => {
+    if (row === exceptRow) {
+      return;
+    }
+    row.classList.add('is-collapsed');
+    row.querySelector('[data-group-reverse-action="toggle"]')?.setAttribute('aria-expanded', 'false');
+  });
+  groupItem.querySelectorAll('[data-group-relation-add-slot]').forEach((slot) => {
+    slot.hidden = true;
+  });
+  delete state.relationshipEditing[objectKey('groups', groupItem.dataset.objectId || '')];
+  if (!exceptRow) {
+    delete state.groupRelationEditing[objectKey('groups', groupItem.dataset.objectId || '')];
+  }
+  writeUrlState({ view: 'groups', id: groupItem.dataset.objectId || '', edit: '' });
+}
+
+function markGroupRelationDraftChanged(root, delay = 700) {
+  if (!root) {
+    return;
+  }
+
+  root.dataset.dirty = '1';
+  setGroupRelationState(root, 'Ungespeichert', false);
+  const key = groupRelationDraftTimerKey(root);
+  window.clearTimeout(state.editTimers[key]);
+  state.editTimers[key] = window.setTimeout(() => {
+    flushGroupRelationDraft(root);
+  }, delay);
+}
+
+async function flushGroupRelationDraft(root) {
+  const groupItem = root?.closest('[data-object-type="groups"][data-object-id]');
+  const groupId = root?.dataset.groupId || groupItem?.dataset.objectId || '';
+  const kind = root?.dataset.groupRelationAdd || '';
+  if (!root || !groupItem || !groupId || !['membership', 'activity'].includes(kind)) {
+    return false;
+  }
+
+  if (root.dataset.saving === '1') {
+    await waitForElementSave(root);
+  }
+  if (!root.isConnected) {
+    return true;
+  }
+  if (root.dataset.dirty !== '1') {
+    return true;
+  }
+  if (!groupRelationDraftHasValue(root, kind, groupId)) {
+    root.dataset.dirty = '';
+    setGroupRelationState(root, '', false);
+    return true;
+  }
+
+  const personId = nestedValue(root, 'person');
+  const person = findReferenceObject('people', personId);
+  if (!person) {
+    setGroupRelationState(root, 'Person fehlt.', true);
+    return false;
+  }
+
+  const entry = readGroupRelationEntry(root, kind, groupId);
+  const field = kind === 'activity' ? 'activities' : 'memberships';
+  root.dataset.saving = '1';
+  setGroupRelationState(root, 'Wird gespeichert', false);
+
+  try {
+    const response = await postJson('object-update', {
+      type: 'people',
+      id: personId,
+      base_revision: Number(person._revision || 0),
+      object: {
+        [field]: [...(Array.isArray(person[field]) ? person[field] : []), entry],
+      },
+    });
+    updateObjectInState('people', response.object);
+    const createdIndex = Math.max(0, (Array.isArray(response.object[field]) ? response.object[field].length : 1) - 1);
+    state.groupRelationEditing[objectKey('groups', groupId)] = groupReverseRelationKey(kind, personId, createdIndex);
+    refreshGroupReverseView(groupItem);
+    renderNavigationCounts();
+    return true;
+  } catch (error) {
+    if (error.status === 409 && error.payload?.current) {
+      updateObjectInState('people', error.payload.current);
+    }
+    setGroupRelationState(root, localizeErrorMessage(error.message || 'Konnte nicht gespeichert werden.'), true);
+    return false;
+  } finally {
+    if (root.isConnected) {
+      root.dataset.saving = '';
+    }
+  }
+}
+
+function groupRelationDraftHasValue(root, kind, groupId) {
+  const entry = readGroupRelationEntry(root, kind, groupId);
+  return Boolean(
+    nestedValue(root, 'person')
+    || entry.role
+    || periodHasValue(entry.period)
+    || (entry._certainty && entry._certainty !== 'none')
+  );
+}
+
+function groupRelationDraftTimerKey(root) {
+  return ['group-relation-draft', root?.dataset.groupId || '', root?.dataset.groupRelationAdd || ''].join(':');
+}
+
+function readGroupRelationEntry(root, kind, groupId) {
+  const entry = {
+    group: groupId,
+    period: readPeriod(root.querySelector('[data-period-editor]')),
+    _certainty: nestedValue(root, '_certainty') || 'none',
+    _sources: '',
+  };
+  if (kind === 'activity') {
+    entry.role = nestedValue(root, 'role');
+  }
+  return entry;
+}
+
+function refreshGroupReverseView(groupItem) {
+  const group = findReferenceObject('groups', groupItem?.dataset.objectId || '');
+  if (!groupItem || !group) {
+    return;
+  }
+
+  const main = groupItem.querySelector(':scope > .object-main');
+  const existing = main?.querySelector(':scope > .reverse-view[aria-label="Abgeleitete Gruppendaten"], :scope > .reverse-view[aria-label="Abgeleitete Gruppendaten bearbeiten"]');
+  const editable = Boolean(groupItem.querySelector(':scope [data-object-editor]')) && hasPermission('write');
+  const html = renderGroupReverseView(group, { editable });
+  if (existing) {
+    if (html) {
+      existing.outerHTML = html;
+    } else {
+      existing.remove();
+    }
+    return;
+  }
+
+  if (html) {
+    main?.querySelector(':scope > [data-save-state]')?.insertAdjacentHTML('beforebegin', html);
+  }
+}
+
+function setGroupRelationState(root, text, isError, autoHide = false) {
+  const element = root?.querySelector('[data-group-relation-state]');
+  if (!element) {
+    return;
+  }
+
+  element.hidden = !text;
+  element.textContent = text;
+  element.className = `object-save-state ${isError ? 'is-error' : ''}`;
+  if (autoHide) {
+    window.setTimeout(() => {
+      if (element.textContent === text) {
+        element.hidden = true;
+      }
+    }, 1600);
+  }
+}
+
+function markGroupReverseRowChanged(row, delay = 900) {
+  if (!row) {
+    return;
+  }
+
+  row.dataset.dirty = '1';
+  setGroupReverseRowState(row, 'Ungespeichert', false);
+  const key = groupReverseTimerKey(row);
+  window.clearTimeout(state.editTimers[key]);
+  state.editTimers[key] = window.setTimeout(() => {
+    flushGroupReverseRow(row);
+  }, delay);
+}
+
+async function flushGroupReverseRow(row) {
+  if (!row?.isConnected) {
+    return true;
+  }
+  if (row.dataset.saving === '1') {
+    await waitForElementSave(row);
+  }
+  if (!row.isConnected) {
+    return true;
+  }
+  if (row.dataset.dirty !== '1') {
+    return true;
+  }
+
+  const personId = row.dataset.personId || '';
+  const field = row.dataset.relationField || '';
+  const index = Number(row.dataset.relationIndex || -1);
+  const person = findReferenceObject('people', personId);
+  if (!person || !['memberships', 'activities'].includes(field) || !Number.isInteger(index) || index < 0) {
+    setGroupReverseRowState(row, 'Bezug nicht gefunden.', true);
+    return false;
+  }
+
+  const list = Array.isArray(person[field]) ? person[field].slice() : [];
+  if (!list[index]) {
+    setGroupReverseRowState(row, 'Eintrag nicht gefunden.', true);
+    return false;
+  }
+
+  list[index] = readGroupReverseRowEntry(row);
+  row.dataset.saving = '1';
+  setGroupReverseRowState(row, 'Wird gespeichert', false);
+  try {
+    const response = await postJson('object-update', {
+      type: 'people',
+      id: personId,
+      base_revision: Number(person._revision || 0),
+      object: { [field]: list },
+    });
+    updateObjectInState('people', response.object);
+    row.dataset.dirty = '';
+    updateGroupReverseRowSummary(row);
+    setGroupReverseRowState(row, 'Gespeichert', false, true);
+    return true;
+  } catch (error) {
+    if (error.status === 409 && error.payload?.current) {
+      updateObjectInState('people', error.payload.current);
+    }
+    setGroupReverseRowState(row, localizeErrorMessage(error.message || 'Konnte nicht gespeichert werden.'), true);
+    return false;
+  } finally {
+    row.dataset.saving = '';
+  }
+}
+
+async function waitForElementSave(element, timeoutMs = 5000) {
+  const started = Date.now();
+  while (element?.isConnected && element.dataset.saving === '1' && Date.now() - started < timeoutMs) {
+    await new Promise((resolve) => window.setTimeout(resolve, 40));
+  }
+  return !element?.isConnected || element.dataset.saving !== '1';
+}
+
+function readGroupReverseRowEntry(row) {
+  const entry = {
+    group: row.dataset.groupId || '',
+    period: readPeriod(row.querySelector('[data-period-editor]')),
+    _certainty: nestedValue(row, '_certainty') || 'none',
+    _sources: nestedValue(row, '_sources'),
+  };
+  if (row.dataset.relationField === 'activities') {
+    entry.role = nestedValue(row, 'role');
+  }
+  return entry;
+}
+
+function updateGroupReverseRowSummary(row) {
+  const person = findReferenceObject('people', row.dataset.personId || '');
+  const entry = readGroupReverseRowEntry(row);
+  const summary = row.dataset.relationField === 'activities'
+    ? reverseActivityLineText({ person, value: entry, role: findReferenceObject('roles', activityRoleId(entry)), period: entry.period })
+    : reversePersonLineText(person, entry.period);
+  const warnings = row.dataset.relationField === 'activities'
+    ? complexItemValidationWarnings('activity-list', entry, { ownerType: 'people', ownerObject: person, listField: 'activities', listIndex: Number(row.dataset.relationIndex || 0) })
+    : complexItemValidationWarnings('membership-list', entry, { ownerType: 'people', ownerObject: person, listField: 'memberships', listIndex: Number(row.dataset.relationIndex || 0) });
+  const button = row.querySelector(':scope .composite-summary');
+  if (button) {
+    button.innerHTML = compositeSummaryHtml(summary, warnings);
+  }
+}
+
+function setGroupReverseRowState(row, text, isError, autoHide = false) {
+  const element = row?.querySelector('[data-group-reverse-state]');
+  if (!element) {
+    return;
+  }
+
+  element.hidden = false;
+  element.textContent = text;
+  element.className = `object-save-state ${isError ? 'is-error' : ''}`;
+  if (autoHide) {
+    window.setTimeout(() => {
+      if (element.textContent === text) {
+        element.hidden = true;
+      }
+    }, 1400);
+  }
+}
+
+function groupReverseTimerKey(row) {
+  return ['group-reverse', row.dataset.personId || '', row.dataset.relationField || '', row.dataset.relationIndex || ''].join(':');
 }
 
 function focusDateControl(input) {
@@ -6650,6 +7274,9 @@ function handleListAction(button) {
       if (personKey) {
         if (willOpen) {
           collapseRelationshipRowsForPerson(fieldRoot, item);
+          if (fieldRoot.closest('[data-object-type="groups"][data-object-id]')) {
+            collapseGroupEditRows(fieldRoot.closest('[data-object-type="groups"][data-object-id]'), null);
+          }
         }
       }
       item.classList.toggle('is-collapsed', !willOpen);
@@ -6792,7 +7419,9 @@ async function createObjectImmediately(type, triggerButton = null) {
   }
 
   try {
-    await closeOpenEditorsBeforeSwitch();
+    if (!(await closeOpenEditorsBeforeSwitch())) {
+      return false;
+    }
     collectionTypes.forEach((collectionType) => {
       state.createOpen[collectionType] = false;
     });
@@ -7628,9 +8257,10 @@ function referenceOptionConfigForSelect(select, currentValue = '') {
   }
 
   if (picker === 'activity-role') {
-    const groupId = referenceSelectValue(activityEditor?.querySelector('[data-reference-picker="activity-group"]'));
+    const fixedGroupId = select.dataset.referenceFixedGroup || '';
+    const groupId = fixedGroupId || referenceSelectValue(activityEditor?.querySelector('[data-reference-picker="activity-group"]'));
     config.groupId = groupId;
-    if (groupTypeIds(findReferenceObject('groups', groupId)).length) {
+    if (!fixedGroupId && groupTypeIds(findReferenceObject('groups', groupId)).length) {
       config.actionValue = pickerActionShowAllRoles;
       config.actionLabel = 'Alle Rollen anzeigen (Gruppe leeren)';
     }
@@ -7676,12 +8306,16 @@ function referenceSelectValue(select) {
 function pickerBirthYear(select) {
   const root = ownerRootForElement(select);
   const ownerType = root?.dataset.objectType || root?.dataset.createForm || '';
+  const explicit = Number(select?.dataset.ownerBirthYear || 0);
+  if (explicit) {
+    return explicit;
+  }
   if (ownerType !== 'people') {
     return 0;
   }
 
   const birthdateInput = root.querySelector('[data-object-field="birthdate"]');
-  return birthYearFromDateValue(birthdateInput?.value) || Number(select.dataset.ownerBirthYear || 0);
+  return birthYearFromDateValue(birthdateInput?.value);
 }
 
 function pickerPeriod(select) {
@@ -7846,6 +8480,28 @@ async function handleObjectInput(event) {
     return;
   }
 
+  const groupRelationDraft = event.target.closest('[data-group-relation-add]');
+  if (groupRelationDraft) {
+    const dateInput = event.target.closest('[data-date-control]');
+    if (dateInput) {
+      syncDateControlRaw(dateInput);
+      refreshPeriodDependentPickers(dateInput.closest('[data-period-editor]'), dateInput);
+    }
+    markGroupRelationDraftChanged(groupRelationDraft, 1400);
+    return;
+  }
+
+  const groupReverseRow = event.target.closest('[data-group-reverse-row]');
+  if (groupReverseRow) {
+    const dateInput = event.target.closest('[data-date-control]');
+    if (dateInput) {
+      syncDateControlRaw(dateInput);
+      refreshPeriodDependentPickers(dateInput.closest('[data-period-editor]'), dateInput);
+    }
+    markGroupReverseRowChanged(groupReverseRow, 1400);
+    return;
+  }
+
   const dateInput = event.target.closest('[data-date-control]');
   if (dateInput) {
     syncDateControlRaw(dateInput);
@@ -7870,6 +8526,28 @@ async function handleObjectInput(event) {
 
 async function handleObjectChange(event) {
   if (event.target.closest('[data-reference-filter]')) {
+    return;
+  }
+
+  const groupRelationDraft = event.target.closest('[data-group-relation-add]');
+  if (groupRelationDraft) {
+    const dateInput = event.target.closest('[data-date-control]');
+    if (dateInput) {
+      syncDateControlRaw(dateInput);
+      refreshPeriodDependentPickers(dateInput.closest('[data-period-editor]'), dateInput);
+    }
+    markGroupRelationDraftChanged(groupRelationDraft, 500);
+    return;
+  }
+
+  const groupReverseRow = event.target.closest('[data-group-reverse-row]');
+  if (groupReverseRow) {
+    const dateInput = event.target.closest('[data-date-control]');
+    if (dateInput) {
+      syncDateControlRaw(dateInput);
+      refreshPeriodDependentPickers(dateInput.closest('[data-period-editor]'), dateInput);
+    }
+    markGroupReverseRowChanged(groupReverseRow, 600);
     return;
   }
 
@@ -9894,7 +10572,7 @@ function timepointValue(timepoint) {
 }
 
 function hasPendingObjectEdits() {
-  return Boolean(document.querySelector('[data-create-form], [data-user-create-form], [data-user-editor], [data-object-editor], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"]'));
+  return Boolean(document.querySelector('[data-create-form], [data-user-create-form], [data-user-editor], [data-object-editor], [data-period-action="undo-custom-date"], [data-object-type][data-dirty="1"], [data-object-type][data-saving="1"], [data-group-reverse-row][data-dirty="1"], [data-group-reverse-row][data-saving="1"], [data-group-relation-add][data-dirty="1"], [data-group-relation-add][data-saving="1"]'));
 }
 
 function objectKey(type, id) {

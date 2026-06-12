@@ -1923,6 +1923,10 @@ button.object-title-row:focus-visible::before {
   gap: 8px;
 }
 
+.group-reverse-edit {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+}
+
 .reverse-column {
   display: grid;
   gap: 3px;
@@ -1954,6 +1958,45 @@ button.object-title-row:focus-visible::before {
 .reverse-link:focus-visible {
   color: var(--text);
   text-decoration: underline;
+}
+
+.group-reverse-field {
+  gap: 10px;
+}
+
+.group-reverse-field .composite-header > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.group-reverse-field .composite-header strong {
+  color: var(--brand-strong);
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.group-reverse-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.group-reverse-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 8px;
+  align-items: start;
+}
+
+.group-reverse-person-link {
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.group-reverse-empty {
+  color: var(--muted);
+}
+
+.group-relation-add-slot[hidden] {
+  display: none;
 }
 
 .object-create {
@@ -2507,6 +2550,14 @@ button.object-title-row:focus-visible::before {
 
 .group-type-add-field {
   max-width: 360px;
+}
+
+.group-relation-add {
+  background: rgba(18, 24, 29, 0.58);
+}
+
+.group-relation-add .nested-editor {
+  align-items: start;
 }
 
 .nested-editor {
