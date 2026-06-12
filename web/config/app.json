@@ -4,6 +4,12 @@
   "show_warnings": true,
   "auth": {
     "base_url": "https://stammbaumdervaganten.de",
+    "origin": "https://stammbaumdervaganten.de",
+    "rp_id": "stammbaumdervaganten.de",
+    "allowed_hosts": [
+      "stammbaumdervaganten.de"
+    ],
+    "trusted_proxies": [],
     "login_link_ttl_seconds": 600,
     "initial_admin_username": "admin"
   },

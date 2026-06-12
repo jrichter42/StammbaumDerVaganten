@@ -34,6 +34,10 @@ For production, set a stable passkey relying-party configuration in `config/app.
     "base_url": "https://stammbaumdervaganten.de",
     "rp_id": "stammbaumdervaganten.de",
     "origin": "https://stammbaumdervaganten.de",
+    "allowed_hosts": [
+      "stammbaumdervaganten.de"
+    ],
+    "trusted_proxies": [],
     "login_link_ttl_seconds": 600,
     "initial_admin_username": "admin"
   },
@@ -47,7 +51,7 @@ For production, set a stable passkey relying-party configuration in `config/app.
 }
 ```
 
-Passkeys require HTTPS (except on local development origins such as `localhost`).\
+Auth configuration is required and validated before auth storage or sessions initialize. `base_url` and `origin` must use HTTPS; `rp_id` and `allowed_hosts` must contain hostnames; `trusted_proxies` accepts only literal IP addresses. Keep local-development values in a separate local `config/app.json` rather than deriving them from request headers.\
 `base_url` is used for generated setup and login links.
 Email login links are single-use, expire after `auth.login_link_ttl_seconds`, and are not re-sent while an earlier unused link is still valid.
 
