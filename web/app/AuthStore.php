@@ -42,6 +42,7 @@ final class AuthStore
         $this->configureInitialAdmin($config);
 
         $this->ensureFiles();
+        $this->recoverSetupRegistrations();
         $this->ensureBootstrapUser();
     }
 
@@ -634,6 +635,7 @@ final class AuthStore
      */
     public function listSetupTokens(): array
     {
+        $this->recoverSetupRegistrations();
         $data = $this->readJson($this->tokensPath, $this->defaultTokens());
         $tokens = [];
         foreach (($data['tokens'] ?? []) as $token) {
@@ -694,6 +696,7 @@ final class AuthStore
         }
 
         $tokenHash = hash('sha256', $input);
+        $this->recoverSetupRegistrations();
         $data = $this->readJson($this->tokensPath, $this->defaultTokens());
 
         foreach ($data['tokens'] ?? [] as $token) {
@@ -728,13 +731,18 @@ final class AuthStore
         $tokenHash = hash('sha256', trim($input));
         $reservationId = $this->randomId('setup_registration');
         $reservedAt = $this->now();
+        $credentialId = (string) ($credential['id'] ?? '');
+        if ($credentialId === '') {
+            throw new InvalidArgumentException('Passkey ID is required.');
+        }
 
         $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use (
             $tokenHash,
             $tokenId,
             $username,
             $reservationId,
-            $reservedAt
+            $reservedAt,
+            $credentialId
         ): array {
             foreach (($data['tokens'] ?? []) as $index => $token) {
                 if (($token['id'] ?? '') !== $tokenId
@@ -747,6 +755,7 @@ final class AuthStore
 
                 $data['tokens'][$index]['registration_reservation_id'] = $reservationId;
                 $data['tokens'][$index]['registration_reserved_at'] = $reservedAt;
+                $data['tokens'][$index]['registration_credential_id'] = $credentialId;
                 return [$data, null];
             }
 
@@ -754,7 +763,7 @@ final class AuthStore
         });
 
         try {
-            $this->addCredential($username, $credential);
+            $this->persistSetupCredential($username, $tokenId, $reservationId, $credential);
         } catch (\Throwable $exception) {
             $this->releaseSetupRegistrationReservation($tokenId, $reservationId);
             throw $exception;
@@ -762,17 +771,28 @@ final class AuthStore
 
         $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId, $reservationId): array {
             foreach (($data['tokens'] ?? []) as $index => $token) {
-                if (($token['id'] ?? '') !== $tokenId
-                    || !hash_equals((string) ($token['registration_reservation_id'] ?? ''), $reservationId)
+                if (($token['id'] ?? '') !== $tokenId) {
+                    continue;
+                }
+
+                if (($token['consumed_at'] ?? null) !== null
+                    && hash_equals((string) ($token['registration_completed_id'] ?? ''), $reservationId)
+                ) {
+                    return [$data, null];
+                }
+
+                if (!hash_equals((string) ($token['registration_reservation_id'] ?? ''), $reservationId)
                     || ($token['consumed_at'] ?? null) !== null
                 ) {
                     continue;
                 }
 
                 $data['tokens'][$index]['consumed_at'] = $this->now();
+                $data['tokens'][$index]['registration_completed_id'] = $reservationId;
                 unset(
                     $data['tokens'][$index]['registration_reservation_id'],
-                    $data['tokens'][$index]['registration_reserved_at']
+                    $data['tokens'][$index]['registration_reserved_at'],
+                    $data['tokens'][$index]['registration_credential_id']
                 );
                 return [$data, null];
             }
@@ -1494,17 +1514,125 @@ final class AuthStore
      */
     private function isActiveToken(array $token): bool
     {
-        $reservedAt = strtotime((string) ($token['registration_reserved_at'] ?? ''));
-        $hasActiveReservation = ($token['registration_reservation_id'] ?? '') !== ''
-            && $reservedAt !== false
-            && $reservedAt > time() - 300;
+        $hasReservation = ($token['registration_reservation_id'] ?? '') !== '';
 
         return ($token['consumed_at'] ?? null) === null
             && ($token['revoked_at'] ?? null) === null
-            && !$hasActiveReservation
+            && !$hasReservation
             && is_string($token['expires_at'] ?? null)
             && strtotime($token['expires_at']) !== false
             && strtotime($token['expires_at']) > time();
+    }
+
+    /**
+     * @param array<string, mixed> $credential
+     */
+    private function persistSetupCredential(
+        string $username,
+        string $tokenId,
+        string $reservationId,
+        array $credential
+    ): void {
+        $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use (
+            $username,
+            $tokenId,
+            $reservationId,
+            $credential
+        ): array {
+            $index = $this->findUserIndex($data, $username);
+            if ($index === null) {
+                throw new InvalidArgumentException('Unknown user.');
+            }
+            if (!($data['users'][$index]['enabled'] ?? false)) {
+                throw new InvalidArgumentException('User is disabled.');
+            }
+
+            $credentials = is_array($data['users'][$index]['credentials'] ?? null)
+                ? $data['users'][$index]['credentials']
+                : [];
+            foreach ($credentials as $existing) {
+                if (($existing['id'] ?? '') !== ($credential['id'] ?? null)) {
+                    continue;
+                }
+
+                if (hash_equals((string) ($existing['setup_registration_id'] ?? ''), $reservationId)
+                    && hash_equals((string) ($existing['setup_token_id'] ?? ''), $tokenId)
+                ) {
+                    return [$data, null];
+                }
+
+                throw new InvalidArgumentException('This passkey is already registered.');
+            }
+
+            $credentials[] = $credential + [
+                'created_at' => $this->now(),
+                'last_used_at' => null,
+                'setup_token_id' => $tokenId,
+                'setup_registration_id' => $reservationId,
+            ];
+            $data['users'][$index]['credentials'] = $credentials;
+            $data['users'][$index]['updated_at'] = $this->now();
+
+            return [$data, null];
+        });
+    }
+
+    private function recoverSetupRegistrations(): void
+    {
+        $users = $this->readJson($this->usersPath, $this->defaultUsers());
+        $completed = [];
+        foreach (($users['users'] ?? []) as $user) {
+            foreach (($user['credentials'] ?? []) as $credential) {
+                $registrationId = (string) ($credential['setup_registration_id'] ?? '');
+                $tokenId = (string) ($credential['setup_token_id'] ?? '');
+                if ($registrationId !== '' && $tokenId !== '') {
+                    $completed[$tokenId . "\0" . $registrationId] = [
+                        'username' => (string) ($user['username'] ?? ''),
+                        'credential_id' => (string) ($credential['id'] ?? ''),
+                    ];
+                }
+            }
+        }
+
+        if ($completed === []) {
+            return;
+        }
+
+        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($completed): array {
+            $changed = false;
+            foreach (($data['tokens'] ?? []) as $index => $token) {
+                $tokenId = (string) ($token['id'] ?? '');
+                $registrationId = (string) ($token['registration_reservation_id'] ?? '');
+                if ($tokenId === '' || $registrationId === ''
+                    || !isset($completed[$tokenId . "\0" . $registrationId])
+                ) {
+                    continue;
+                }
+
+                $completion = $completed[$tokenId . "\0" . $registrationId];
+                if (strcasecmp((string) ($token['username'] ?? ''), $completion['username']) !== 0
+                    || !hash_equals(
+                        (string) ($token['registration_credential_id'] ?? ''),
+                        $completion['credential_id']
+                    )
+                ) {
+                    continue;
+                }
+
+                if (($token['consumed_at'] ?? null) === null) {
+                    $data['tokens'][$index]['consumed_at'] = $this->now();
+                }
+                $data['tokens'][$index]['registration_completed_id'] = $registrationId;
+                unset(
+                    $data['tokens'][$index]['registration_reservation_id'],
+                    $data['tokens'][$index]['registration_reserved_at'],
+                    $data['tokens'][$index]['registration_credential_id']
+                );
+                $changed = true;
+            }
+
+            return [$data, $changed];
+        });
     }
 
     private function releaseSetupRegistrationReservation(string $tokenId, string $reservationId): void
@@ -1516,7 +1644,8 @@ final class AuthStore
                 ) {
                     unset(
                         $data['tokens'][$index]['registration_reservation_id'],
-                        $data['tokens'][$index]['registration_reserved_at']
+                        $data['tokens'][$index]['registration_reserved_at'],
+                        $data['tokens'][$index]['registration_credential_id']
                     );
                     break;
                 }
