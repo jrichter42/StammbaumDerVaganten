@@ -4944,7 +4944,7 @@ function renderGroupReverseRelationEditor(kind, group, entry) {
 
 function groupReversePersonLink(personId, edit) {
   return `
-    <a class="reference-link group-reverse-person-link" href="${escapeAttribute(nestedEditUrl('people', personId, edit))}" data-nested-edit-link data-link-view="people" data-link-id="${escapeAttribute(personId)}" data-link-edit="${escapeAttribute(edit)}">Person öffnen</a>
+    <a class="reference-link group-reverse-person-link" href="${escapeAttribute(nestedEditUrl('people', personId, edit))}" data-nested-edit-link data-link-view="people" data-link-id="${escapeAttribute(personId)}" data-link-edit="${escapeAttribute(edit)}" aria-label="Person öffnen" title="Person öffnen">⇒</a>
   `;
 }
 
@@ -5236,7 +5236,7 @@ function renderReferenceControl({ id, label, value, collection, objectFieldAttrs
 
 function referenceLinkHtml(collection, value) {
   const canLink = objectCollections.includes(collection) && value;
-  return `<a class="reference-link" href="${escapeAttribute(canLink ? objectUrl(collection, value) : '#')}" data-reference-link data-link-view="${escapeAttribute(collection)}" data-link-id="${escapeAttribute(value || '')}" ${canLink ? '' : 'hidden'}>öffnen</a>`;
+  return `<a class="reference-link" href="${escapeAttribute(canLink ? objectUrl(collection, value) : '#')}" data-reference-link data-link-view="${escapeAttribute(collection)}" data-link-id="${escapeAttribute(value || '')}" aria-label="Eintrag öffnen" title="Eintrag öffnen" ${canLink ? '' : 'hidden'}>⇒</a>`;
 }
 
 function objectUrl(type, id) {
@@ -5641,13 +5641,15 @@ function renderComplexListItem(kind, value = {}, context = {}) {
   const hasEditToggle = Boolean(summary);
   const canRemove = !context.disableRemove;
   const deleteLabel = hasEditToggle ? `${summary} löschen` : '';
+  const referenceLink = relationshipReferenceLinkHtml(kind, value);
   return `
-    <div class="composite-item ${summary ? 'has-summary' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
+    <div class="composite-item ${summary ? 'has-summary' : ''} ${referenceLink ? 'has-navigation' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
       ${summary ? `
         <button class="composite-summary" type="button" data-list-action="toggle" aria-expanded="${isCollapsed ? 'false' : 'true'}">
           ${compositeSummaryHtml(summary, warnings)}
         </button>
       ` : ''}
+      ${referenceLink}
       <div class="composite-editor" data-composite-editor>
         ${renderComplexEditor(kind, value, true, context)}
         ${canRemove ? `
@@ -5660,6 +5662,19 @@ function renderComplexListItem(kind, value = {}, context = {}) {
       </div>
     </div>
   `;
+}
+
+function relationshipReferenceLinkHtml(kind, value) {
+  const target = ['membership-list', 'activity-list'].includes(kind)
+    ? { type: 'groups', id: periodEntryGroupId(value), label: 'Gruppe' }
+    : ['group-phase-list', 'group-phase'].includes(kind)
+      ? { type: 'group-types', id: groupPhaseTypeId(value), label: 'Gruppenart' }
+      : null;
+  if (!target?.id) {
+    return '';
+  }
+
+  return `<a class="reference-link relationship-group-link" href="${escapeAttribute(objectUrl(target.type, target.id))}" data-reference-link data-link-view="${escapeAttribute(target.type)}" data-link-id="${escapeAttribute(target.id)}" aria-label="${escapeAttribute(target.label)} öffnen" title="${escapeAttribute(target.label)} öffnen">⇒</a>`;
 }
 
 function compositeSummaryHtml(summary, warnings = []) {

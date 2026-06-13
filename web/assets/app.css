@@ -1965,8 +1965,7 @@ button.object-title-row:focus-visible::before {
 }
 
 .group-reverse-person-link {
-  min-height: 34px;
-  white-space: nowrap;
+  align-self: start;
 }
 
 .group-reverse-empty {
@@ -2174,15 +2173,21 @@ button.object-title-row:focus-visible::before {
 }
 
 .reference-link {
-  align-self: stretch;
+  align-self: center;
   display: inline-flex;
   align-items: center;
-  padding: 0 8px;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--muted);
   background: rgba(15, 20, 24, 0.72);
-  font-size: 0.78rem;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
   text-decoration: none;
 }
 
@@ -2479,9 +2484,19 @@ button.object-title-row:focus-visible::before {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.composite-item.has-summary.has-navigation {
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
 .composite-item.has-summary .composite-summary {
   grid-column: 1;
   grid-row: 1;
+}
+
+.relationship-group-link {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
 }
 
 .composite-item > .composite-editor {
