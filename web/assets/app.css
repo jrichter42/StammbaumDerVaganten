@@ -1614,17 +1614,6 @@ body.is-context-resizing {
   box-shadow: var(--edit-shadow);
 }
 
-.object-list .object-item.is-graph-highlighted:not(.is-editing) {
-  border-color: rgba(var(--brand-rgb), 0.62);
-  background: rgba(var(--brand-rgb), 0.08);
-  box-shadow: 0 0 0 1px rgba(var(--brand-rgb), 0.18);
-}
-
-.composite-item.is-graph-highlighted {
-  border-color: rgba(var(--brand-rgb), 0.72);
-  box-shadow: 0 0 0 1px rgba(var(--brand-rgb), 0.22);
-}
-
 .object-list .list-item:not(.is-editing):hover,
 .user-list .list-item:not(.is-editing):hover {
   background: var(--surface);
@@ -1701,7 +1690,8 @@ button.object-title-row:focus-visible {
 }
 
 button.object-title-row:hover::before,
-button.object-title-row:focus-visible::before {
+button.object-title-row:focus-visible::before,
+button.object-title-row.is-graph-highlighted::before {
   border-color: var(--brand);
   background: rgba(var(--brand-rgb), 0.08);
 }
@@ -2183,7 +2173,8 @@ button.object-title-row:focus-visible::before {
 }
 
 .reference-link:hover,
-.reference-link:focus-visible {
+.reference-link:focus-visible,
+.reference-link.is-graph-highlighted {
   color: var(--text);
   border-color: var(--brand-strong);
 }
@@ -2508,7 +2499,8 @@ button.object-title-row:focus-visible::before {
 }
 
 .composite-summary:hover::before,
-.composite-summary:focus-visible::before {
+.composite-summary:focus-visible::before,
+.composite-summary.is-graph-highlighted::before {
   border-color: var(--brand);
   background: rgba(var(--brand-rgb), 0.08);
 }

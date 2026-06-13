@@ -293,9 +293,16 @@ let contextGraphFrame = 0;
 let contextGraphTimer = 0;
 let contextGraphNodeIds = new Set();
 let contextGraphEdgeTargets = new Map();
+let contextGraphNodes = [];
 let contextGraphEdges = [];
+let contextGraphNodeDataSet = null;
+let contextGraphEdgeDataSet = null;
+let contextPassiveNodeIds = [];
+let contextPassiveEdgeIds = [];
 let contextHighlightedNodeId = '';
-let contextHighlightedEdgeId = '';
+let contextHighlightedEdgeIds = [];
+let contextPrimaryHighlightedEdgeId = '';
+let contextAllHighlightedEdgesPrimary = false;
 let contextHighlightedListKey = '';
 let contextResizeActive = false;
 let contextPanelRatio = 0.4;
@@ -2556,6 +2563,7 @@ function renderContextGraph() {
   }
 
   contextGraphSignature = signature;
+  contextGraphNodes = graph.nodes;
   contextGraphNodeIds = new Set(graph.nodes.map((node) => node.id));
   contextGraphEdgeTargets = new Map(graph.edges.map((edge) => [edge.id, edge.target || null]));
   contextGraphEdges = graph.edges;
@@ -2564,9 +2572,11 @@ function renderContextGraph() {
     contextNetwork.destroy();
   }
 
+  contextGraphNodeDataSet = new visNetwork.DataSet(graph.nodes);
+  contextGraphEdgeDataSet = new visNetwork.DataSet(graph.edges);
   contextNetwork = new visNetwork.Network(contextGraphContainer, {
-    nodes: new visNetwork.DataSet(graph.nodes),
-    edges: new visNetwork.DataSet(graph.edges),
+    nodes: contextGraphNodeDataSet,
+    edges: contextGraphEdgeDataSet,
   }, publicGraphOptions(graph));
 
   contextNetwork.on('hoverNode', handleContextGraphNodeHover);
@@ -2584,11 +2594,18 @@ function destroyContextGraph() {
     contextNetwork = null;
   }
   contextGraphSignature = '';
+  contextGraphNodes = [];
   contextGraphNodeIds = new Set();
   contextGraphEdgeTargets = new Map();
   contextGraphEdges = [];
+  contextGraphNodeDataSet = null;
+  contextGraphEdgeDataSet = null;
+  contextPassiveNodeIds = [];
+  contextPassiveEdgeIds = [];
   contextHighlightedNodeId = '';
-  contextHighlightedEdgeId = '';
+  contextHighlightedEdgeIds = [];
+  contextPrimaryHighlightedEdgeId = '';
+  contextAllHighlightedEdgesPrimary = false;
   clearContextListHighlight();
 }
 
@@ -2649,17 +2666,19 @@ function graphInteractionOptions() {
     dragNodes: true,
     dragView: true,
     hover: true,
+    hoverConnectedEdges: false,
     tooltipDelay: 140,
     navigationButtons: false,
     keyboard: false,
+    selectConnectedEdges: false,
     zoomView: true,
   };
 }
 
 function graphEdgeBehaviorOptions() {
   return {
-    selectionWidth: 3,
-    hoverWidth: 3,
+    selectionWidth: 2,
+    hoverWidth: 2,
     smooth: {
       enabled: true,
       type: 'cubicBezier',
@@ -2670,53 +2689,69 @@ function graphEdgeBehaviorOptions() {
 }
 
 function handleObjectGraphHover(event) {
-  const row = event.target.closest('.composite-item[data-relationship-row-key]');
-  if (row && !row.contains(event.relatedTarget)) {
-    const owner = row.closest('.object-item[data-object-type][data-object-id]');
-    const edgeId = owner ? contextEdgeIdForTarget(owner.dataset.objectType, owner.dataset.objectId, row.dataset.relationshipRowKey || '') : '';
-    if (edgeId) {
-      contextHighlightedNodeId = '';
-      contextHighlightedEdgeId = edgeId;
-      applyContextGraphHighlight();
-      return;
-    }
-  }
-
-  const item = event.target.closest('.object-item[data-object-type][data-object-id]');
-  if (!item || !item.closest('.view.is-active') || item.contains(event.relatedTarget)) {
-    return;
-  }
-
-  const type = item.dataset.objectType || '';
-  const id = item.dataset.objectId || '';
-  contextHighlightedNodeId = objectCollections.includes(type) && id ? contextNodeId(type, id) : '';
-  contextHighlightedEdgeId = '';
-  applyContextGraphHighlight();
+  applyObjectGraphHoverTarget(objectGraphHoverTarget(event.target));
 }
 
 function handleObjectGraphHoverEnd(event) {
-  const row = event.target.closest('.composite-item[data-relationship-row-key]');
-  if (row && !row.contains(event.relatedTarget)) {
-    const owner = row.closest('.object-item[data-object-type][data-object-id]');
-    const edgeId = owner ? contextEdgeIdForTarget(owner.dataset.objectType, owner.dataset.objectId, row.dataset.relationshipRowKey || '') : '';
-    if (edgeId && contextHighlightedEdgeId === edgeId) {
-      contextHighlightedEdgeId = '';
-      applyContextGraphHighlight();
-      return;
+  applyObjectGraphHoverTarget(objectGraphHoverTarget(event.relatedTarget));
+}
+
+function objectGraphHoverTarget(element) {
+  const referenceLink = element?.closest?.('.reference-link[data-link-view][data-link-id]');
+  if (referenceLink) {
+    const type = referenceLink.dataset.linkView || '';
+    const id = referenceLink.dataset.linkId || '';
+    if (objectCollections.includes(type) && id) {
+      return { nodeId: contextNodeId(type, id), edgeIds: [] };
     }
   }
 
-  const item = event.target.closest('.object-item[data-object-type][data-object-id]');
-  if (!item || item.contains(event.relatedTarget)) {
-    return;
+  const reverseTitle = element?.closest?.(
+    '[data-group-reverse-row] [data-group-reverse-action="toggle"], '
+      + '[data-graph-edge-type][data-graph-edge-id][data-graph-edge-edit]:not([data-group-reverse-row])'
+  );
+  const reverseRow = reverseTitle?.closest?.('[data-graph-edge-type][data-graph-edge-id][data-graph-edge-edit]');
+  if (reverseRow) {
+    const edgeIds = contextEdgeIdsForTarget(
+      reverseRow.dataset.graphEdgeType || '',
+      reverseRow.dataset.graphEdgeId || '',
+      reverseRow.dataset.graphEdgeEdit || '',
+    );
+    if (edgeIds.length) {
+      return { nodeId: '', edgeIds, allEdgesPrimary: true };
+    }
   }
 
-  const type = item.dataset.objectType || '';
-  const id = item.dataset.objectId || '';
-  if (contextHighlightedNodeId === contextNodeId(type, id)) {
-    contextHighlightedNodeId = '';
-    applyContextGraphHighlight();
+  const row = element?.closest?.('.composite-summary')?.closest?.('.composite-item[data-relationship-row-key]');
+  if (row) {
+    const owner = row.closest('.object-item[data-object-type][data-object-id]');
+    const edgeIds = owner
+      ? contextEdgeIdsForTarget(owner.dataset.objectType, owner.dataset.objectId, row.dataset.relationshipRowKey || '')
+      : [];
+    if (edgeIds.length) {
+      return { nodeId: '', edgeIds, allEdgesPrimary: true };
+    }
   }
+
+  const title = element?.closest?.('.object-title-row[data-object-action="toggle-editor"]');
+  const item = title?.closest('.object-item[data-object-type][data-object-id]');
+  if (item?.closest('.view.is-active')) {
+    const type = item.dataset.objectType || '';
+    const id = item.dataset.objectId || '';
+    if (objectCollections.includes(type) && id) {
+      return { nodeId: contextNodeId(type, id), edgeIds: [] };
+    }
+  }
+
+  return { nodeId: '', edgeIds: [] };
+}
+
+function applyObjectGraphHoverTarget(target) {
+  contextHighlightedNodeId = target.nodeId || '';
+  contextHighlightedEdgeIds = target.edgeIds || [];
+  contextPrimaryHighlightedEdgeId = contextHighlightedEdgeIds[0] || '';
+  contextAllHighlightedEdgesPrimary = target.allEdgesPrimary === true;
+  applyContextGraphHighlight();
 }
 
 function applyContextGraphHighlight() {
@@ -2724,19 +2759,162 @@ function applyContextGraphHighlight() {
     return;
   }
 
-  const nodes = contextHighlightedNodeId && contextGraphNodeIds.has(contextHighlightedNodeId)
-    ? [contextHighlightedNodeId]
-    : [];
-  const edges = contextHighlightedEdgeId && contextGraphEdgeTargets.has(contextHighlightedEdgeId)
-    ? [contextHighlightedEdgeId]
-    : [];
+  const activeNodeId = activeContextGraphNodeId();
+  const nodes = [];
+  if (activeNodeId) {
+    nodes.push(activeNodeId);
+  }
+  if (contextHighlightedNodeId && contextGraphNodeIds.has(contextHighlightedNodeId)) {
+    nodes.push(contextHighlightedNodeId);
+  }
+  const selectedNodes = Array.from(new Set(nodes));
+  const persistentEdgeIds = persistentContextEditEdgeIds();
+  const passiveNodeSources = Array.from(new Set([
+    ...persistentEdgeIds,
+    ...contextHighlightedEdgeIds,
+  ]));
+  const passiveEdgeSource = contextHighlightedNodeId || '';
+  const relatedPassiveEdgeIds = contextAllHighlightedEdgesPrimary
+    ? []
+    : contextHighlightedEdgeIds.filter((edgeId) => edgeId !== contextPrimaryHighlightedEdgeId);
+  updatePassiveContextEdges(passiveEdgeSource, persistentEdgeIds, relatedPassiveEdgeIds);
+  updatePassiveContextNodes(passiveNodeSources, [activeNodeId, contextHighlightedNodeId].filter(Boolean));
+  const edges = [...persistentEdgeIds];
+  if (!contextHighlightedNodeId
+    && contextHighlightedEdgeIds.length
+  ) {
+    edges.push(...(contextAllHighlightedEdgesPrimary
+      ? contextHighlightedEdgeIds
+      : [contextPrimaryHighlightedEdgeId]
+    ).filter((edgeId) => contextGraphEdgeTargets.has(edgeId)));
+  }
+  const selectedEdges = Array.from(new Set(edges));
 
-  if (nodes.length || edges.length) {
-    contextNetwork.setSelection({ nodes, edges }, { unselectAll: true });
+  if (selectedNodes.length || selectedEdges.length) {
+    contextNetwork.setSelection({ nodes: selectedNodes, edges: selectedEdges }, { unselectAll: true });
     return;
   }
 
   contextNetwork.unselectAll();
+}
+
+function activeContextGraphNodeId() {
+  const type = currentViewName();
+  const id = activeEditingId(type);
+  const nodeId = objectCollections.includes(type) && id ? contextNodeId(type, id) : '';
+  return nodeId && contextGraphNodeIds.has(nodeId) ? nodeId : '';
+}
+
+function updatePassiveContextNodes(edgeIds, excludedNodeIds = []) {
+  if (!contextGraphNodeDataSet) {
+    return;
+  }
+
+  if (contextPassiveNodeIds.length) {
+    contextGraphNodeDataSet.update(contextPassiveNodeIds.map((id) => {
+      const node = contextGraphNodes.find((candidate) => candidate.id === id);
+      return {
+        id,
+        color: contextNodeBaseColor(node?.group || ''),
+        borderWidth: node?.group === 'focus' ? 2 : 1,
+        borderWidthSelected: 5,
+      };
+    }));
+  }
+
+  const sourceIds = Array.isArray(edgeIds) ? edgeIds : [edgeIds].filter(Boolean);
+  const excluded = new Set(Array.isArray(excludedNodeIds) ? excludedNodeIds : [excludedNodeIds].filter(Boolean));
+  contextPassiveNodeIds = Array.from(new Set(sourceIds.flatMap((edgeId) => {
+    const edge = contextGraphEdges.find((candidate) => candidate.id === edgeId);
+    return edge ? [edge.from, edge.to] : [];
+  }))).filter((id) => !excluded.has(id));
+
+  if (contextPassiveNodeIds.length) {
+    contextGraphNodeDataSet.update(contextPassiveNodeIds.map((id) => {
+      const node = contextGraphNodes.find((candidate) => candidate.id === id);
+      const color = contextNodeBaseColor(node?.group || '');
+      return {
+        id,
+        color: { ...color, border: '#ffff00' },
+        borderWidth: 1,
+        borderWidthSelected: 1,
+      };
+    }));
+  }
+}
+
+function contextNodeBaseColor(group) {
+  const color = {
+    focus: { border: '#ffff00', background: '#2a2711' },
+    person: { border: '#ef859d', background: '#2a1820' },
+    group: { border: '#d8d85a', background: '#1f2118' },
+    groupType: { border: '#00b74f', background: '#12231a' },
+    role: { border: '#8e7fae', background: '#201a2b' },
+    timepoint: { border: '#ef7d00', background: '#2a1c10' },
+  }[group] || { border: 'rgba(216,216,90,0.48)', background: '#151b20' };
+  return {
+    ...color,
+    highlight: { border: '#ffff00', background: color.background },
+    hover: { border: '#ffff00', background: color.background },
+  };
+}
+
+function updatePassiveContextEdges(nodeId, excludedEdgeIds = [], relatedEdgeIds = []) {
+  if (!contextGraphEdgeDataSet) {
+    return;
+  }
+
+  if (contextPassiveEdgeIds.length) {
+    contextGraphEdgeDataSet.update(contextPassiveEdgeIds.map((id) => {
+      const edge = contextGraphEdges.find((candidate) => candidate.id === id);
+      return {
+        id,
+        color: {
+          color: 'rgba(195,201,197,0.62)',
+          highlight: '#d8d85a',
+          hover: '#d8d85a',
+          inherit: false,
+        },
+        width: edge?.width || 1.6,
+        selectionWidth: edge?.selectionWidth ?? 2,
+        hoverWidth: edge?.hoverWidth ?? 2,
+        font: {
+          color: '#cfd6d2',
+          strokeColor: '#0b0f12',
+          strokeWidth: 4,
+        },
+      };
+    }));
+  }
+
+  const excluded = new Set(excludedEdgeIds);
+  const nodeEdgeIds = nodeId
+    ? contextGraphEdges
+      .filter((edge) => edge.from === nodeId || edge.to === nodeId)
+      .map((edge) => edge.id)
+    : [];
+  contextPassiveEdgeIds = Array.from(new Set([...nodeEdgeIds, ...relatedEdgeIds]))
+    .filter((id) => !excluded.has(id));
+
+  if (contextPassiveEdgeIds.length) {
+    contextGraphEdgeDataSet.update(contextPassiveEdgeIds.map((id) => ({
+      id,
+      color: {
+        color: '#ffff00',
+        highlight: '#ffff00',
+        hover: '#ffff00',
+        inherit: false,
+      },
+      width: contextGraphEdges.find((edge) => edge.id === id)?.width || 1.6,
+      selectionWidth: 0,
+      hoverWidth: 0,
+      font: {
+        color: '#fbf7de',
+        strokeColor: '#0b0f12',
+        strokeWidth: 4,
+      },
+    })));
+  }
 }
 
 function handleContextGraphNodeHover(params) {
@@ -2746,7 +2924,9 @@ function handleContextGraphNodeHover(params) {
   }
 
   contextHighlightedNodeId = params.node;
-  contextHighlightedEdgeId = '';
+  contextHighlightedEdgeIds = [];
+  contextPrimaryHighlightedEdgeId = '';
+  contextAllHighlightedEdgesPrimary = false;
   applyContextGraphHighlight();
   if (!setContextListHighlight(target.type, target.id)) {
     highlightContextEdgeTargetForNode(params.node);
@@ -2764,7 +2944,7 @@ function handleContextGraphNodeBlur(params) {
 function handleContextGraphNodeClick(params) {
   const edgeId = params.edges?.[0] || '';
   if (edgeId && !params.nodes?.length) {
-    void openContextGraphTarget(contextGraphEdgeTargets.get(edgeId));
+    void openContextGraphEdgeTarget(contextGraphEdgeTargets.get(edgeId));
     return;
   }
 
@@ -2776,20 +2956,88 @@ function handleContextGraphNodeClick(params) {
   void openContextGraphTarget(contextNodeTarget(nodeId));
 }
 
+async function openContextGraphEdgeTarget(target) {
+  if (!target?.type || !target.id || !target.edit) {
+    return;
+  }
+
+  const currentType = currentViewName();
+  const currentId = activeEditingId(currentType);
+  const currentItem = objectItemElement(currentType, currentId);
+  if (!currentItem) {
+    return;
+  }
+
+  if (target.type === currentType && target.id === currentId && validNestedEditKey(target.edit)) {
+    const row = currentItem.querySelector(`[data-relationship-row-key="${cssEscape(target.edit)}"]`);
+    if (row && !row.classList.contains('is-collapsed')) {
+      if (elementInScrollView(row)) {
+        closeNestedEditRow(row);
+      } else {
+        scrollElementIntoView(row);
+      }
+      return;
+    }
+
+    const key = objectKey(currentType, currentId);
+    state.relationshipEditing[key] = target.edit;
+    openNestedEditRow(currentType, currentId, target.edit);
+    writeUrlState({ view: currentType, id: currentId, edit: target.edit });
+    applyContextGraphHighlight();
+    return;
+  }
+
+  if (currentType !== 'groups') {
+    return;
+  }
+
+  const row = contextGraphReverseRow(currentItem, target.type, target.id, target.edit);
+  if (!row) {
+    return;
+  }
+
+  if (!row.classList.contains('is-collapsed')) {
+    if (elementInScrollView(row)) {
+      row.classList.add('is-collapsed');
+      row.querySelector('[data-group-reverse-action="toggle"]')?.setAttribute('aria-expanded', 'false');
+      delete state.groupRelationEditing[objectKey('groups', currentId)];
+      applyContextGraphHighlight();
+    } else {
+      scrollElementIntoView(row);
+    }
+    return;
+  }
+
+  collapseGroupEditRows(currentItem, row);
+  const key = objectKey('groups', currentId);
+  state.groupRelationEditing[key] = row.dataset.groupReverseKey || '';
+  row.classList.remove('is-collapsed');
+  row.querySelector('[data-group-reverse-action="toggle"]')?.setAttribute('aria-expanded', 'true');
+  writeUrlState({ view: 'groups', id: currentId, edit: '' });
+  scrollElementIntoView(row);
+  applyContextGraphHighlight();
+}
+
 function handleContextGraphEdgeHover(params) {
   const target = contextGraphEdgeTargets.get(params.edge);
   if (!target) {
     return;
   }
 
-  contextHighlightedEdgeId = params.edge;
+  contextHighlightedEdgeIds = target
+    ? contextEdgeIdsForTarget(target.type, target.id, target.edit || '')
+    : [params.edge];
+  contextPrimaryHighlightedEdgeId = params.edge;
+  contextAllHighlightedEdgesPrimary = false;
   applyContextGraphHighlight();
   setContextListHighlight(target.type, target.id, target.edit || '');
 }
 
 function handleContextGraphEdgeBlur(params) {
-  if (contextHighlightedEdgeId === params.edge) {
-    contextHighlightedEdgeId = '';
+  if (contextHighlightedEdgeIds.includes(params.edge)) {
+    contextHighlightedEdgeIds = [];
+    contextPrimaryHighlightedEdgeId = '';
+    contextAllHighlightedEdgesPrimary = false;
     applyContextGraphHighlight();
   }
   clearContextListHighlight();
@@ -2910,19 +3158,63 @@ function elementInScrollView(element) {
 function setContextListHighlight(type, id, edit = '') {
   clearContextListHighlight();
 
-  if (currentViewName() !== type) {
+  const activeType = currentViewName();
+  const activeId = activeEditingId(activeType);
+  const activeItem = objectItemElement(activeType, activeId);
+  const links = Array.from(activeItem?.querySelectorAll('.reference-link[data-link-view][data-link-id]') || [])
+    .filter((link) => link.dataset.linkView === type && link.dataset.linkId === id);
+  if (!edit && (type !== activeType || id !== activeId) && links.length) {
+    contextHighlightedListKey = ['reference', type, id].join(':');
+    links.forEach((link) => link.classList.add('is-graph-highlighted'));
+    return true;
+  }
+
+  if (currentViewName() === type) {
+    const item = objectItemElement(type, id);
+    if (item?.closest('.view.is-active')) {
+      const row = edit ? item.querySelector(`[data-relationship-row-key="${cssEscape(edit)}"]`) : null;
+      contextHighlightedListKey = [type, id, edit].filter(Boolean).join(':');
+      const target = row?.querySelector('.composite-summary')
+        || item.querySelector('.object-title-row[data-object-action="toggle-editor"]')
+        || row
+        || item;
+      target.classList.add('is-graph-highlighted');
+      return true;
+    }
+  }
+
+  if (currentViewName() !== 'groups' || !edit) {
+    if (!links.length) {
+      return false;
+    }
+
+    contextHighlightedListKey = ['reference', type, id].join(':');
+    links.forEach((link) => link.classList.add('is-graph-highlighted'));
+    return true;
+  }
+
+  const groupId = activeEditingId('groups');
+  const groupItem = objectItemElement('groups', groupId);
+  const reverseRow = contextGraphReverseRow(groupItem, type, id, edit);
+  if (!reverseRow) {
     return false;
   }
 
-  const item = objectItemElement(type, id);
-  if (!item || !item.closest('.view.is-active')) {
-    return false;
-  }
-
-  const row = edit ? item.querySelector(`[data-relationship-row-key="${cssEscape(edit)}"]`) : null;
-  contextHighlightedListKey = [type, id, edit].filter(Boolean).join(':');
-  (row || item).classList.add('is-graph-highlighted');
+  contextHighlightedListKey = ['groups', groupId, type, id, edit].join(':');
+  (reverseRow.querySelector('[data-group-reverse-action="toggle"]') || reverseRow).classList.add('is-graph-highlighted');
   return true;
+}
+
+function contextGraphReverseRow(groupItem, type, id, edit) {
+  if (!groupItem || !type || !id || !edit) {
+    return null;
+  }
+
+  return groupItem.querySelector(
+    `[data-group-reverse-row][data-graph-edge-type="${cssEscape(type)}"]`
+      + `[data-graph-edge-id="${cssEscape(id)}"]`
+      + `[data-graph-edge-edit="${cssEscape(edit)}"]`
+  );
 }
 
 function clearContextListHighlight() {
@@ -2930,7 +3222,7 @@ function clearContextListHighlight() {
     return;
   }
 
-  document.querySelectorAll('.object-item.is-graph-highlighted, .composite-item.is-graph-highlighted').forEach((item) => {
+  document.querySelectorAll('.is-graph-highlighted').forEach((item) => {
     item.classList.remove('is-graph-highlighted');
   });
   contextHighlightedListKey = '';
@@ -2953,17 +3245,49 @@ function contextNodeTarget(nodeId) {
 }
 
 function contextEdgeIdForTarget(type, id, edit) {
+  return contextEdgeIdsForTarget(type, id, edit)[0] || '';
+}
+
+function contextEdgeIdsForTarget(type, id, edit) {
   if (!type || !id || !edit) {
-    return '';
+    return [];
   }
 
+  const edgeIds = [];
   for (const [edgeId, target] of contextGraphEdgeTargets.entries()) {
     if (target?.type === type && target.id === id && target.edit === edit) {
-      return edgeId;
+      edgeIds.push(edgeId);
     }
   }
 
-  return '';
+  return edgeIds;
+}
+
+function persistentContextEditEdgeIds() {
+  const type = currentViewName();
+  const id = activeEditingId(type);
+  if (!objectCollections.includes(type) || !id) {
+    return [];
+  }
+
+  const key = objectKey(type, id);
+  const nestedEdit = state.relationshipEditing[key] || '';
+  if (nestedEdit) {
+    return contextEdgeIdsForTarget(type, id, nestedEdit);
+  }
+
+  if (type !== 'groups') {
+    return [];
+  }
+
+  const reverseEdit = String(state.groupRelationEditing[key] || '');
+  const match = /^(membership|activity):([^:]+):(\d+)$/.exec(reverseEdit);
+  if (!match) {
+    return [];
+  }
+
+  const field = match[1] === 'activity' ? 'activities' : 'memberships';
+  return contextEdgeIdsForTarget('people', match[2], `${field}:${match[3]}`);
 }
 
 function highlightContextEdgeTargetForNode(nodeId) {
@@ -2977,7 +3301,12 @@ function highlightContextEdgeTargetForNode(nodeId) {
     return false;
   }
 
-  contextHighlightedEdgeId = edge.id;
+  const target = contextGraphEdgeTargets.get(edge.id);
+  contextHighlightedEdgeIds = target
+    ? contextEdgeIdsForTarget(target.type, target.id, target.edit || '')
+    : [edge.id];
+  contextPrimaryHighlightedEdgeId = edge.id;
+  contextAllHighlightedEdgesPrimary = false;
   applyContextGraphHighlight();
   return true;
 }
@@ -3514,8 +3843,8 @@ function addContextEdge(graph, from, to, label = '', group = 'context', target =
     target,
     arrows: 'to',
     smooth,
-    selectionWidth: 5,
-    hoverWidth: 3,
+    selectionWidth: 2,
+    hoverWidth: 2,
     width: group === 'activity' ? 2.1 : 1.5,
   });
 }
@@ -3722,7 +4051,7 @@ function publicGraphOptions(graph = {}) {
     interaction: graphInteractionOptions(),
     nodes: {
       borderWidth: 1,
-      borderWidthSelected: 2,
+      borderWidthSelected: 5,
       margin: { top: 12, right: 14, bottom: 12, left: 14 },
       widthConstraint: contextGraph
         ? { minimum: 170, maximum: 230 }
@@ -3730,8 +4059,8 @@ function publicGraphOptions(graph = {}) {
       color: {
         border: 'rgba(216,216,90,0.48)',
         background: '#151b20',
-        highlight: { border: '#d8d85a', background: '#1c252b' },
-        hover: { border: '#d8d85a', background: '#1c252b' },
+        highlight: { border: '#ffff00', background: '#151b20' },
+        hover: { border: '#ffff00', background: '#151b20' },
       },
       font: {
         color: '#ece8d9',
@@ -3758,31 +4087,61 @@ function publicGraphOptions(graph = {}) {
     },
     groups: {
       focus: {
-        color: { border: '#ffff00', background: '#2a2711' },
+        color: {
+          border: '#ffff00',
+          background: '#2a2711',
+          highlight: { border: '#ffff00', background: '#2a2711' },
+          hover: { border: '#ffff00', background: '#2a2711' },
+        },
         font: { color: '#fff2a6', bold: true },
         borderWidth: 2,
         shapeProperties: { borderRadius: 8 },
       },
       person: {
-        color: { border: '#ef859d', background: '#2a1820' },
+        color: {
+          border: '#ef859d',
+          background: '#2a1820',
+          highlight: { border: '#ffff00', background: '#2a1820' },
+          hover: { border: '#ffff00', background: '#2a1820' },
+        },
         font: { color: '#f5d8df', bold: true },
       },
       group: {
-        color: { border: '#d8d85a', background: '#1f2118' },
+        color: {
+          border: '#d8d85a',
+          background: '#1f2118',
+          highlight: { border: '#ffff00', background: '#1f2118' },
+          hover: { border: '#ffff00', background: '#1f2118' },
+        },
         font: { color: '#f4f0cf', bold: true },
         shapeProperties: { borderRadius: 8 },
       },
       groupType: {
-        color: { border: '#00b74f', background: '#12231a' },
+        color: {
+          border: '#00b74f',
+          background: '#12231a',
+          highlight: { border: '#ffff00', background: '#12231a' },
+          hover: { border: '#ffff00', background: '#12231a' },
+        },
         font: { color: '#d7f4e4', bold: true },
         shapeProperties: { borderRadius: 8 },
       },
       role: {
-        color: { border: '#8e7fae', background: '#201a2b' },
+        color: {
+          border: '#8e7fae',
+          background: '#201a2b',
+          highlight: { border: '#ffff00', background: '#201a2b' },
+          hover: { border: '#ffff00', background: '#201a2b' },
+        },
         font: { color: '#e9e1ff', bold: true },
       },
       timepoint: {
-        color: { border: '#ef7d00', background: '#2a1c10' },
+        color: {
+          border: '#ef7d00',
+          background: '#2a1c10',
+          highlight: { border: '#ffff00', background: '#2a1c10' },
+          hover: { border: '#ffff00', background: '#2a1c10' },
+        },
         font: { color: '#ffe2bf', bold: true },
       },
     },
@@ -4669,7 +5028,7 @@ function reverseLineHtml(line) {
   }
 
   return `
-    <small>
+    <small data-graph-edge-type="${escapeAttribute(line.type)}" data-graph-edge-id="${escapeAttribute(line.id)}" data-graph-edge-edit="${escapeAttribute(line.edit)}">
       <a class="reverse-link" href="${escapeAttribute(nestedEditUrl(line.type, line.id, line.edit))}" data-nested-edit-link data-link-view="${escapeAttribute(line.type)}" data-link-id="${escapeAttribute(line.id)}" data-link-edit="${escapeAttribute(line.edit)}">${escapeHtml(text)}</a>
     </small>
   `;
@@ -4943,7 +5302,7 @@ function renderGroupReverseRelationRow(kind, group, entry) {
     ? complexItemValidationWarnings('activity-list', entry.value, { ownerType: 'people', ownerObject: entry.person, listField: 'activities', listIndex: entry.index })
     : complexItemValidationWarnings('membership-list', entry.value, { ownerType: 'people', ownerObject: entry.person, listField: 'memberships', listIndex: entry.index });
   return `
-    <div class="composite-item group-reverse-row has-summary ${isOpen ? '' : 'is-collapsed'}" data-group-reverse-row data-group-reverse-kind="${escapeAttribute(kind)}" data-group-id="${escapeAttribute(groupId)}" data-person-id="${escapeAttribute(personId)}" data-relation-field="${escapeAttribute(field)}" data-relation-index="${entry.index}" data-group-reverse-key="${escapeAttribute(localKey)}">
+    <div class="composite-item group-reverse-row has-summary ${isOpen ? '' : 'is-collapsed'}" data-group-reverse-row data-group-reverse-kind="${escapeAttribute(kind)}" data-group-id="${escapeAttribute(groupId)}" data-person-id="${escapeAttribute(personId)}" data-relation-field="${escapeAttribute(field)}" data-relation-index="${entry.index}" data-group-reverse-key="${escapeAttribute(localKey)}" data-graph-edge-type="people" data-graph-edge-id="${escapeAttribute(personId)}" data-graph-edge-edit="${escapeAttribute(edit)}">
       <div class="group-reverse-summary-row">
         <button class="composite-summary" type="button" data-group-reverse-action="toggle" aria-expanded="${isOpen ? 'true' : 'false'}">
           ${compositeSummaryHtml(summary, warnings)}
@@ -6764,6 +7123,7 @@ function handleGroupReverseAction(button) {
   }
   row.classList.toggle('is-collapsed', !willOpen);
   button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  applyContextGraphHighlight();
 }
 
 function toggleGroupRelationAddPanel(button) {
@@ -6809,6 +7169,7 @@ function collapseGroupEditRows(groupItem, exceptRow = null) {
     delete state.groupRelationEditing[objectKey('groups', groupItem.dataset.objectId || '')];
   }
   writeUrlState({ view: 'groups', id: groupItem.dataset.objectId || '', edit: '' });
+  applyContextGraphHighlight();
 }
 
 function markGroupRelationDraftChanged(root, delay = 700) {
@@ -7151,6 +7512,7 @@ function handleListAction(button) {
     if (ownerItem) {
       writeUrlState({ view: ownerItem.dataset.objectType || '', id: ownerItem.dataset.objectId || '', edit: '' });
     }
+    applyContextGraphHighlight();
   }
 
   if (button.dataset.listAction === 'add') {
@@ -7217,6 +7579,7 @@ function syncNestedEditUrl(fieldRoot, item, isOpen) {
     delete state.relationshipEditing[key];
     writeUrlState({ view: type, id, edit: '' });
   }
+  applyContextGraphHighlight();
 }
 
 function focusExistingInitialObject(triggerButton) {
