@@ -206,10 +206,14 @@ Period "1" *-- "0..2" Date
 ## Domain Rules
 
 - A person can have memberships in groups and activities with roles.
-- A membership links one person to one group for a period.
-- An activity links one person, one group, and one role for a period.
+- A membership links one person to one group for a period. An empty period
+  means the entire lifetime of the group.
+- An activity links one person, one group, and one role for a period. An empty
+  period means the entire lifetime of the applicable group phase or phases.
 - A group has one main phase and can have additional phases.
-- A group phase references one group type for a period.
+- A group phase references one group type for a required period. Unlike
+  memberships and activities, phases define the group's lifetime and therefore
+  have no outer period to inherit.
 - A role can be restricted to group types; an empty `groupTypes` list means
   unrestricted.
 - Period boundaries can use named timepoints or custom dates.

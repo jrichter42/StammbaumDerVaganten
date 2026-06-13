@@ -3596,7 +3596,7 @@ function addPersonContext(graph, person, options = {}) {
     const group = findReferenceObject('groups', periodEntryGroupId(membership));
     const groupNode = addContextNode(graph, 'groups', group);
     placeRelationContextNode(graph, groupNode, options, 'membership', slot, membershipEntries.length);
-    addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', periodYearLabel(membership.period)].filter(Boolean).join('\n'), 'membership', {
+    addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', relationshipPeriodLabel(membership.period)].filter(Boolean).join('\n'), 'membership', {
       type: 'people',
       id: objectId(person),
       edit: `memberships:${index}`,
@@ -3608,7 +3608,7 @@ function addPersonContext(graph, person, options = {}) {
     const groupNode = addContextNode(graph, 'groups', group);
     placeRelationContextNode(graph, groupNode, options, 'activity', slot, activityEntries.length);
     const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivität';
-    addContextEdge(graph, personNode, groupNode, [role, periodYearLabel(activity.period)].filter(Boolean).join('\n'), 'activity', {
+    addContextEdge(graph, personNode, groupNode, [role, relationshipPeriodLabel(activity.period)].filter(Boolean).join('\n'), 'activity', {
       type: 'people',
       id: objectId(person),
       edit: `activities:${index}`,
@@ -3641,7 +3641,7 @@ function addGroupContext(graph, group, options = {}) {
       if (periodEntryGroupId(membership) === objectId(group)) {
         matched = true;
         placeRelationContextNode(graph, personNode, options, 'membership', used, limit);
-        addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', periodYearLabel(membership.period)].filter(Boolean).join('\n'), 'membership', {
+        addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', relationshipPeriodLabel(membership.period)].filter(Boolean).join('\n'), 'membership', {
           type: 'people',
           id: objectId(person),
           edit: `memberships:${index}`,
@@ -3653,7 +3653,7 @@ function addGroupContext(graph, group, options = {}) {
         matched = true;
         const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivität';
         placeRelationContextNode(graph, personNode, options, 'activity', used, limit);
-        addContextEdge(graph, personNode, groupNode, [role, periodYearLabel(activity.period)].filter(Boolean).join('\n'), 'activity', {
+        addContextEdge(graph, personNode, groupNode, [role, relationshipPeriodLabel(activity.period)].filter(Boolean).join('\n'), 'activity', {
           type: 'people',
           id: objectId(person),
           edit: `activities:${index}`,
@@ -3738,7 +3738,7 @@ function addRoleContext(graph, role, options = {}) {
       const target = { type: 'people', id: objectId(person), edit: `activities:${index}` };
       placeRelationContextNode(graph, personNode, options, 'person', used - 1, limit);
       placeRelationContextNode(graph, groupNode, options, 'group', used - 1, limit);
-      addContextEdge(graph, personNode, roleNode, periodYearLabel(activity.period), 'activity', target);
+      addContextEdge(graph, personNode, roleNode, relationshipPeriodLabel(activity.period), 'activity', target);
       addContextEdge(graph, roleNode, groupNode, objectLabel(findReferenceObject('groups', periodEntryGroupId(activity)), 'groups'), 'activity', target);
     });
     return used >= limit;
@@ -4002,8 +4002,8 @@ function publicGraphData(groups, people, roles, groupTypes, groupTypeFilter = ''
 
       (sourceMemberships.length ? sourceMemberships : memberships).forEach((membershipEntry) => {
         const role = publicRoleLabel(roles.find((candidate) => objectId(candidate) === activityRoleId(activityEntry.activity)));
-        const membershipYears = periodYearLabel(membershipEntry.membership.period);
-        const activityYears = periodYearLabel(activityEntry.activity.period);
+        const membershipYears = relationshipPeriodLabel(membershipEntry.membership.period);
+        const activityYears = relationshipPeriodLabel(activityEntry.activity.period);
         const personLabel = publicPersonLabel(person, personIndex);
         const sourceGroup = findReferenceObject('groups', membershipEntry.groupId);
         const targetGroup = findReferenceObject('groups', activityEntry.groupId);
@@ -4318,6 +4318,10 @@ function periodYearLabel(period) {
   }
 
   return '';
+}
+
+function relationshipPeriodLabel(period) {
+  return periodYearLabel(period) || 'gesamte Gruppenlaufzeit';
 }
 
 function referenceYear(collection, id) {
@@ -5083,7 +5087,7 @@ function nestedEditUrl(type, id, edit) {
 
 function reversePersonLine(person, period, rowKey = '') {
   return linkedReverseLine(
-    [objectListTitle('people', person), periodYearLabel(period)].filter(Boolean).join(' · '),
+    [objectListTitle('people', person), relationshipPeriodLabel(period)].filter(Boolean).join(' · '),
     'people',
     objectId(person),
     rowKey,
@@ -5094,7 +5098,7 @@ function reverseActivityLine(entry) {
   return linkedReverseLine([
     objectLabel(entry.role, 'roles'),
     objectListTitle('people', entry.person),
-    periodYearLabel(entry.period),
+    relationshipPeriodLabel(entry.period),
   ].filter(Boolean).join(' · '), 'people', objectId(entry.person), entry.rowKey || '');
 }
 
@@ -5379,14 +5383,14 @@ function groupReverseRelationKey(kind, personId, index) {
 }
 
 function reversePersonLineText(person, period) {
-  return [objectListTitle('people', person), periodYearLabel(period)].filter(Boolean).join(' · ');
+  return [objectListTitle('people', person), relationshipPeriodLabel(period)].filter(Boolean).join(' · ');
 }
 
 function reverseActivityLineText(entry) {
   return [
     objectLabel(entry.role, 'roles'),
     objectListTitle('people', entry.person),
-    periodYearLabel(entry.period),
+    relationshipPeriodLabel(entry.period),
   ].filter(Boolean).join(' · ');
 }
 
@@ -6142,7 +6146,7 @@ function complexItemSummary(kind, value = {}) {
   if (kind === 'membership-list') {
     return [
       objectLabel(findReferenceObject('groups', value.group), 'groups') || 'Keine Gruppe',
-      periodYearLabel(value.period),
+      relationshipPeriodLabel(value.period),
     ].filter(Boolean).join(' · ');
   }
 
@@ -6150,7 +6154,7 @@ function complexItemSummary(kind, value = {}) {
     return [
       objectLabel(findReferenceObject('roles', value.role), 'roles') || 'Keine Rolle',
       objectLabel(findReferenceObject('groups', value.group), 'groups') || 'Keine Gruppe',
-      periodYearLabel(value.period),
+      relationshipPeriodLabel(value.period),
     ].filter(Boolean).join(' · ');
   }
 
@@ -10250,9 +10254,11 @@ function ageDisplayValue(value) {
 
 function personRelationshipSpan(person) {
   const periods = [
-    ...(Array.isArray(person.memberships) ? person.memberships : []),
-    ...(Array.isArray(person.activities) ? person.activities : []),
-  ].map((entry) => entry?.period)
+    ...(Array.isArray(person.memberships) ? person.memberships : [])
+      .flatMap((entry) => effectiveRelationshipPeriods(entry, 'membership')),
+    ...(Array.isArray(person.activities) ? person.activities : [])
+      .flatMap((entry) => effectiveRelationshipPeriods(entry, 'activity')),
+  ]
     .filter((period) => period && typeof period === 'object' && periodHasValue(period));
 
   if (!periods.length) {
@@ -10399,12 +10405,9 @@ function collectMembershipWarnings(warnings, membership, birthYear, label) {
     collectReferenceWarning(warnings, 'groups', groupId, label, 'Gruppe nicht gefunden.');
   }
 
-  if (!periodHasValue(membership?.period)) {
-    warnings.push(labeledWarning(label, 'Zeitraum fehlt.'));
-  }
-
   collectPeriodWarnings(warnings, membership?.period, label);
-  collectBirthPeriodWarning(warnings, birthYear, membership?.period, label);
+  effectiveRelationshipPeriods(membership, 'membership')
+    .forEach((period) => collectBirthPeriodWarning(warnings, birthYear, period, label));
   collectGroupPeriodWarning(warnings, groupId, membership?.period, label);
 }
 
@@ -10423,12 +10426,9 @@ function collectActivityWarnings(warnings, activity, birthYear, label) {
     collectReferenceWarning(warnings, 'roles', roleId, label, 'Rolle nicht gefunden.');
   }
 
-  if (!periodHasValue(activity?.period)) {
-    warnings.push(labeledWarning(label, 'Zeitraum fehlt.'));
-  }
-
   collectPeriodWarnings(warnings, activity?.period, label);
-  collectBirthPeriodWarning(warnings, birthYear, activity?.period, label);
+  effectiveRelationshipPeriods(activity, 'activity')
+    .forEach((period) => collectBirthPeriodWarning(warnings, birthYear, period, label));
   collectGroupPeriodWarning(warnings, groupId, activity?.period, label);
   collectActivityRoleWarning(warnings, activity, label);
 }
@@ -10689,6 +10689,23 @@ function roleUsableForGroup(role, group) {
 
 function groupMatchesRole(group, role) {
   return roleUsableForGroup(role, group);
+}
+
+function effectiveRelationshipPeriods(entry, kind) {
+  if (periodHasValue(entry?.period)) {
+    return [entry.period];
+  }
+
+  const group = findReferenceObject('groups', periodEntryGroupId(entry));
+  let phases = groupPhases(group);
+  if (kind === 'activity') {
+    const allowedGroupTypes = roleGroupTypeIds(findReferenceObject('roles', activityRoleId(entry)));
+    if (allowedGroupTypes.length) {
+      phases = phases.filter((phase) => allowedGroupTypes.includes(groupPhaseTypeId(phase)));
+    }
+  }
+
+  return phases.map((phase) => phase?.period).filter(periodHasValue);
 }
 
 function groupEndedBeforeYear(group, year) {
