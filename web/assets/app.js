@@ -256,7 +256,6 @@ const sourceInput = document.querySelector('#sourceInput');
 const sourceClearButton = document.querySelector('#sourceClearButton');
 const setupForm = document.querySelector('#setupForm');
 const setupPanel = document.querySelector('#setupPanel');
-const setupInput = document.querySelector('#setupInput');
 const usersNav = document.querySelector('#usersNav');
 const auditNav = document.querySelector('#auditNav');
 const logNav = document.querySelector('#logNav');
@@ -284,9 +283,9 @@ const accessControlWarning = document.querySelector('#accessControlWarning');
 let authMessageTimer = 0;
 let accessControlCheckAttempted = false;
 
-let urlSetup = '';
+let incomingSetupToken = '';
 let urlLoginToken = '';
-let isSetupPage = Boolean(urlSetup);
+let isSetupPage = false;
 let isLoginLinkPage = Boolean(urlLoginToken);
 let publicNetwork = null;
 let publicGraphSignature = '';
@@ -372,6 +371,7 @@ contentArea?.addEventListener('scroll', updateBackToTopButton, { passive: true }
 backToTopButton?.addEventListener('click', scrollBackToTop);
 contextResizer?.addEventListener('pointerdown', beginContextResize);
 window.addEventListener('beforeunload', handleBeforeUnload);
+window.addEventListener('pagehide', clearIncomingSetupToken);
 window.addEventListener('resize', handleContextLayoutResize);
 window.addEventListener('resize', scheduleContextGraphRender);
 window.addEventListener('resize', scheduleTreeGraphRender);
@@ -536,6 +536,9 @@ function handleBeforeUnload(event) {
 
 function activateView(viewName, urlExtra = {}) {
   const previousViewName = currentViewName();
+  if (viewName !== 'users') {
+    clearAdminSetupResult();
+  }
   state.accountOpen = false;
   state.loginOpen = false;
   if (workspace) {
@@ -564,19 +567,19 @@ function activateView(viewName, urlExtra = {}) {
 
 function captureAuthFragment() {
   const fragment = new URLSearchParams(window.location.hash.slice(1));
-  const setup = fragment.get('setup') || '';
-  const login = fragment.get('login') || '';
+  const setup = normalizeSetupInput(fragment.get('setup') || '');
+  const login = setup ? '' : normalizeLoginTokenInput(fragment.get('login') || '');
   if (!setup && !login) {
     return false;
   }
 
-  urlSetup = setup;
+  incomingSetupToken = setup;
   urlLoginToken = login;
   isSetupPage = Boolean(setup);
   isLoginLinkPage = Boolean(login);
-  if (setup) {
-    setupInput.value = setup;
-    setupPanel.hidden = false;
+  setupPanel.hidden = !setup;
+  if (!setup) {
+    clearIncomingSetupToken();
   }
 
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
@@ -585,6 +588,9 @@ function captureAuthFragment() {
 
 async function handleAuthFragmentChange() {
   if (!captureAuthFragment()) {
+    if (isSetupPage) {
+      leaveIncomingSetupFlow();
+    }
     return;
   }
 
@@ -1581,8 +1587,12 @@ async function beginSetup(event) {
     return;
   }
 
-  const setup = normalizeSetupInput(setupInput.value);
-  setupInput.value = setup;
+  const setup = incomingSetupToken;
+  if (!setup) {
+    leaveIncomingSetupFlow();
+    showAuthMessage('Setup-Link ist ungültig.', true);
+    return;
+  }
 
   try {
     const options = await postJson('auth-register-options', { setup });
@@ -1600,21 +1610,41 @@ async function beginSetup(event) {
       credential: credentialToJson(credential),
     });
 
-    urlSetup = '';
-    isSetupPage = false;
-    setupPanel.hidden = true;
-    passkeyLoginButton.closest('#loginPanel').hidden = false;
+    leaveIncomingSetupFlow(false);
     await refresh();
   } catch (error) {
     console.error(error);
+    if (isTerminalSetupTokenError(error)) {
+      leaveIncomingSetupFlow();
+    }
     showAuthMessage(passkeyErrorMessage(error), true);
   }
+}
+
+function clearIncomingSetupToken() {
+  incomingSetupToken = '';
+}
+
+function leaveIncomingSetupFlow(render = true) {
+  clearIncomingSetupToken();
+  isSetupPage = false;
+  setupPanel.hidden = true;
+  if (render) {
+    renderShell();
+  }
+}
+
+function isTerminalSetupTokenError(error) {
+  const serverMessage = String(error?.payload?.error || '');
+  return serverMessage === 'Setup token is required.'
+    || serverMessage === 'Setup token is not valid.';
 }
 
 async function logout() {
   try {
     await postJson('auth-logout');
   } finally {
+    clearAdminSetupResult();
     state.users = [];
     state.account = null;
     state.accountOpen = false;
@@ -1715,6 +1745,7 @@ async function openAccountPage(event) {
   if (!(await closeOpenEditorsBeforeSwitch())) {
     return;
   }
+  clearAdminSetupResult();
   state.accountOpen = true;
   state.loginOpen = false;
   clearAuthMessage();
@@ -2086,6 +2117,14 @@ async function copySetupValue(event) {
   const target = document.querySelector(button.dataset.copy);
   if (target) {
     await navigator.clipboard.writeText(target.value || target.textContent || '');
+  }
+}
+
+function clearAdminSetupResult() {
+  state.setupResult = null;
+  if (setupResult) {
+    setupResult.hidden = true;
+    setupResult.innerHTML = '';
   }
 }
 

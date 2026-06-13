@@ -8,6 +8,7 @@ $app = require __DIR__ . '/app/bootstrap.php';
 $config = $app['config'];
 $currentUser = $app['auth']->currentUser();
 $version = htmlspecialchars((string) $app['version'], ENT_QUOTES, 'UTF-8');
+$appJsRevision = (string) (@filemtime(__DIR__ . '/assets/app.js') ?: 0);
 $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
 $appTitle = preg_replace('/(der Vaganten)/u', '<span class="logo-word">$1</span>', $appName, 1);
 $configWarnings = array_map(
@@ -98,7 +99,6 @@ $configWarnings = array_map(
                 <h2>Passkey-Setup</h2>
                 <p>Einmaliger Setup-Link</p>
               </div>
-              <input id="setupInput" name="setup" type="hidden" required>
               <button class="button" type="submit">Passkey erstellen</button>
             </form>
           </section>
@@ -344,6 +344,6 @@ $configWarnings = array_map(
       </div>
     </div>
     <script src="assets/vis-network.min.js"></script>
-    <script type="module" src="assets/app.js?v=<?= rawurlencode($version) ?>"></script>
+    <script type="module" src="assets/app.js?v=<?= rawurlencode($version . '-' . $appJsRevision) ?>"></script>
   </body>
 </html>
