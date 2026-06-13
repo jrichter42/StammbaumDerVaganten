@@ -1900,6 +1900,7 @@ button.object-title-row:focus-visible::before {
 
 .group-reverse-edit {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-items: start;
 }
 
 .reverse-column {
@@ -1936,6 +1937,8 @@ button.object-title-row:focus-visible::before {
 }
 
 .group-reverse-field {
+  align-content: start;
+  align-self: start;
   gap: 10px;
 }
 
