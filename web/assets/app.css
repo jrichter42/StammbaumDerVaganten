@@ -1912,7 +1912,8 @@ button.object-title-row.is-graph-highlighted::before {
 }
 
 .reverse-link:hover,
-.reverse-link:focus-visible {
+.reverse-link:focus-visible,
+.reverse-link.is-graph-highlighted {
   color: var(--text);
   text-decoration: underline;
 }

@@ -2697,10 +2697,13 @@ function handleObjectGraphHoverEnd(event) {
 }
 
 function objectGraphHoverTarget(element) {
-  const referenceLink = element?.closest?.('.reference-link[data-link-view][data-link-id]');
-  if (referenceLink) {
-    const type = referenceLink.dataset.linkView || '';
-    const id = referenceLink.dataset.linkId || '';
+  const navigationLink = element?.closest?.(
+    '.reference-link[data-link-view][data-link-id], '
+      + '.reverse-link[data-link-view][data-link-id]'
+  );
+  if (navigationLink) {
+    const type = navigationLink.dataset.linkView || '';
+    const id = navigationLink.dataset.linkId || '';
     if (objectCollections.includes(type) && id) {
       return { nodeId: contextNodeId(type, id), edgeIds: [] };
     }
@@ -2979,6 +2982,7 @@ async function openContextGraphEdgeTarget(target) {
   const currentId = activeEditingId(currentType);
   const currentItem = objectItemElement(currentType, currentId);
   if (!currentItem) {
+    await openContextGraphTarget(target);
     return;
   }
 
@@ -3175,7 +3179,10 @@ function setContextListHighlight(type, id, edit = '') {
   const activeType = currentViewName();
   const activeId = activeEditingId(activeType);
   const activeItem = objectItemElement(activeType, activeId);
-  const links = Array.from(activeItem?.querySelectorAll('.reference-link[data-link-view][data-link-id]') || [])
+  const activeRoot = activeItem || document.querySelector('.view.is-active');
+  const links = Array.from(activeRoot?.querySelectorAll(
+    '.reference-link[data-link-view][data-link-id], .reverse-link[data-link-view][data-link-id]'
+  ) || [])
     .filter((link) => link.dataset.linkView === type && link.dataset.linkId === id);
   if (!edit && (type !== activeType || id !== activeId) && links.length) {
     contextHighlightedListKey = ['reference', type, id].join(':');
