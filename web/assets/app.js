@@ -2772,6 +2772,9 @@ function applyContextGraphHighlight() {
   const passiveNodeSources = Array.from(new Set([
     ...persistentEdgeIds,
     ...contextHighlightedEdgeIds,
+    ...(contextHighlightedNodeId
+      ? contextEdgeIdsForNode(contextHighlightedNodeId)
+      : []),
   ]));
   const passiveEdgeSource = contextHighlightedNodeId || '';
   const relatedPassiveEdgeIds = contextAllHighlightedEdgesPrimary
@@ -2803,6 +2806,14 @@ function activeContextGraphNodeId() {
   const id = activeEditingId(type);
   const nodeId = objectCollections.includes(type) && id ? contextNodeId(type, id) : '';
   return nodeId && contextGraphNodeIds.has(nodeId) ? nodeId : '';
+}
+
+function contextEdgeIdsForNode(nodeId) {
+  return nodeId
+    ? contextGraphEdges
+      .filter((edge) => edge.from === nodeId || edge.to === nodeId)
+      .map((edge) => edge.id)
+    : [];
 }
 
 function updatePassiveContextNodes(edgeIds, excludedNodeIds = []) {
@@ -2945,15 +2956,18 @@ function handleContextGraphNodeClick(params) {
   const edgeId = params.edges?.[0] || '';
   if (edgeId && !params.nodes?.length) {
     void openContextGraphEdgeTarget(contextGraphEdgeTargets.get(edgeId));
+    window.setTimeout(applyContextGraphHighlight, 0);
     return;
   }
 
   const nodeId = params.nodes?.[0] || '';
   if (!nodeId) {
+    window.setTimeout(applyContextGraphHighlight, 0);
     return;
   }
 
   void openContextGraphTarget(contextNodeTarget(nodeId));
+  window.setTimeout(applyContextGraphHighlight, 0);
 }
 
 async function openContextGraphEdgeTarget(target) {
