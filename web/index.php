@@ -261,7 +261,6 @@ $configWarnings = array_map(
                 <button class="button" type="button" data-create-type="users">Benutzer hinzufügen</button>
               </div>
               <div class="object-create" data-create-panel="users" hidden></div>
-              <div class="setup-result" id="setupResult" hidden></div>
               <div class="list user-list" id="userList"></div>
             </section>
           </div>

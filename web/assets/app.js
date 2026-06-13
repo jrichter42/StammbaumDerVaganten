@@ -259,7 +259,6 @@ const usersNav = document.querySelector('#usersNav');
 const auditNav = document.querySelector('#auditNav');
 const logNav = document.querySelector('#logNav');
 const usersNavGroup = document.querySelector('#usersNavGroup');
-const setupResult = document.querySelector('#setupResult');
 const exampleDataButton = document.querySelector('#exampleDataButton');
 const exampleDataState = document.querySelector('#exampleDataState');
 const userList = document.querySelector('#userList');
@@ -336,8 +335,8 @@ accountForm?.addEventListener('input', handleAccountInput);
 accountForm?.addEventListener('change', handleAccountInput);
 accountForm?.addEventListener('focusout', handleAccountBlur);
 accountPage?.addEventListener('click', handleAccountClick);
-setupResult.addEventListener('click', copySetupValue);
 userList.addEventListener('click', handleUserAction);
+userList.addEventListener('click', copySetupValue);
 userList.addEventListener('input', handleUserEditorInput);
 userList.addEventListener('change', handleUserEditorInput);
 userList.addEventListener('focusout', handleUserEditorBlur);
@@ -1948,8 +1947,8 @@ async function createUser(form) {
     });
 
     state.setupResult = response.setup;
+    state.editing = { [objectKey('users', username)]: true };
     state.createOpen.users = false;
-    renderSetupResult();
     await loadManagedUsers();
   } catch (error) {
     setCreateState(form, localizeErrorMessage(error.message || 'Benutzer konnte nicht erstellt werden.'), true);
@@ -1997,7 +1996,6 @@ async function handleUserAction(event) {
       const response = await postJson('admin-create-setup-token', { username });
       state.setupResult = response.setup;
       await loadManagedUsers();
-      renderSetupResult();
       return;
     }
 
@@ -2009,6 +2007,9 @@ async function handleUserAction(event) {
       const tokenId = button.dataset.tokenId || '';
       const response = await postJson('admin-delete-setup-token', { token_id: tokenId });
       state.setupTokens = response.setup_tokens || [];
+      if (String(state.setupResult?.id || '') === tokenId) {
+        state.setupResult = null;
+      }
       resetDangerConfirmations();
       renderUserList();
       return;
@@ -2022,6 +2023,9 @@ async function handleUserAction(event) {
       const response = await postJson('admin-delete-user', { username });
       state.users = response.users || [];
       state.setupTokens = response.setup_tokens || [];
+      if (String(state.setupResult?.username || '') === username) {
+        state.setupResult = null;
+      }
       resetDangerConfirmations();
       renderNavigationCounts();
       renderUserList();
@@ -2095,22 +2099,64 @@ async function reloadAfterUserChange(username) {
 
 async function copySetupValue(event) {
   const button = event.target.closest('button[data-copy]');
-  if (!button || !navigator.clipboard) {
+  if (!button) {
     return;
   }
 
   const target = document.querySelector(button.dataset.copy);
-  if (target) {
-    await navigator.clipboard.writeText(target.value || target.textContent || '');
+  const value = target?.value || target?.textContent || '';
+  if (!value) {
+    return;
   }
+
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error('Clipboard API unavailable');
+    }
+
+    await navigator.clipboard.writeText(value);
+    setSetupCopyButtonState(button, true);
+    showAuthMessage('Setup-Link kopiert.', false, 2400);
+  } catch (error) {
+    target?.focus();
+    target?.select?.();
+    showAuthMessage('Kopieren nicht möglich. URL ist zum manuellen Kopieren markiert.', true, 4500);
+  }
+}
+
+function setSetupCopyButtonState(button, copied) {
+  const label = copied ? 'Kopiert' : 'Setup-Link kopieren';
+  button.innerHTML = setupCopyIcon(copied ? 'check' : 'copy');
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.classList.toggle('is-copied', copied);
+
+  const status = button.parentElement?.parentElement?.querySelector('[data-copy-status]');
+  if (status) {
+    status.textContent = copied ? 'Setup-Link kopiert.' : '';
+  }
+
+  window.clearTimeout(Number(button.dataset.copyResetTimer || 0));
+  if (copied) {
+    button.dataset.copyResetTimer = String(window.setTimeout(() => {
+      if (button.isConnected) {
+        setSetupCopyButtonState(button, false);
+      }
+    }, 1200));
+  } else {
+    delete button.dataset.copyResetTimer;
+  }
+}
+
+function setupCopyIcon(name) {
+  const paths = name === 'check'
+    ? '<path d="m20 6-11 11-5-5"></path>'
+    : '<rect width="14" height="14" x="8" y="8" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>';
+  return `<svg class="setup-copy-icon" aria-hidden="true" viewBox="0 0 24 24">${paths}</svg>`;
 }
 
 function clearAdminSetupResult() {
   state.setupResult = null;
-  if (setupResult) {
-    setupResult.hidden = true;
-    setupResult.innerHTML = '';
-  }
 }
 
 async function getJson(url) {
@@ -10408,7 +10454,6 @@ function renderUsersManagement() {
   renderCreatePanel('users');
   renderCollectionControls();
   renderNavigationCounts();
-  renderSetupResult();
   renderUserList();
 }
 
@@ -10840,6 +10885,7 @@ function renderUserEditor(user) {
         ${renderPermissionCheckboxes(user.permissions)}
       </fieldset>
       <div class="user-editor-side">
+        ${renderUserSetupResult(user)}
         ${renderUserSetupTokens(user)}
       </div>
       <div class="object-editor-actions user-actions">
@@ -10894,28 +10940,30 @@ function renderPermissionCheckboxes(permissions) {
   `).join('');
 }
 
-function renderSetupResult() {
-  if (!state.setupResult) {
-    setupResult.hidden = true;
-    setupResult.innerHTML = '';
-    return;
+function renderUserSetupResult(user) {
+  if (!state.setupResult
+    || String(state.setupResult.username || '') !== String(user.username || '')
+    || !state.setupResult.setup_url
+  ) {
+    return '';
   }
 
-  setupResult.hidden = false;
   const setupUrl = state.setupResult.setup_url || '';
-  const username = String(state.setupResult.username || '').trim();
-  const title = username ? `${username} Setup-Link` : 'Setup-Link';
-  setupResult.innerHTML = `
-    <h3>${escapeHtml(title)}</h3>
+  return `
+    <div class="setup-result user-setup-result">
+    <h3>Neuer Setup-Link</h3>
     <div class="qr-code" aria-label="Setup-QR-Code">${qrSvg(setupUrl)}</div>
-    <label>
+    <label class="setup-url-field">
       <span>URL</span>
-      <input id="setupUrlResult" readonly value="${escapeAttribute(setupUrl)}">
+      <span class="setup-url-control">
+        <input id="setupUrlResult" readonly value="${escapeAttribute(setupUrl)}">
+        <button class="icon-button setup-copy-button" type="button" data-copy="#setupUrlResult"
+          aria-label="Setup-Link kopieren" title="Setup-Link kopieren">${setupCopyIcon('copy')}</button>
+      </span>
+      <span class="visually-hidden" aria-live="polite" data-copy-status></span>
     </label>
-    <div class="form-actions">
-      <button class="button button-secondary" type="button" data-copy="#setupUrlResult">URL kopieren</button>
-    </div>
     <small>Läuft ab ${escapeHtml(state.setupResult.expires_at || '')}</small>
+    </div>
   `;
 }
 

@@ -2849,6 +2849,10 @@ button.object-title-row:focus-visible::before {
   margin: 18px;
 }
 
+.user-setup-result {
+  margin: 0 0 12px;
+}
+
 .qr-code {
   width: min(220px, 100%);
   aspect-ratio: 1;
@@ -2870,6 +2874,40 @@ button.object-title-row:focus-visible::before {
   border-radius: 6px;
   color: var(--text);
   background: #0f1418;
+}
+
+.setup-url-field {
+  display: grid;
+  gap: 6px;
+}
+
+.setup-url-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.setup-url-control .setup-copy-button {
+  width: 38px;
+  height: auto;
+  min-height: 38px;
+}
+
+.setup-copy-button.is-copied {
+  border-color: rgba(var(--good-rgb), 0.55);
+  color: var(--good);
+  background: rgba(var(--good-rgb), 0.12);
+}
+
+.setup-copy-icon {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .user-editor-side {
