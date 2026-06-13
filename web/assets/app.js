@@ -3731,7 +3731,6 @@ function publicGraphOptions(graph = {}) {
         face: 'Aptos, Segoe UI, Inter, sans-serif',
         align: 'horizontal',
         vadjust: 0,
-        mod: 'normal',
       },
     },
   };

@@ -22,6 +22,7 @@ $configWarnings = array_map(
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
     <title><?= $appName ?></title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="assets/app.css">
   </head>
   <body>
