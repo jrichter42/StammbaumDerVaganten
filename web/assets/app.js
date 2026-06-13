@@ -10952,7 +10952,7 @@ function renderUserSetupResult(user) {
   return `
     <div class="setup-result user-setup-result">
     <h3>Neuer Setup-Link</h3>
-    <div class="qr-code" aria-label="Setup-QR-Code">${qrSvg(setupUrl)}</div>
+    <div class="qr-code">${qrSvg(setupUrl)}</div>
     <label class="setup-url-field">
       <span>URL</span>
       <span class="setup-url-control">
@@ -10981,7 +10981,9 @@ function qrSvg(value) {
       });
     });
 
-    return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Setup-URL als QR-Code" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" fill="#fff"/><g fill="#000">${cells.join('')}</g></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges"><rect width="${size}" height="${size}" fill="#fff"/><g fill="#000">${cells.join('')}</g></svg>`;
+    const source = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    return `<img src="${escapeAttribute(source)}" alt="Setup-URL als QR-Code">`;
   } catch (error) {
     console.error(error);
     return '<span>QR-Code nicht verfügbar</span>';
@@ -11171,12 +11173,12 @@ function drawAlignment(setFunction, version, size) {
 }
 
 function reserveFormatAreas(reserved, size) {
-  for (let index = 0; index < 9; index += 1) {
-    reserved[8][index] = true;
-    reserved[index][8] = true;
-    reserved[8][size - 1 - index] = true;
-    reserved[size - 1 - index][8] = true;
-  }
+  const first = [[8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8], [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8]];
+  const second = [[size - 1, 8], [size - 2, 8], [size - 3, 8], [size - 4, 8], [size - 5, 8], [size - 6, 8], [size - 7, 8], [size - 8, 8], [8, size - 7], [8, size - 6], [8, size - 5], [8, size - 4], [8, size - 3], [8, size - 2], [8, size - 1]];
+
+  [...first, ...second].forEach(([x, y]) => {
+    reserved[y][x] = true;
+  });
 }
 
 function reserveVersionAreas(reserved, size) {
@@ -11311,6 +11313,10 @@ function placeQrBits(matrix, reserved, codewords) {
     }
 
     upward = !upward;
+  }
+
+  if (bitIndex < bits.length) {
+    throw new Error('QR data did not fit matrix.');
   }
 }
 

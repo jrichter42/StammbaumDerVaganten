@@ -2861,7 +2861,7 @@ button.object-title-row:focus-visible::before {
   background: #fff;
 }
 
-.qr-code svg {
+.qr-code img {
   display: block;
   width: 100%;
   height: 100%;
