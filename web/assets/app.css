@@ -1397,30 +1397,6 @@ body.is-context-resizing {
   border-radius: 0 0 8px 8px;
 }
 
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border-radius: 0 0 8px 8px;
-  background: var(--line);
-}
-
-.metric {
-  min-height: 108px;
-  padding: 18px;
-  background: var(--surface);
-}
-
-.metric-value {
-  display: block;
-  margin-top: 8px;
-  color: var(--brand-strong);
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
 .list {
   display: grid;
   gap: 1px;
@@ -1435,8 +1411,7 @@ body.is-context-resizing {
   background: var(--surface);
 }
 
-.list-item:hover,
-.metric:hover {
+.list-item:hover {
   background: var(--surface-raised);
 }
 
@@ -2713,10 +2688,6 @@ button.object-title-row:focus-visible::before {
 
 .status-list dt {
   color: var(--muted);
-}
-
-.warning-text {
-  color: var(--warn);
 }
 
 .empty-state {

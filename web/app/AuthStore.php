@@ -716,24 +716,6 @@ final class AuthStore
         throw new InvalidArgumentException('Setup token is not valid.');
     }
 
-    public function consumeSetupToken(string $tokenId): void
-    {
-        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId): array {
-            foreach (($data['tokens'] ?? []) as $index => $token) {
-                if (($token['id'] ?? '') === $tokenId) {
-                    $data['tokens'][$index]['consumed_at'] = $this->now();
-                    return [$data, null];
-                }
-            }
-
-            throw new InvalidArgumentException('Setup token is not valid.');
-        });
-
-        if (!$this->bootstrapPending()) {
-            $this->deleteBootstrapFiles();
-        }
-    }
-
     /**
      * @param array<string, mixed> $credential
      */
@@ -1071,30 +1053,6 @@ final class AuthStore
                     'challenge' => (string) ($row['challenge'] ?? ''),
                     'context' => is_array($row['context'] ?? null) ? $row['context'] : [],
                 ]];
-            }
-
-            throw new InvalidArgumentException('Challenge expired or was already used.');
-        });
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function consumeChallenge(string $purpose, string $challenge): array
-    {
-        return $this->updateJson($this->challengesPath, $this->defaultChallenges(), function (array $data) use ($purpose, $challenge): array {
-            $challengeHash = hash('sha256', $challenge);
-            foreach (($data['challenges'] ?? []) as $index => $row) {
-                if (($row['purpose'] ?? '') !== $purpose || !$this->isActiveChallenge($row)) {
-                    continue;
-                }
-
-                if (!hash_equals((string) ($row['challenge_hash'] ?? ''), $challengeHash)) {
-                    continue;
-                }
-
-                $data['challenges'][$index]['consumed_at'] = $this->now();
-                return [$data, is_array($row['context'] ?? null) ? $row['context'] : []];
             }
 
             throw new InvalidArgumentException('Challenge expired or was already used.');

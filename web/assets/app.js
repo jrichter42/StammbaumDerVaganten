@@ -253,7 +253,6 @@ const globalSearchInput = document.querySelector('#globalSearchInput');
 const globalSearchResults = document.querySelector('#globalSearchResults');
 const sourceControl = document.querySelector('#sourceControl');
 const sourceInput = document.querySelector('#sourceInput');
-const sourceClearButton = document.querySelector('#sourceClearButton');
 const setupForm = document.querySelector('#setupForm');
 const setupPanel = document.querySelector('#setupPanel');
 const usersNav = document.querySelector('#usersNav');
@@ -326,7 +325,6 @@ logoutButton.addEventListener('click', logout);
 globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
 sourceInput?.addEventListener('input', handleSourceInput);
 sourceInput?.addEventListener('blur', () => updateSourceControl());
-sourceClearButton?.addEventListener('click', clearSourceOverride);
 treeGroupTypeFilters.forEach((filter) => filter.addEventListener('change', handlePublicGraphFilterChange));
 treeGroupTypeClearButtons.forEach((button) => button.addEventListener('click', clearPublicGraphFilter));
 contextGraphTypeToggles.forEach((toggle) => toggle.addEventListener('change', handleContextGraphTypeToggle));
@@ -1405,16 +1403,6 @@ function handleSourceInput() {
   }
   state.sourceOverride = value;
   writeStoredSourceOverride(value);
-  if (sourceClearButton) {
-    sourceClearButton.hidden = state.sourceOverride.trim() === '';
-  }
-}
-
-function clearSourceOverride() {
-  state.sourceOverride = '';
-  writeStoredSourceOverride('');
-  updateSourceControl();
-  sourceInput?.focus();
 }
 
 function updateSourceControl() {
@@ -1425,9 +1413,6 @@ function updateSourceControl() {
   const fallback = defaultEditSource();
   sourceInput.value = state.sourceOverride;
   sourceInput.placeholder = fallback;
-  if (sourceClearButton) {
-    sourceClearButton.hidden = state.sourceOverride.trim() === '';
-  }
 }
 
 function currentEditSource() {
@@ -2175,9 +2160,6 @@ async function readJsonResponse(response) {
 
 function render() {
   renderTreeGraph();
-  renderMetrics();
-  renderReferenceData();
-  renderSystem();
   renderSectionCounts();
   renderCollectionControls();
   renderObjectCollections();
@@ -3775,220 +3757,6 @@ function publicGraphOptions(graph = {}) {
   };
 }
 
-function publicSippeGraphData(groups, people, roles, groupTypes, groupStats, sippeTypeIds) {
-  const nodes = [];
-  const edges = [];
-  const groupIds = new Set(groups.map(objectId).filter(Boolean));
-  const levelByGroupId = publicSippeLevelMap(groups, groupStats);
-
-  groups.forEach((group, index) => {
-    const id = objectId(group);
-    const stats = groupStats.get(id) || { members: 0, activities: 0, span: '' };
-    nodes.push({
-      id: `group:${id}`,
-      label: publicGraphEntryLabel([
-        publicGroupLabel(group, groupTypes, index),
-        stats.span,
-        publicGraphMemberLine(stats.members),
-      ]),
-      title: publicGraphTitle([
-        publicGroupLabel(group, groupTypes, index),
-        stats.span ? `Zeitraum: ${stats.span}` : '',
-        publicGraphMemberLine(stats.members),
-        String(group.description || '').trim(),
-      ]),
-      group: 'group',
-      level: levelByGroupId.get(id) || 0,
-      shape: 'box',
-    });
-  });
-
-  people.forEach((person, personIndex) => {
-    const personId = objectId(person);
-    if (!personId) {
-      return;
-    }
-
-    (Array.isArray(person.activities) ? person.activities : []).forEach((activity, activityIndex) => {
-      const targetGroupId = periodEntryGroupId(activity);
-      if (!groupIds.has(targetGroupId)) {
-        return;
-      }
-
-      const sourceGroupId = publicSourceSippeForActivity(person, activity.period, groupIds, sippeTypeIds, targetGroupId);
-      if (!sourceGroupId) {
-        return;
-      }
-
-      const role = publicRoleLabel(roles.find((candidate) => objectId(candidate) === activityRoleId(activity)));
-      const years = periodYearLabel(activity.period);
-      const personLabel = publicPersonLabel(person, personIndex);
-      edges.push({
-        id: `sippe-activity:${sourceGroupId}:${targetGroupId}:${personId}:${activityIndex}`,
-        from: `group:${sourceGroupId}`,
-        to: `group:${targetGroupId}`,
-        label: publicGraphEdgeLabel([role, personLabel]),
-        title: publicGraphTitle([
-          role,
-          personLabel,
-          years,
-          `Von: ${objectLabel(findReferenceObject('groups', sourceGroupId), 'groups')}`,
-          `Nach: ${objectLabel(findReferenceObject('groups', targetGroupId), 'groups')}`,
-          String(person.description || '').trim(),
-        ]),
-        group: 'sippe-activity',
-        arrows: 'to',
-        width: 2.2,
-        color: { color: '#d8d85a', highlight: '#f2f28b', hover: '#f2f28b' },
-      });
-    });
-  });
-
-  return { nodes, edges, layout: 'top-down' };
-}
-
-function publicSourceSippeForActivity(person, activityPeriod, groupIds, sippeTypeIds, targetGroupId) {
-  const activityRange = { startYear: periodStartYear(activityPeriod), endYear: periodEndYear(activityPeriod) };
-  const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
-    .map((membership) => ({ membership, groupId: periodEntryGroupId(membership) }))
-    .filter((entry) => entry.groupId && entry.groupId !== targetGroupId && groupIds.has(entry.groupId))
-    .filter((entry) => publicGroupHasType(entry.groupId, sippeTypeIds));
-
-  return (memberships.find((entry) => periodsCouldOverlap(entry.membership.period, activityRange)) || memberships[0])?.groupId || '';
-}
-
-function publicSippeLevelMap(groups, groupStats) {
-  const entries = groups.map((group) => {
-    const id = objectId(group);
-    const year = Number((String(groupStats.get(id)?.span || '').match(/\d{4}/) || [])[0] || 0);
-    return { id, year };
-  });
-  const orderedYears = [...new Set(entries.map((entry) => entry.year).filter(Boolean))].sort((left, right) => left - right);
-  const fallbackLevel = orderedYears.length;
-  return new Map(entries.map((entry) => [
-    entry.id,
-    entry.year ? orderedYears.indexOf(entry.year) : fallbackLevel,
-  ]));
-}
-
-function publicGroupTypeIdsByLabel(groupTypes, label) {
-  const folded = publicFoldLabel(label);
-  return new Set(groupTypes
-    .filter((type) => publicFoldLabel(objectLabel(type, 'group-types')) === folded)
-    .map(objectId)
-    .filter(Boolean));
-}
-
-function publicRoleIdsByLabel(roles, label) {
-  const folded = publicFoldLabel(label);
-  return new Set(roles
-    .filter((role) => publicFoldLabel(publicRoleLabel(role)) === folded)
-    .map(objectId)
-    .filter(Boolean));
-}
-
-function publicSippenfuehrungLineage(visibleGroups, people, sippeTypeIds, sippenfuehrungRoleIds) {
-  const visibleGroupIds = new Set(visibleGroups.map(objectId).filter(Boolean));
-  const links = [];
-
-  people.forEach((person) => {
-    const personId = objectId(person);
-    if (!personId) {
-      return;
-    }
-
-    (Array.isArray(person.activities) ? person.activities : []).forEach((activity, activityIndex) => {
-      const childGroupId = periodEntryGroupId(activity);
-      if (!visibleGroupIds.has(childGroupId) || !sippenfuehrungRoleIds.has(activityRoleId(activity))) {
-        return;
-      }
-
-      if (!publicGroupHasType(childGroupId, sippeTypeIds)) {
-        return;
-      }
-
-      const parentGroupId = publicParentSippeForPerson(person, activity.period, visibleGroupIds, sippeTypeIds, childGroupId);
-      if (parentGroupId) {
-        links.push({ personId, parentGroupId, childGroupId, activityIndex });
-      }
-    });
-  });
-
-  const groupLevels = publicLineageGroupLevels(visibleGroupIds, links);
-  const personLevels = new Map();
-  const personParents = new Map();
-  links.forEach((link) => {
-    const level = (groupLevels.get(link.parentGroupId) || 0) + 1;
-    const current = personLevels.get(link.personId);
-    if (current === undefined || level < current) {
-      personLevels.set(link.personId, level);
-      personParents.set(link.personId, link.parentGroupId);
-    }
-  });
-
-  return { links, groupLevels, personLevels, personParents };
-}
-
-function publicLineageGroupLevels(groupIds, links) {
-  const levels = new Map(Array.from(groupIds).map((id) => [id, 0]));
-  for (let iteration = 0; iteration < Math.max(1, links.length); iteration += 1) {
-    let changed = false;
-    links.forEach((link) => {
-      const next = Math.min((levels.get(link.parentGroupId) || 0) + 2, 18);
-      if (next > (levels.get(link.childGroupId) || 0)) {
-        levels.set(link.childGroupId, next);
-        changed = true;
-      }
-    });
-    if (!changed) {
-      break;
-    }
-  }
-  return levels;
-}
-
-function publicParentSippeForPerson(person, activityPeriod, visibleGroupIds, sippeTypeIds, childGroupId) {
-  const activityRange = { startYear: periodStartYear(activityPeriod), endYear: periodEndYear(activityPeriod) };
-  const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
-    .map((membership) => ({ membership, groupId: periodEntryGroupId(membership) }))
-    .filter((entry) => entry.groupId && entry.groupId !== childGroupId && visibleGroupIds.has(entry.groupId))
-    .filter((entry) => publicGroupHasType(entry.groupId, sippeTypeIds));
-
-  return (memberships.find((entry) => periodsCouldOverlap(entry.membership.period, activityRange)) || memberships[0])?.groupId || '';
-}
-
-function publicGroupHasType(groupId, typeIds) {
-  return groupTypeIds(findReferenceObject('groups', groupId)).some((id) => typeIds.has(id));
-}
-
-function publicLineageLinkForActivity(links, personId, groupId, activityIndex) {
-  return links.find((link) => (
-    link.personId === personId
-    && link.childGroupId === groupId
-    && link.activityIndex === activityIndex
-  )) || null;
-}
-
-function publicPersonLeadsGroup(links, personId, groupId) {
-  return links.some((link) => link.personId === personId && link.childGroupId === groupId);
-}
-
-function publicPersonIsOnlyLineageBridge(links, personId) {
-  return links.some((link) => link.personId === personId);
-}
-
-function publicFoldLabel(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ü/g, 'u')
-    .replace(/ä/g, 'a')
-    .replace(/ö/g, 'o')
-    .replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/gi, '')
-    .toLocaleLowerCase('de-DE');
-}
-
 function publicGroupStats(groups, people) {
   const stats = new Map(groups.map((group) => [objectId(group), {
     members: 0,
@@ -4070,10 +3838,6 @@ function publicGraphEntryLabel(lines) {
 
 function publicGraphCountLine(count, singular, plural) {
   return `${Number(count || 0)} ${Number(count || 0) === 1 ? singular : plural}`;
-}
-
-function publicGraphMemberLine(count) {
-  return `${Number(count || 0)} ${Number(count || 0) === 1 ? 'Mitglied' : 'Mitglieder'}`;
 }
 
 function publicGraphEdgeLabel(lines) {
@@ -4165,96 +3929,6 @@ function dateDisplayValue(value) {
   }
 
   return `${parts.day}.${parts.month}.${parts.year}`;
-}
-
-function renderMetrics() {
-  const grid = document.querySelector('#metricGrid');
-  if (!grid) {
-    return;
-  }
-
-  const collections = state.status?.storage?.collections || {};
-  const visible = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
-
-  grid.innerHTML = visible.map((key) => `
-    <article class="metric">
-      <h3>${escapeHtml(labels[key] || key)}</h3>
-      <span class="metric-value">${Number(collections[key] || 0)}</span>
-    </article>
-  `).join('');
-}
-
-function renderReferenceData() {
-  const list = document.querySelector('#referenceList');
-  if (!list) {
-    return;
-  }
-
-  const items = [
-    ...state.groupTypes.map((object) => ({ ...object, objectType: 'group-types', tag: 'Gruppenart' })),
-    ...(state.objects.roles || []).slice(0, 6).map((object) => ({ ...object, objectType: 'roles', tag: 'Rolle' })),
-  ];
-
-  list.innerHTML = items.map((object) => {
-    const detail = objectListMeta(object.objectType, object) || objectMeta(object);
-    return `
-    <article class="list-item">
-      <div>
-        <h3>${escapeHtml(objectLabel(object, object.objectType))}</h3>
-        ${detail ? `<small>${escapeHtml(detail)}</small>` : ''}
-      </div>
-      <span class="tag">${escapeHtml(object.tag)}</span>
-    </article>
-  `;
-  }).join('') || '<div class="empty-state">Keine Referenzdaten verfügbar.</div>';
-}
-
-function renderSystem() {
-  const storage = state.status?.storage || {};
-  const app = state.status?.app || {};
-  const auth = state.status?.auth || {};
-  const webauthn = state.status?.webauthn || {};
-
-  setText('#storageState', storage.writable
-    ? 'Datenpfad ist beschreibbar'
-    : 'Datenpfad ist nicht beschreibbar');
-  setText('#systemVersion', 'Storage');
-
-  const systemList = document.querySelector('#systemList');
-  if (!systemList) {
-    return;
-  }
-
-  systemList.innerHTML = `
-    ${renderWarnings(app.show_warnings ? app.warnings : null)}
-    <dt>Eingeloggt als</dt>
-    <dd>${escapeHtml(auth.user?.display_name || auth.user?.username || '-')}</dd>
-    <dt>Passkey-RP-ID</dt>
-    <dd>${escapeHtml(webauthn.rp_id || '-')}</dd>
-    <dt>Anzeige-Zeitzone</dt>
-    <dd>${escapeHtml(app.timezone || 'UTC')}</dd>
-    <dt>Datenpfad</dt>
-    <dd>${escapeHtml(storage.data_path || '-')}</dd>
-    <dt>Laufzeitpfad</dt>
-    <dd>${escapeHtml(storage.var_path || '-')}</dd>
-    <dt>Storage</dt>
-    <dd>${storage.exists ? 'Gefunden' : 'Fehlt'}</dd>
-    <dt>Schreibzugriff</dt>
-    <dd>${storage.writable ? 'Aktiv' : 'Inaktiv'}</dd>
-    <dt>Laufzeit-Schreibzugriff</dt>
-    <dd>${storage.runtime_writable ? 'Aktiv' : 'Inaktiv'}</dd>
-  `;
-}
-
-function renderWarnings(warnings) {
-  if (!warnings || !warnings.length) {
-    return '';
-  }
-
-  return `
-    <dt>Config-Warnung</dt>
-    <dd class="warning-text">${warnings.map((warning) => escapeHtml(warning)).join('<br>')}</dd>
-  `;
 }
 
 function renderSectionCounts() {
@@ -5836,16 +5510,6 @@ function compactPeriodDisplayValue(period) {
   }
 
   return '';
-}
-
-function compactYearRange(start, end) {
-  const startText = String(start || '');
-  const endText = String(end || '');
-  if (/^\d{4}$/.test(startText) && /^\d{4}$/.test(endText) && startText.slice(0, 2) === endText.slice(0, 2)) {
-    return `${startText}–${endText.slice(2)}`;
-  }
-
-  return `${startText}–${endText}`;
 }
 
 function shortObjectId(id) {
@@ -9507,22 +9171,6 @@ function syncDateControlRaw(input) {
   updateDateDetailButtons(input);
 }
 
-function dateDetailButtonAria(detail, isConfirming) {
-  if (isConfirming) {
-    return 'Auf Jahr umstellen und Monat sowie Tag auf 00 setzen';
-  }
-
-  if (detail === 'month') {
-    return 'Datumsgenauigkeit Monat, zur Tagesauswahl wechseln';
-  }
-
-  if (detail === 'day') {
-    return 'Datumsgenauigkeit Tag, Jahresauswahl bestätigen';
-  }
-
-  return 'Datumsgenauigkeit Jahr, zur Monatsauswahl wechseln';
-}
-
 function datePlaceholderForDetail(detail) {
   if (detail === 'day') {
     return 'TT.MM.JJJJ';
@@ -10673,14 +10321,6 @@ function birthYearFromDateValue(value) {
 function numericYear(value) {
   const match = String(value || '').match(/\d{4}/);
   return match ? Number(match[0]) : 0;
-}
-
-function personHasGroup(person, groupId) {
-  const memberships = Array.isArray(person.memberships) ? person.memberships : [];
-  return memberships.some((membership) => {
-    const id = membership?.group || membership?.groupId || membership?.group_id || '';
-    return id === groupId;
-  });
 }
 
 function timepointValue(timepoint) {
@@ -11917,13 +11557,6 @@ function objectId(object) {
 function setConnection(text, className) {
   connectionStatus.textContent = text;
   connectionStatus.className = `status-pill ${className}`.trim();
-}
-
-function setText(selector, text) {
-  const element = document.querySelector(selector);
-  if (element) {
-    element.textContent = text;
-  }
 }
 
 function showAuthMessage(text, isError, autoHideMs = 0) {
