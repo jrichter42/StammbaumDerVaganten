@@ -10962,7 +10962,7 @@ function renderUserSetupResult(user) {
       </span>
       <span class="visually-hidden" aria-live="polite" data-copy-status></span>
     </label>
-    <small>Läuft ab ${escapeHtml(state.setupResult.expires_at || '')}</small>
+    <small>Läuft ab ${escapeHtml(formatDateTime(state.setupResult.expires_at))}</small>
     </div>
   `;
 }
@@ -11706,10 +11706,13 @@ function formatDateTime(value) {
     return value || '';
   }
 
-  return new Intl.DateTimeFormat('de', {
+  const formattedDate = new Intl.DateTimeFormat('de', {
     dateStyle: 'medium',
+  }).format(date);
+  const formattedTime = new Intl.DateTimeFormat('de', {
     timeStyle: 'short',
   }).format(date);
+  return `${formattedDate} ${formattedTime}`;
 }
 
 function localizeErrorMessage(text) {
