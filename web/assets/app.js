@@ -39,6 +39,11 @@ const contextGraphTypeGroups = {
   data: ['people', 'groups', 'timepoints'],
   structure: ['roles', 'group-types'],
 };
+const contextNavigationLinkSelector = [
+  '.reference-link[data-link-view][data-link-id]',
+  '.reverse-link[data-link-view][data-link-id]',
+].join(', ');
+const contextEdgeTargetSelector = '[data-graph-edge-type][data-graph-edge-id][data-graph-edge-edit]';
 const collectionTypes = [...objectCollections, 'users'];
 const collectionVisibleStep = 100;
 const sortCollator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
@@ -291,19 +296,18 @@ let contextNetwork = null;
 let contextGraphSignature = '';
 let contextGraphFrame = 0;
 let contextGraphTimer = 0;
-let contextGraphNodeIds = new Set();
-let contextGraphEdgeTargets = new Map();
-let contextGraphNodes = [];
-let contextGraphEdges = [];
-let contextGraphNodeDataSet = null;
-let contextGraphEdgeDataSet = null;
-let contextPassiveNodeIds = [];
-let contextPassiveEdgeIds = [];
-let contextHighlightedNodeId = '';
-let contextHighlightedEdgeIds = [];
-let contextPrimaryHighlightedEdgeId = '';
-let contextAllHighlightedEdgesPrimary = false;
-let contextHighlightedListKey = '';
+const contextGraphSync = {
+  nodeById: new Map(),
+  edgeById: new Map(),
+  nodeEdgeIds: new Map(),
+  targetEdgeIds: new Map(),
+  nodeDataSet: null,
+  edgeDataSet: null,
+  passiveNodeIds: [],
+  passiveEdgeIds: [],
+  hover: emptyContextGraphHover(),
+  listHighlights: [],
+};
 let contextResizeActive = false;
 let contextPanelRatio = 0.4;
 let treeGraphFrame = 0;
@@ -2563,27 +2567,24 @@ function renderContextGraph() {
   }
 
   contextGraphSignature = signature;
-  contextGraphNodes = graph.nodes;
-  contextGraphNodeIds = new Set(graph.nodes.map((node) => node.id));
-  contextGraphEdgeTargets = new Map(graph.edges.map((edge) => [edge.id, edge.target || null]));
-  contextGraphEdges = graph.edges;
+  setContextGraphSnapshot(graph);
   setTreeGraphStatus(contextGraphStatus, '');
   if (contextNetwork) {
     contextNetwork.destroy();
   }
 
-  contextGraphNodeDataSet = new visNetwork.DataSet(graph.nodes);
-  contextGraphEdgeDataSet = new visNetwork.DataSet(graph.edges);
+  contextGraphSync.nodeDataSet = new visNetwork.DataSet(graph.nodes);
+  contextGraphSync.edgeDataSet = new visNetwork.DataSet(graph.edges);
   contextNetwork = new visNetwork.Network(contextGraphContainer, {
-    nodes: contextGraphNodeDataSet,
-    edges: contextGraphEdgeDataSet,
+    nodes: contextGraphSync.nodeDataSet,
+    edges: contextGraphSync.edgeDataSet,
   }, publicGraphOptions(graph));
 
   contextNetwork.on('hoverNode', handleContextGraphNodeHover);
   contextNetwork.on('blurNode', handleContextGraphNodeBlur);
   contextNetwork.on('hoverEdge', handleContextGraphEdgeHover);
   contextNetwork.on('blurEdge', handleContextGraphEdgeBlur);
-  contextNetwork.on('click', handleContextGraphNodeClick);
+  contextNetwork.on('click', handleContextGraphClick);
   settleGraph(contextNetwork, graph);
   applyContextGraphHighlight();
 }
@@ -2594,19 +2595,50 @@ function destroyContextGraph() {
     contextNetwork = null;
   }
   contextGraphSignature = '';
-  contextGraphNodes = [];
-  contextGraphNodeIds = new Set();
-  contextGraphEdgeTargets = new Map();
-  contextGraphEdges = [];
-  contextGraphNodeDataSet = null;
-  contextGraphEdgeDataSet = null;
-  contextPassiveNodeIds = [];
-  contextPassiveEdgeIds = [];
-  contextHighlightedNodeId = '';
-  contextHighlightedEdgeIds = [];
-  contextPrimaryHighlightedEdgeId = '';
-  contextAllHighlightedEdgesPrimary = false;
+  resetContextGraphSync();
   clearContextListHighlight();
+}
+
+function setContextGraphSnapshot(graph) {
+  contextGraphSync.nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  contextGraphSync.edgeById = new Map(graph.edges.map((edge) => [edge.id, edge]));
+  contextGraphSync.nodeEdgeIds = new Map();
+  contextGraphSync.targetEdgeIds = new Map();
+
+  graph.edges.forEach((edge) => {
+    appendContextGraphIndex(contextGraphSync.nodeEdgeIds, edge.from, edge.id);
+    appendContextGraphIndex(contextGraphSync.nodeEdgeIds, edge.to, edge.id);
+
+    const target = edge.target || null;
+    if (!target?.type || !target.id || !target.edit) {
+      return;
+    }
+
+    appendContextGraphIndex(
+      contextGraphSync.targetEdgeIds,
+      contextGraphTargetKey(target.type, target.id, target.edit),
+      edge.id,
+    );
+  });
+}
+
+function appendContextGraphIndex(index, key, value) {
+  const values = index.get(key) || [];
+  if (!values.includes(value)) {
+    index.set(key, [...values, value]);
+  }
+}
+
+function resetContextGraphSync() {
+  contextGraphSync.nodeById = new Map();
+  contextGraphSync.edgeById = new Map();
+  contextGraphSync.nodeEdgeIds = new Map();
+  contextGraphSync.targetEdgeIds = new Map();
+  contextGraphSync.nodeDataSet = null;
+  contextGraphSync.edgeDataSet = null;
+  contextGraphSync.passiveNodeIds = [];
+  contextGraphSync.passiveEdgeIds = [];
+  contextGraphSync.hover = emptyContextGraphHover();
 }
 
 function settleGraph(network, graph) {
@@ -2689,31 +2721,27 @@ function graphEdgeBehaviorOptions() {
 }
 
 function handleObjectGraphHover(event) {
-  applyObjectGraphHoverTarget(objectGraphHoverTarget(event.target));
+  setContextGraphHover(objectGraphHoverTarget(event.target));
 }
 
 function handleObjectGraphHoverEnd(event) {
-  applyObjectGraphHoverTarget(objectGraphHoverTarget(event.relatedTarget));
+  setContextGraphHover(objectGraphHoverTarget(event.relatedTarget));
 }
 
 function objectGraphHoverTarget(element) {
-  const navigationLink = element?.closest?.(
-    '.reference-link[data-link-view][data-link-id], '
-      + '.reverse-link[data-link-view][data-link-id]'
-  );
+  const navigationLink = element?.closest?.(contextNavigationLinkSelector);
   if (navigationLink) {
     const type = navigationLink.dataset.linkView || '';
     const id = navigationLink.dataset.linkId || '';
     if (objectCollections.includes(type) && id) {
-      return { nodeId: contextNodeId(type, id), edgeIds: [] };
+      return { nodeId: contextNodeId(type, id) };
     }
   }
 
   const reverseTitle = element?.closest?.(
-    '[data-group-reverse-row] [data-group-reverse-action="toggle"], '
-      + '[data-graph-edge-type][data-graph-edge-id][data-graph-edge-edit]:not([data-group-reverse-row])'
+    `[data-group-reverse-row] [data-group-reverse-action="toggle"], ${contextEdgeTargetSelector}:not([data-group-reverse-row])`
   );
-  const reverseRow = reverseTitle?.closest?.('[data-graph-edge-type][data-graph-edge-id][data-graph-edge-edit]');
+  const reverseRow = reverseTitle?.closest?.(contextEdgeTargetSelector);
   if (reverseRow) {
     const edgeIds = contextEdgeIdsForTarget(
       reverseRow.dataset.graphEdgeType || '',
@@ -2721,7 +2749,7 @@ function objectGraphHoverTarget(element) {
       reverseRow.dataset.graphEdgeEdit || '',
     );
     if (edgeIds.length) {
-      return { nodeId: '', edgeIds, allEdgesPrimary: true };
+      return { edgeIds, allEdgesPrimary: true };
     }
   }
 
@@ -2732,7 +2760,7 @@ function objectGraphHoverTarget(element) {
       ? contextEdgeIdsForTarget(owner.dataset.objectType, owner.dataset.objectId, row.dataset.relationshipRowKey || '')
       : [];
     if (edgeIds.length) {
-      return { nodeId: '', edgeIds, allEdgesPrimary: true };
+      return { edgeIds, allEdgesPrimary: true };
     }
   }
 
@@ -2742,19 +2770,35 @@ function objectGraphHoverTarget(element) {
     const type = item.dataset.objectType || '';
     const id = item.dataset.objectId || '';
     if (objectCollections.includes(type) && id) {
-      return { nodeId: contextNodeId(type, id), edgeIds: [] };
+      return { nodeId: contextNodeId(type, id) };
     }
   }
 
-  return { nodeId: '', edgeIds: [] };
+  return {};
 }
 
-function applyObjectGraphHoverTarget(target) {
-  contextHighlightedNodeId = target.nodeId || '';
-  contextHighlightedEdgeIds = target.edgeIds || [];
-  contextPrimaryHighlightedEdgeId = contextHighlightedEdgeIds[0] || '';
-  contextAllHighlightedEdgesPrimary = target.allEdgesPrimary === true;
+function emptyContextGraphHover() {
+  return {
+    nodeId: '',
+    edgeIds: [],
+    primaryEdgeId: '',
+    allEdgesPrimary: false,
+  };
+}
+
+function setContextGraphHover(target = {}) {
+  const edgeIds = Array.from(new Set(target.edgeIds || []));
+  contextGraphSync.hover = {
+    nodeId: target.nodeId || '',
+    edgeIds,
+    primaryEdgeId: target.primaryEdgeId || edgeIds[0] || '',
+    allEdgesPrimary: target.allEdgesPrimary === true,
+  };
   applyContextGraphHighlight();
+}
+
+function patchContextGraphHover(changes) {
+  setContextGraphHover({ ...contextGraphSync.hover, ...changes });
 }
 
 function applyContextGraphHighlight() {
@@ -2762,71 +2806,79 @@ function applyContextGraphHighlight() {
     return;
   }
 
-  const activeNodeId = activeContextGraphNodeId();
-  const nodes = [];
-  if (activeNodeId) {
-    nodes.push(activeNodeId);
-  }
-  if (contextHighlightedNodeId && contextGraphNodeIds.has(contextHighlightedNodeId)) {
-    nodes.push(contextHighlightedNodeId);
-  }
-  const selectedNodes = Array.from(new Set(nodes));
-  const persistentEdgeIds = persistentContextEditEdgeIds();
-  const passiveNodeSources = Array.from(new Set([
-    ...persistentEdgeIds,
-    ...contextHighlightedEdgeIds,
-    ...(contextHighlightedNodeId
-      ? contextEdgeIdsForNode(contextHighlightedNodeId)
-      : []),
-  ]));
-  const passiveEdgeSource = contextHighlightedNodeId || '';
-  const relatedPassiveEdgeIds = contextAllHighlightedEdgesPrimary
-    ? []
-    : contextHighlightedEdgeIds.filter((edgeId) => edgeId !== contextPrimaryHighlightedEdgeId);
-  updatePassiveContextEdges(passiveEdgeSource, persistentEdgeIds, relatedPassiveEdgeIds);
-  updatePassiveContextNodes(passiveNodeSources, [activeNodeId, contextHighlightedNodeId].filter(Boolean));
-  const edges = [...persistentEdgeIds];
-  if (!contextHighlightedNodeId
-    && contextHighlightedEdgeIds.length
-  ) {
-    edges.push(...(contextAllHighlightedEdgesPrimary
-      ? contextHighlightedEdgeIds
-      : [contextPrimaryHighlightedEdgeId]
-    ).filter((edgeId) => contextGraphEdgeTargets.has(edgeId)));
-  }
-  const selectedEdges = Array.from(new Set(edges));
+  const plan = contextGraphHighlightPlan();
+  updatePassiveContextEdges(
+    plan.passiveEdgeSourceNodeId,
+    plan.selectedEdgeIds,
+    plan.relatedPassiveEdgeIds,
+  );
+  updatePassiveContextNodes(plan.passiveNodeSourceEdgeIds, plan.selectedNodeIds);
 
-  if (selectedNodes.length || selectedEdges.length) {
-    contextNetwork.setSelection({ nodes: selectedNodes, edges: selectedEdges }, { unselectAll: true });
+  if (plan.selectedNodeIds.length || plan.selectedEdgeIds.length) {
+    contextNetwork.setSelection({
+      nodes: plan.selectedNodeIds,
+      edges: plan.selectedEdgeIds,
+    }, { unselectAll: true });
     return;
   }
 
   contextNetwork.unselectAll();
 }
 
+function contextGraphHighlightPlan() {
+  const hover = contextGraphSync.hover;
+  const activeNodeId = activeContextGraphNodeId();
+  const hoveredNodeId = contextGraphSync.nodeById.has(hover.nodeId) ? hover.nodeId : '';
+  const selectedNodes = Array.from(new Set([activeNodeId, hoveredNodeId].filter(Boolean)));
+  const persistentEdgeIds = persistentContextEditEdgeIds();
+  const passiveNodeSources = Array.from(new Set([
+    ...persistentEdgeIds,
+    ...hover.edgeIds,
+    ...(hover.nodeId
+      ? contextEdgeIdsForNode(hover.nodeId)
+      : []),
+  ]));
+  const passiveEdgeSource = hover.nodeId || '';
+  const relatedPassiveEdgeIds = hover.allEdgesPrimary
+    ? []
+    : hover.edgeIds.filter((edgeId) => edgeId !== hover.primaryEdgeId);
+  const edges = [...persistentEdgeIds];
+  if (!hover.nodeId && hover.edgeIds.length) {
+    edges.push(...(hover.allEdgesPrimary
+      ? hover.edgeIds
+      : [hover.primaryEdgeId]
+    ).filter((edgeId) => contextGraphSync.edgeById.has(edgeId)));
+  }
+  const selectedEdges = Array.from(new Set(edges));
+
+  return {
+    selectedNodeIds: selectedNodes,
+    selectedEdgeIds: selectedEdges,
+    passiveNodeSourceEdgeIds: passiveNodeSources,
+    passiveEdgeSourceNodeId: passiveEdgeSource,
+    relatedPassiveEdgeIds,
+  };
+}
+
 function activeContextGraphNodeId() {
   const type = currentViewName();
   const id = activeEditingId(type);
   const nodeId = objectCollections.includes(type) && id ? contextNodeId(type, id) : '';
-  return nodeId && contextGraphNodeIds.has(nodeId) ? nodeId : '';
+  return nodeId && contextGraphSync.nodeById.has(nodeId) ? nodeId : '';
 }
 
 function contextEdgeIdsForNode(nodeId) {
-  return nodeId
-    ? contextGraphEdges
-      .filter((edge) => edge.from === nodeId || edge.to === nodeId)
-      .map((edge) => edge.id)
-    : [];
+  return nodeId ? contextGraphSync.nodeEdgeIds.get(nodeId) || [] : [];
 }
 
 function updatePassiveContextNodes(edgeIds, excludedNodeIds = []) {
-  if (!contextGraphNodeDataSet) {
+  if (!contextGraphSync.nodeDataSet) {
     return;
   }
 
-  if (contextPassiveNodeIds.length) {
-    contextGraphNodeDataSet.update(contextPassiveNodeIds.map((id) => {
-      const node = contextGraphNodes.find((candidate) => candidate.id === id);
+  if (contextGraphSync.passiveNodeIds.length) {
+    contextGraphSync.nodeDataSet.update(contextGraphSync.passiveNodeIds.map((id) => {
+      const node = contextGraphSync.nodeById.get(id);
       return {
         id,
         color: contextNodeBaseColor(node?.group || ''),
@@ -2838,14 +2890,14 @@ function updatePassiveContextNodes(edgeIds, excludedNodeIds = []) {
 
   const sourceIds = Array.isArray(edgeIds) ? edgeIds : [edgeIds].filter(Boolean);
   const excluded = new Set(Array.isArray(excludedNodeIds) ? excludedNodeIds : [excludedNodeIds].filter(Boolean));
-  contextPassiveNodeIds = Array.from(new Set(sourceIds.flatMap((edgeId) => {
-    const edge = contextGraphEdges.find((candidate) => candidate.id === edgeId);
+  contextGraphSync.passiveNodeIds = Array.from(new Set(sourceIds.flatMap((edgeId) => {
+    const edge = contextGraphSync.edgeById.get(edgeId);
     return edge ? [edge.from, edge.to] : [];
   }))).filter((id) => !excluded.has(id));
 
-  if (contextPassiveNodeIds.length) {
-    contextGraphNodeDataSet.update(contextPassiveNodeIds.map((id) => {
-      const node = contextGraphNodes.find((candidate) => candidate.id === id);
+  if (contextGraphSync.passiveNodeIds.length) {
+    contextGraphSync.nodeDataSet.update(contextGraphSync.passiveNodeIds.map((id) => {
+      const node = contextGraphSync.nodeById.get(id);
       const color = contextNodeBaseColor(node?.group || '');
       return {
         id,
@@ -2874,13 +2926,13 @@ function contextNodeBaseColor(group) {
 }
 
 function updatePassiveContextEdges(nodeId, excludedEdgeIds = [], relatedEdgeIds = []) {
-  if (!contextGraphEdgeDataSet) {
+  if (!contextGraphSync.edgeDataSet) {
     return;
   }
 
-  if (contextPassiveEdgeIds.length) {
-    contextGraphEdgeDataSet.update(contextPassiveEdgeIds.map((id) => {
-      const edge = contextGraphEdges.find((candidate) => candidate.id === id);
+  if (contextGraphSync.passiveEdgeIds.length) {
+    contextGraphSync.edgeDataSet.update(contextGraphSync.passiveEdgeIds.map((id) => {
+      const edge = contextGraphSync.edgeById.get(id);
       return {
         id,
         color: {
@@ -2902,16 +2954,12 @@ function updatePassiveContextEdges(nodeId, excludedEdgeIds = [], relatedEdgeIds 
   }
 
   const excluded = new Set(excludedEdgeIds);
-  const nodeEdgeIds = nodeId
-    ? contextGraphEdges
-      .filter((edge) => edge.from === nodeId || edge.to === nodeId)
-      .map((edge) => edge.id)
-    : [];
-  contextPassiveEdgeIds = Array.from(new Set([...nodeEdgeIds, ...relatedEdgeIds]))
+  const nodeEdgeIds = contextEdgeIdsForNode(nodeId);
+  contextGraphSync.passiveEdgeIds = Array.from(new Set([...nodeEdgeIds, ...relatedEdgeIds]))
     .filter((id) => !excluded.has(id));
 
-  if (contextPassiveEdgeIds.length) {
-    contextGraphEdgeDataSet.update(contextPassiveEdgeIds.map((id) => ({
+  if (contextGraphSync.passiveEdgeIds.length) {
+    contextGraphSync.edgeDataSet.update(contextGraphSync.passiveEdgeIds.map((id) => ({
       id,
       color: {
         color: '#ffff00',
@@ -2919,7 +2967,7 @@ function updatePassiveContextEdges(nodeId, excludedEdgeIds = [], relatedEdgeIds 
         hover: '#ffff00',
         inherit: false,
       },
-      width: contextGraphEdges.find((edge) => edge.id === id)?.width || 1.6,
+      width: contextGraphSync.edgeById.get(id)?.width || 1.6,
       selectionWidth: 0,
       hoverWidth: 0,
       font: {
@@ -2937,28 +2985,23 @@ function handleContextGraphNodeHover(params) {
     return;
   }
 
-  contextHighlightedNodeId = params.node;
-  contextHighlightedEdgeIds = [];
-  contextPrimaryHighlightedEdgeId = '';
-  contextAllHighlightedEdgesPrimary = false;
-  applyContextGraphHighlight();
+  setContextGraphHover({ nodeId: params.node });
   if (!setContextListHighlight(target.type, target.id)) {
     highlightContextEdgeTargetForNode(params.node);
   }
 }
 
 function handleContextGraphNodeBlur(params) {
-  if (contextHighlightedNodeId === params.node) {
-    contextHighlightedNodeId = '';
-    applyContextGraphHighlight();
+  if (contextGraphSync.hover.nodeId === params.node) {
+    patchContextGraphHover({ nodeId: '' });
   }
   clearContextListHighlight();
 }
 
-function handleContextGraphNodeClick(params) {
+function handleContextGraphClick(params) {
   const edgeId = params.edges?.[0] || '';
   if (edgeId && !params.nodes?.length) {
-    void openContextGraphEdgeTarget(contextGraphEdgeTargets.get(edgeId));
+    void openContextGraphEdgeTarget(contextGraphEdgeTarget(edgeId));
     window.setTimeout(applyContextGraphHighlight, 0);
     return;
   }
@@ -2986,30 +3029,39 @@ async function openContextGraphEdgeTarget(target) {
     return;
   }
 
-  if (target.type === currentType && target.id === currentId && validNestedEditKey(target.edit)) {
-    const row = currentItem.querySelector(`[data-relationship-row-key="${cssEscape(target.edit)}"]`);
-    if (row && !row.classList.contains('is-collapsed')) {
-      if (elementInScrollView(row)) {
-        closeNestedEditRow(row);
-      } else {
-        scrollElementIntoView(row);
-      }
-      return;
+  if (toggleContextNestedEditTarget(currentItem, currentType, currentId, target)) {
+    return;
+  }
+
+  if (currentType === 'groups') {
+    toggleContextGroupReverseTarget(currentItem, currentId, target);
+  }
+}
+
+function toggleContextNestedEditTarget(item, type, id, target) {
+  if (target.type !== type || target.id !== id || !validNestedEditKey(target.edit)) {
+    return false;
+  }
+
+  const row = item.querySelector(`[data-relationship-row-key="${cssEscape(target.edit)}"]`);
+  if (row && !row.classList.contains('is-collapsed')) {
+    if (elementInScrollView(row)) {
+      closeNestedEditRow(row);
+    } else {
+      scrollElementIntoView(row);
     }
-
-    const key = objectKey(currentType, currentId);
-    state.relationshipEditing[key] = target.edit;
-    openNestedEditRow(currentType, currentId, target.edit);
-    writeUrlState({ view: currentType, id: currentId, edit: target.edit });
-    applyContextGraphHighlight();
-    return;
+    return true;
   }
 
-  if (currentType !== 'groups') {
-    return;
-  }
+  state.relationshipEditing[objectKey(type, id)] = target.edit;
+  openNestedEditRow(type, id, target.edit);
+  writeUrlState({ view: type, id, edit: target.edit });
+  applyContextGraphHighlight();
+  return true;
+}
 
-  const row = contextGraphReverseRow(currentItem, target.type, target.id, target.edit);
+function toggleContextGroupReverseTarget(groupItem, groupId, target) {
+  const row = contextGraphReverseRow(groupItem, target.type, target.id, target.edit);
   if (!row) {
     return;
   }
@@ -3018,7 +3070,7 @@ async function openContextGraphEdgeTarget(target) {
     if (elementInScrollView(row)) {
       row.classList.add('is-collapsed');
       row.querySelector('[data-group-reverse-action="toggle"]')?.setAttribute('aria-expanded', 'false');
-      delete state.groupRelationEditing[objectKey('groups', currentId)];
+      delete state.groupRelationEditing[objectKey('groups', groupId)];
       applyContextGraphHighlight();
     } else {
       scrollElementIntoView(row);
@@ -3026,37 +3078,38 @@ async function openContextGraphEdgeTarget(target) {
     return;
   }
 
-  collapseGroupEditRows(currentItem, row);
-  const key = objectKey('groups', currentId);
+  collapseGroupEditRows(groupItem, row);
+  const key = objectKey('groups', groupId);
   state.groupRelationEditing[key] = row.dataset.groupReverseKey || '';
   row.classList.remove('is-collapsed');
   row.querySelector('[data-group-reverse-action="toggle"]')?.setAttribute('aria-expanded', 'true');
-  writeUrlState({ view: 'groups', id: currentId, edit: '' });
+  writeUrlState({ view: 'groups', id: groupId, edit: '' });
   scrollElementIntoView(row);
   applyContextGraphHighlight();
 }
 
 function handleContextGraphEdgeHover(params) {
-  const target = contextGraphEdgeTargets.get(params.edge);
+  const target = contextGraphEdgeTarget(params.edge);
   if (!target) {
     return;
   }
 
-  contextHighlightedEdgeIds = target
-    ? contextEdgeIdsForTarget(target.type, target.id, target.edit || '')
-    : [params.edge];
-  contextPrimaryHighlightedEdgeId = params.edge;
-  contextAllHighlightedEdgesPrimary = false;
-  applyContextGraphHighlight();
+  const edgeIds = contextEdgeIdsForTarget(target.type, target.id, target.edit || '');
+  patchContextGraphHover({
+    edgeIds,
+    primaryEdgeId: params.edge,
+    allEdgesPrimary: false,
+  });
   setContextListHighlight(target.type, target.id, target.edit || '');
 }
 
 function handleContextGraphEdgeBlur(params) {
-  if (contextHighlightedEdgeIds.includes(params.edge)) {
-    contextHighlightedEdgeIds = [];
-    contextPrimaryHighlightedEdgeId = '';
-    contextAllHighlightedEdgesPrimary = false;
-    applyContextGraphHighlight();
+  if (contextGraphSync.hover.edgeIds.includes(params.edge)) {
+    patchContextGraphHover({
+      edgeIds: [],
+      primaryEdgeId: '',
+      allEdgesPrimary: false,
+    });
   }
   clearContextListHighlight();
 }
@@ -3174,56 +3227,55 @@ function elementInScrollView(element) {
 }
 
 function setContextListHighlight(type, id, edit = '') {
-  clearContextListHighlight();
+  return showContextListHighlights(contextListHighlightElements(type, id, edit));
+}
 
+function contextListHighlightElements(type, id, edit = '') {
   const activeType = currentViewName();
   const activeId = activeEditingId(activeType);
   const activeItem = objectItemElement(activeType, activeId);
   const activeRoot = activeItem || document.querySelector('.view.is-active');
-  const links = Array.from(activeRoot?.querySelectorAll(
-    '.reference-link[data-link-view][data-link-id], .reverse-link[data-link-view][data-link-id]'
-  ) || [])
-    .filter((link) => link.dataset.linkView === type && link.dataset.linkId === id);
+  const links = contextNavigationLinks(activeRoot, type, id);
   if (!edit && (type !== activeType || id !== activeId) && links.length) {
-    contextHighlightedListKey = ['reference', type, id].join(':');
-    links.forEach((link) => link.classList.add('is-graph-highlighted'));
-    return true;
+    return links;
   }
 
-  if (currentViewName() === type) {
+  if (activeType === type) {
     const item = objectItemElement(type, id);
     if (item?.closest('.view.is-active')) {
       const row = edit ? item.querySelector(`[data-relationship-row-key="${cssEscape(edit)}"]`) : null;
-      contextHighlightedListKey = [type, id, edit].filter(Boolean).join(':');
       const target = row?.querySelector('.composite-summary')
         || item.querySelector('.object-title-row[data-object-action="toggle-editor"]')
         || row
         || item;
-      target.classList.add('is-graph-highlighted');
-      return true;
+      return [target];
     }
   }
 
-  if (currentViewName() !== 'groups' || !edit) {
-    if (!links.length) {
-      return false;
-    }
-
-    contextHighlightedListKey = ['reference', type, id].join(':');
-    links.forEach((link) => link.classList.add('is-graph-highlighted'));
-    return true;
+  if (activeType !== 'groups' || !edit) {
+    return links;
   }
 
   const groupId = activeEditingId('groups');
   const groupItem = objectItemElement('groups', groupId);
   const reverseRow = contextGraphReverseRow(groupItem, type, id, edit);
   if (!reverseRow) {
-    return false;
+    return [];
   }
 
-  contextHighlightedListKey = ['groups', groupId, type, id, edit].join(':');
-  (reverseRow.querySelector('[data-group-reverse-action="toggle"]') || reverseRow).classList.add('is-graph-highlighted');
-  return true;
+  return [reverseRow.querySelector('[data-group-reverse-action="toggle"]') || reverseRow];
+}
+
+function contextNavigationLinks(root, type, id) {
+  return Array.from(root?.querySelectorAll(contextNavigationLinkSelector) || [])
+    .filter((link) => link.dataset.linkView === type && link.dataset.linkId === id);
+}
+
+function showContextListHighlights(elements) {
+  clearContextListHighlight();
+  contextGraphSync.listHighlights = Array.from(new Set((elements || []).filter(Boolean)));
+  contextGraphSync.listHighlights.forEach((element) => element.classList.add('is-graph-highlighted'));
+  return contextGraphSync.listHighlights.length > 0;
 }
 
 function contextGraphReverseRow(groupItem, type, id, edit) {
@@ -3239,14 +3291,10 @@ function contextGraphReverseRow(groupItem, type, id, edit) {
 }
 
 function clearContextListHighlight() {
-  if (!contextHighlightedListKey) {
-    return;
-  }
-
-  document.querySelectorAll('.is-graph-highlighted').forEach((item) => {
-    item.classList.remove('is-graph-highlighted');
+  contextGraphSync.listHighlights.forEach((element) => {
+    element.classList.remove('is-graph-highlighted');
   });
-  contextHighlightedListKey = '';
+  contextGraphSync.listHighlights = [];
 }
 
 function contextNodeTarget(nodeId) {
@@ -3265,70 +3313,80 @@ function contextNodeTarget(nodeId) {
   return { type, id };
 }
 
-function contextEdgeIdForTarget(type, id, edit) {
-  return contextEdgeIdsForTarget(type, id, edit)[0] || '';
-}
-
 function contextEdgeIdsForTarget(type, id, edit) {
   if (!type || !id || !edit) {
     return [];
   }
 
-  const edgeIds = [];
-  for (const [edgeId, target] of contextGraphEdgeTargets.entries()) {
-    if (target?.type === type && target.id === id && target.edit === edit) {
-      edgeIds.push(edgeId);
-    }
-  }
+  return contextGraphSync.targetEdgeIds.get(contextGraphTargetKey(type, id, edit)) || [];
+}
 
-  return edgeIds;
+function contextGraphEdgeTarget(edgeId) {
+  return contextGraphSync.edgeById.get(edgeId)?.target || null;
+}
+
+function contextGraphTargetKey(type, id, edit) {
+  return JSON.stringify([type, id, edit]);
 }
 
 function persistentContextEditEdgeIds() {
+  const target = activeContextEditTarget();
+  return target ? contextEdgeIdsForTarget(target.type, target.id, target.edit) : [];
+}
+
+function activeContextEditTarget() {
   const type = currentViewName();
   const id = activeEditingId(type);
   if (!objectCollections.includes(type) || !id) {
-    return [];
+    return null;
   }
 
   const key = objectKey(type, id);
   const nestedEdit = state.relationshipEditing[key] || '';
   if (nestedEdit) {
-    return contextEdgeIdsForTarget(type, id, nestedEdit);
+    return { type, id, edit: nestedEdit };
   }
 
   if (type !== 'groups') {
-    return [];
+    return null;
   }
 
   const reverseEdit = String(state.groupRelationEditing[key] || '');
   const match = /^(membership|activity):([^:]+):(\d+)$/.exec(reverseEdit);
   if (!match) {
-    return [];
+    return null;
   }
 
   const field = match[1] === 'activity' ? 'activities' : 'memberships';
-  return contextEdgeIdsForTarget('people', match[2], `${field}:${match[3]}`);
+  return { type: 'people', id: match[2], edit: `${field}:${match[3]}` };
 }
 
 function highlightContextEdgeTargetForNode(nodeId) {
-  const edge = contextGraphEdges.find((candidate) => {
-    const target = contextGraphEdgeTargets.get(candidate.id);
-    return target?.edit
-      && (candidate.from === nodeId || candidate.to === nodeId)
-      && setContextListHighlight(target.type, target.id, target.edit || '');
-  });
-  if (!edge) {
+  let match = null;
+  for (const edge of contextGraphSync.edgeById.values()) {
+    const target = contextGraphEdgeTarget(edge.id);
+    if (!target?.edit || (edge.from !== nodeId && edge.to !== nodeId)) {
+      continue;
+    }
+
+    const listHighlights = contextListHighlightElements(target.type, target.id, target.edit);
+    if (listHighlights.length) {
+      match = { edge, target, listHighlights };
+      break;
+    }
+  }
+  if (!match) {
     return false;
   }
 
-  const target = contextGraphEdgeTargets.get(edge.id);
-  contextHighlightedEdgeIds = target
-    ? contextEdgeIdsForTarget(target.type, target.id, target.edit || '')
-    : [edge.id];
-  contextPrimaryHighlightedEdgeId = edge.id;
-  contextAllHighlightedEdgesPrimary = false;
-  applyContextGraphHighlight();
+  showContextListHighlights(match.listHighlights);
+  const { edge, target } = match;
+  const edgeIds = contextEdgeIdsForTarget(target.type, target.id, target.edit || '');
+  setContextGraphHover({
+    nodeId: contextGraphSync.hover.nodeId,
+    edgeIds,
+    primaryEdgeId: edge.id,
+  });
   return true;
 }
 
