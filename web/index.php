@@ -8,7 +8,14 @@ $app = require __DIR__ . '/app/bootstrap.php';
 $config = $app['config'];
 $currentUser = $app['auth']->currentUser();
 $version = htmlspecialchars((string) $app['version'], ENT_QUOTES, 'UTF-8');
-$appJsRevision = (string) (@filemtime(__DIR__ . '/assets/app.js') ?: 0);
+$appJsFiles = array_merge(
+    [__DIR__ . '/assets/app.js'],
+    glob(__DIR__ . '/assets/js/*.js') ?: []
+);
+$appJsRevision = (string) max(array_map(
+    static fn (string $path): int => (int) (@filemtime($path) ?: 0),
+    $appJsFiles
+));
 $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
 $appTitle = preg_replace('/(der Vaganten)/u', '<span class="logo-word">$1</span>', $appName, 1);
 $configWarnings = array_map(
