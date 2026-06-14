@@ -41,6 +41,16 @@ $configWarnings = array_map(
           <a class="version-chip" href="https://github.stammbaumdervaganten.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a>
         </div>
         <div class="topbar-tools" aria-label="Datenwerkzeuge">
+          <div class="timeframe-control" id="timeframeControl" hidden>
+            <span class="tool-label">Zeitraum</span>
+            <div class="timeframe-compact">
+              <button class="icon-button" type="button" data-timeframe-action="previous" aria-label="Ein Jahr früher">‹</button>
+              <button class="timeframe-value" type="button" data-timeframe-action="toggle" aria-expanded="false">Gesamte Zeit</button>
+              <button class="icon-button" type="button" data-timeframe-action="next" aria-label="Ein Jahr später">›</button>
+              <button class="period-toggle timeframe-clear" type="button" data-timeframe-action="clear" hidden>(reset)</button>
+            </div>
+            <div class="timeframe-popover" data-timeframe-popover hidden></div>
+          </div>
           <div class="global-search" id="globalSearch" hidden>
             <label class="tool-label" for="globalSearchInput">Suche</label>
             <input id="globalSearchInput" type="search" autocomplete="off" aria-label="Alle Daten durchsuchen">
@@ -135,6 +145,8 @@ $configWarnings = array_map(
           <div class="nav-group">
             <span class="nav-label">Visualisierung</span>
             <button class="nav-item" type="button" data-view="tree"><span class="nav-count"></span><span>Baum</span></button>
+            <button class="nav-item" type="button" data-view="tribe"><span class="nav-count"></span><span>Stamm</span></button>
+            <button class="nav-item" type="button" data-view="timeline"><span class="nav-count"></span><span>Chronik</span></button>
           </div>
           <div class="nav-group">
             <span class="nav-label">Daten</span>
@@ -239,6 +251,10 @@ $configWarnings = array_map(
             <section class="panel public-map" aria-label="Baum-Visualisierung">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
+                  <div class="tree-view-title">
+                    <h2>Baum</h2>
+                    <p>Historische Verbindungen zwischen Gruppen</p>
+                  </div>
                   <div class="collection-controls">
                     <section class="collection-filter-section">
                       <div class="collection-filter-controls">
@@ -254,8 +270,37 @@ $configWarnings = array_map(
                   </div>
                 </div>
               </div>
+              <div class="visualization-summary tree-summary" data-visualization-summary="tree"></div>
               <p data-tree-graph-status hidden>Struktur wird geladen.</p>
               <div class="public-graph" data-tree-graph aria-label="Baum-Visualisierung"></div>
+            </section>
+          </div>
+
+          <div class="view visualization-view" id="view-tribe">
+            <section class="panel public-map" aria-label="Stamm-Visualisierung">
+              <div class="visualization-heading">
+                <div>
+                  <h2>Stamm</h2>
+                  <p>Formale Zusammensetzung im gewählten Zeitraum</p>
+                </div>
+                <div class="visualization-summary" data-visualization-summary="tribe"></div>
+              </div>
+              <p data-visualization-status="tribe" hidden></p>
+              <div class="public-graph" data-visualization-graph="tribe" aria-label="Stamm-Visualisierung"></div>
+            </section>
+          </div>
+
+          <div class="view visualization-view" id="view-timeline">
+            <section class="panel public-map" aria-label="Chronik-Visualisierung">
+              <div class="visualization-heading">
+                <div>
+                  <h2>Chronik</h2>
+                  <p>Gruppen und Stammesführung im Zeitverlauf</p>
+                </div>
+                <div class="visualization-summary" data-visualization-summary="timeline"></div>
+              </div>
+              <p data-visualization-status="timeline" hidden></p>
+              <div class="timeline-visualization" data-visualization-timeline aria-label="Chronik"></div>
             </section>
           </div>
 

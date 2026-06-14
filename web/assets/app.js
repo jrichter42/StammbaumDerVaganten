@@ -21,6 +21,22 @@ import {
   dateDetailReductionRemovesValue,
 } from './js/date-values.js';
 import {
+  emptyTimeframe,
+  timeframeFromSearchParams,
+  writeTimeframeSearchParams,
+  timeframeLabel,
+  timeframeBounds,
+  stepTimeframePoint,
+  setTimeframePointPrecision,
+  updateTimeframePoint,
+  dateValueBounds,
+  periodBounds,
+  boundsOverlap,
+  combineBounds,
+  dateKeyToParts,
+  dateKeyLabel,
+} from './js/timeframe.js';
+import {
   publicYearSpan,
   publicGraphShortLabel,
   shortObjectId,
@@ -71,6 +87,7 @@ const emptyCollectionLabels = {
 };
 
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
+const visualizationViews = ['tree', 'tribe', 'timeline'];
 const contextGraphTypeGroups = {
   data: ['people', 'groups', 'timepoints'],
   structure: ['roles', 'group-types'],
@@ -266,6 +283,8 @@ const state = {
   editTimers: {},
   exampleDataCreating: false,
   publicGraphGroupType: '',
+  timeframe: emptyTimeframe(),
+  timeframeOpen: false,
   sourceOverride: readStoredSourceOverride(),
 };
 
@@ -292,6 +311,8 @@ const authMessage = document.querySelector('#authMessage');
 const globalSearch = document.querySelector('#globalSearch');
 const globalSearchInput = document.querySelector('#globalSearchInput');
 const globalSearchResults = document.querySelector('#globalSearchResults');
+const timeframeControl = document.querySelector('#timeframeControl');
+const timeframePopover = timeframeControl?.querySelector('[data-timeframe-popover]');
 const sourceControl = document.querySelector('#sourceControl');
 const sourceInput = document.querySelector('#sourceInput');
 const setupForm = document.querySelector('#setupForm');
@@ -328,6 +349,8 @@ let isSetupPage = false;
 let isLoginLinkPage = Boolean(urlLoginToken);
 let publicNetwork = null;
 let publicGraphSignature = '';
+let tribeNetwork = null;
+let tribeGraphSignature = '';
 let contextNetwork = null;
 let contextGraphSignature = '';
 let contextGraphFrame = 0;
@@ -371,6 +394,11 @@ logoutButton.addEventListener('click', logout);
 globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
 sourceInput?.addEventListener('input', handleSourceInput);
 sourceInput?.addEventListener('blur', () => updateSourceControl());
+timeframeControl?.addEventListener('click', handleTimeframeClick);
+timeframeControl?.addEventListener('input', handleTimeframeInput);
+timeframeControl?.addEventListener('change', handleTimeframeInput);
+timeframeControl?.addEventListener('wheel', handleTimeframeWheel, { passive: false });
+timeframeControl?.addEventListener('keydown', handleTimeframeKeydown);
 treeGroupTypeFilters.forEach((filter) => filter.addEventListener('change', handlePublicGraphFilterChange));
 treeGroupTypeClearButtons.forEach((button) => button.addEventListener('click', clearPublicGraphFilter));
 contextGraphTypeToggles.forEach((toggle) => toggle.addEventListener('change', handleContextGraphTypeToggle));
@@ -394,6 +422,8 @@ document.addEventListener('click', handleChangeLogControlClick);
 document.addEventListener('click', handleGlobalSearchClick);
 document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
+document.addEventListener('click', handleVisualizationClick);
+document.addEventListener('click', handleTimeframeOutsideClick);
 document.addEventListener('pointermove', handleDateDetailPointerMove);
 document.addEventListener('pointerover', handleDateDetailPreview);
 document.addEventListener('pointerover', handleObjectGraphHover);
@@ -420,6 +450,7 @@ window.addEventListener('resize', handleContextLayoutResize);
 window.addEventListener('resize', scheduleContextGraphRender);
 window.addEventListener('resize', scheduleTreeGraphRender);
 window.addEventListener('hashchange', handleAuthFragmentChange);
+window.addEventListener('popstate', handleUrlStateChange);
 
 updateBackToTopButton();
 initialize();
@@ -598,9 +629,10 @@ function activateView(viewName, urlExtra = {}) {
   });
 
   writeUrlState({ view: viewName, ...urlExtra });
-  if (viewName === 'tree') {
+  if (visualizationViews.includes(viewName)) {
     publicGraphSignature = '';
-    renderTreeGraph();
+    tribeGraphSignature = '';
+    renderVisualizations();
   }
   if ((viewName === 'log' || viewName === 'audit') && previousViewName !== viewName) {
     scrollCurrentViewToTop();
@@ -651,10 +683,11 @@ function restoreUrlState() {
   const params = new URLSearchParams(window.location.search);
   const view = params.get('view');
   const id = params.get('id');
+  state.timeframe = timeframeFromSearchParams(params);
   state.publicGraphGroupType = params.get('group-type') || params.get('gruppenart') || params.get('groupType') || '';
 
-  if (view === 'tree') {
-    window.requestAnimationFrame(() => activateView('tree'));
+  if (visualizationViews.includes(view)) {
+    window.requestAnimationFrame(() => activateView(view));
     return;
   }
 
@@ -695,12 +728,13 @@ function writeUrlState(extra = {}) {
   }
 
   const activeView = extra.view || document.querySelector('[data-view].is-active')?.dataset.view || 'people';
-  if (activeView === 'tree') {
+  if (visualizationViews.includes(activeView)) {
     const params = new URLSearchParams();
-    params.set('view', 'tree');
-    if (state.publicGraphGroupType) {
+    params.set('view', activeView);
+    if (activeView === 'tree' && state.publicGraphGroupType) {
       params.set('group-type', state.publicGraphGroupType);
     }
+    writeTimeframeSearchParams(params, state.timeframe);
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
     return;
   }
@@ -725,6 +759,7 @@ function writeUrlState(extra = {}) {
   if (activeSort && ui.sortExplicit) {
     params.set('sort', `${ui.sortDirection === 'desc' ? '-' : ''}${activeSort}`);
   }
+  writeTimeframeSearchParams(params, state.timeframe);
 
   window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
 }
@@ -738,14 +773,294 @@ function writeTreeGraphUrlState() {
   const activeView = document.querySelector('[data-view].is-active')?.dataset.view || '';
   const params = new URLSearchParams();
   if (loggedIn) {
-    params.set('view', activeView === 'tree' ? 'tree' : activeView || 'people');
+    params.set('view', visualizationViews.includes(activeView) ? activeView : activeView || 'people');
   }
   if (state.publicGraphGroupType) {
     params.set('group-type', state.publicGraphGroupType);
   }
+  writeTimeframeSearchParams(params, state.timeframe);
 
   const query = params.toString();
   window.history.replaceState(null, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
+}
+
+function handleUrlStateChange() {
+  const params = new URLSearchParams(window.location.search);
+  state.timeframe = timeframeFromSearchParams(params);
+  renderTimeframeControl();
+  applyTimeframeChange(false);
+}
+
+function renderTimeframeControl() {
+  if (!timeframeControl) {
+    return;
+  }
+
+  updateTimeframeCompactValue();
+  if (!timeframePopover) {
+    return;
+  }
+
+  timeframePopover.hidden = !state.timeframeOpen;
+  if (!state.timeframeOpen) {
+    timeframePopover.innerHTML = '';
+    return;
+  }
+
+  const bounds = availableDataYearBounds();
+  const fallbackYear = bounds.max || new Date().getFullYear();
+  const start = state.timeframe.start || { year: fallbackYear, month: null, day: null, precision: 'year' };
+  const end = state.timeframe.end;
+  timeframePopover.innerHTML = `
+    <div class="timeframe-slider-row">
+      <span>${bounds.min}</span>
+      <input type="range" min="${bounds.min}" max="${bounds.max}" value="${start.year}" step="1" data-timeframe-slider aria-label="Jahr">
+      <span>${bounds.max}</span>
+    </div>
+    <div class="timeframe-points">
+      ${renderTimeframePoint('start', 'Von', start)}
+      ${end ? renderTimeframePoint('end', 'Bis', end) : ''}
+    </div>
+    <div class="timeframe-range-actions">
+      <button class="button button-secondary" type="button" data-timeframe-action="${end ? 'remove-range' : 'add-range'}">${end ? 'Bereich entfernen' : 'Bis hinzufügen'}</button>
+      <button class="button button-secondary" type="button" data-timeframe-action="close">Schließen</button>
+    </div>
+    <p class="timeframe-notice">Jahr wählen. Monat oder Tag nur bei Bedarf ergänzen.</p>
+  `;
+}
+
+function updateTimeframeCompactValue() {
+  const value = timeframeControl.querySelector('.timeframe-value');
+  const clear = timeframeControl.querySelector('.timeframe-clear');
+  if (value) {
+    value.textContent = timeframeLabel(state.timeframe);
+    value.setAttribute('aria-expanded', state.timeframeOpen ? 'true' : 'false');
+  }
+  if (clear) {
+    clear.hidden = !state.timeframe.start;
+  }
+}
+
+function renderTimeframePoint(key, label, point) {
+  const monthOptions = Array.from({ length: 12 }, (_, index) => {
+    const value = index + 1;
+    return `<option value="${value}" ${point.month === value ? 'selected' : ''}>${new Intl.DateTimeFormat('de', { month: 'long' }).format(new Date(2024, index, 1))}</option>`;
+  }).join('');
+  return `
+    <div class="timeframe-point" data-timeframe-point="${key}">
+      <strong>${label}</strong>
+      <div class="timeframe-point-fields">
+        <button class="icon-button" type="button" data-timeframe-step="${key}" data-timeframe-step-delta="-1" aria-label="${label} ein Jahr früher">‹</button>
+        <input type="number" min="1" max="9999" value="${point.year}" data-timeframe-field="year" aria-label="${label} Jahr">
+        <button class="icon-button" type="button" data-timeframe-step="${key}" data-timeframe-step-delta="1" aria-label="${label} ein Jahr später">›</button>
+        ${point.precision !== 'year' ? `<select data-timeframe-field="month" aria-label="${label} Monat">${monthOptions}</select>` : ''}
+        ${point.precision === 'day' ? `<input type="number" min="1" max="31" value="${point.day || 1}" data-timeframe-field="day" aria-label="${label} Tag">` : ''}
+      </div>
+      <select data-timeframe-field="precision" aria-label="${label} Genauigkeit">
+        <option value="year" ${point.precision === 'year' ? 'selected' : ''}>Jahr</option>
+        <option value="month" ${point.precision === 'month' ? 'selected' : ''}>Monat</option>
+        <option value="day" ${point.precision === 'day' ? 'selected' : ''}>Tag</option>
+      </select>
+    </div>
+  `;
+}
+
+function handleTimeframeClick(event) {
+  const stepButton = event.target.closest('[data-timeframe-step]');
+  if (stepButton) {
+    const key = stepButton.dataset.timeframeStep;
+    const point = state.timeframe[key] || defaultTimeframePoint();
+    state.timeframe = {
+      ...state.timeframe,
+      [key]: stepTimeframePoint(point, Number(stepButton.dataset.timeframeStepDelta || 0)),
+    };
+    normalizeTimeframeRange();
+    applyTimeframeChange(true, event.type !== 'input');
+    return;
+  }
+
+  const action = event.target.closest('[data-timeframe-action]')?.dataset.timeframeAction;
+  if (!action) {
+    return;
+  }
+
+  if (action === 'toggle' || action === 'close') {
+    state.timeframeOpen = action === 'toggle' ? !state.timeframeOpen : false;
+    renderTimeframeControl();
+    return;
+  }
+  if (action === 'clear') {
+    state.timeframe = emptyTimeframe();
+  } else if (action === 'add-range') {
+    const start = state.timeframe.start || defaultTimeframePoint();
+    state.timeframe = { start, end: { ...start } };
+  } else if (action === 'remove-range') {
+    state.timeframe = { start: state.timeframe.start, end: null };
+  } else if (action === 'previous' || action === 'next') {
+    const delta = action === 'previous' ? -1 : 1;
+    const start = state.timeframe.start || defaultTimeframePoint();
+    state.timeframe = {
+      start: stepTimeframePoint(start, delta),
+      end: state.timeframe.end ? stepTimeframePoint(state.timeframe.end, delta) : null,
+    };
+  }
+  applyTimeframeChange(true, event.type !== 'input');
+}
+
+function handleTimeframeInput(event) {
+  if (event.target.matches('[data-timeframe-slider]')) {
+    const current = state.timeframe.start || defaultTimeframePoint();
+    state.timeframe = { start: updateTimeframePoint(current, { year: event.target.value }), end: state.timeframe.end };
+    applyTimeframeChange(true, event.type !== 'input');
+    return;
+  }
+
+  const root = event.target.closest('[data-timeframe-point]');
+  const field = event.target.dataset.timeframeField;
+  if (!root || !field) {
+    return;
+  }
+
+  const key = root.dataset.timeframePoint;
+  let point = state.timeframe[key] || defaultTimeframePoint();
+  point = field === 'precision'
+    ? setTimeframePointPrecision(point, event.target.value)
+    : updateTimeframePoint(point, { [field]: event.target.value });
+  state.timeframe = { ...state.timeframe, [key]: point };
+  normalizeTimeframeRange();
+  applyTimeframeChange(true, event.type !== 'input');
+}
+
+function handleTimeframeWheel(event) {
+  if (!event.target.closest('.timeframe-compact') || Math.abs(event.deltaY) < 1) {
+    return;
+  }
+  event.preventDefault();
+  const delta = event.deltaY > 0 ? -1 : 1;
+  const start = state.timeframe.start || defaultTimeframePoint();
+  state.timeframe = {
+    start: stepTimeframePoint(start, delta),
+    end: state.timeframe.end ? stepTimeframePoint(state.timeframe.end, delta) : null,
+  };
+  applyTimeframeChange();
+}
+
+function handleTimeframeKeydown(event) {
+  if (event.key === 'Escape' && state.timeframeOpen) {
+    state.timeframeOpen = false;
+    renderTimeframeControl();
+    timeframeControl.querySelector('.timeframe-value')?.focus();
+    return;
+  }
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.target.matches('select, input[type="number"]')) {
+    return;
+  }
+  event.preventDefault();
+  const delta = event.key === 'ArrowLeft' ? -1 : 1;
+  const start = state.timeframe.start || defaultTimeframePoint();
+  state.timeframe = {
+    start: stepTimeframePoint(start, delta),
+    end: state.timeframe.end ? stepTimeframePoint(state.timeframe.end, delta) : null,
+  };
+  applyTimeframeChange();
+}
+
+function handleTimeframeOutsideClick(event) {
+  if (!state.timeframeOpen || timeframeControl?.contains(event.target)) {
+    return;
+  }
+  state.timeframeOpen = false;
+  renderTimeframeControl();
+}
+
+function defaultTimeframePoint() {
+  const bounds = availableDataYearBounds();
+  return { year: bounds.max || new Date().getFullYear(), month: null, day: null, precision: 'year' };
+}
+
+function availableDataYearBounds() {
+  const years = [];
+  (state.objects.timepoints || []).forEach((timepoint) => {
+    const bounds = dateValueBounds(timepoint.date);
+    const start = dateKeyToParts(bounds?.start);
+    if (start?.year) {
+      years.push(start.year);
+    }
+  });
+  objectCollections.forEach((type) => {
+    (state.objects[type] || []).forEach((object) => {
+      JSON.stringify(object).replace(/\b(\d{4})-\d{2}-\d{2}\b/g, (_match, year) => {
+        years.push(Number(year));
+        return _match;
+      });
+    });
+  });
+  const current = new Date().getFullYear();
+  return {
+    min: years.length ? Math.min(...years) : current - 20,
+    max: years.length ? Math.max(...years) : current,
+  };
+}
+
+function normalizeTimeframeRange() {
+  if (!state.timeframe.start || !state.timeframe.end) {
+    return;
+  }
+  const startBounds = timeframeBounds({ start: state.timeframe.start, end: null });
+  const endBounds = timeframeBounds({ start: state.timeframe.end, end: null });
+  if (endBounds.end < startBounds.start) {
+    state.timeframe.end = { ...state.timeframe.start };
+  }
+}
+
+function applyTimeframeChange(updateUrl = true, renderControl = true) {
+  normalizeTimeframeRange();
+  if (updateUrl) {
+    if (state.status?.auth?.user) {
+      writeUrlState();
+    } else {
+      writeTreeGraphUrlState();
+    }
+  }
+  publicGraphSignature = '';
+  tribeGraphSignature = '';
+  contextGraphSignature = '';
+  if (renderControl) {
+    renderTimeframeControl();
+  } else {
+    updateTimeframeCompactValue();
+  }
+  renderSectionCounts();
+  renderCollectionControls();
+  objectCollections.forEach((type) => {
+    if (!document.querySelector(`#view-${cssEscape(type)} [data-object-editor]`)) {
+      renderObjectCollection(type);
+    }
+  });
+  applyTimeframeToOpenEditors();
+  renderGlobalSearchResults();
+  renderVisualizations();
+  scheduleContextGraphRender();
+}
+
+function applyTimeframeToOpenEditors() {
+  document.querySelectorAll('[data-object-type][data-object-id]').forEach((item) => {
+    const type = item.dataset.objectType;
+    const object = findReferenceObject(type, item.dataset.objectId);
+    if (!object) {
+      return;
+    }
+    if (!item.querySelector('[data-object-editor]')) {
+      item.hidden = !objectRelevantToTimeframe(type, object);
+      return;
+    }
+    item.hidden = false;
+    item.classList.toggle('is-outside-timeframe', !objectRelevantToTimeframe(type, object));
+    item.querySelectorAll('[data-relationship-row-key]').forEach((row) => {
+      const relevant = relationshipRowRelevantToTimeframe(type, object, row.dataset.relationshipRowKey);
+      row.hidden = !relevant && item.dataset.dirty !== '1' && row.dataset.dirty !== '1';
+    });
+  });
 }
 
 function viewCollectionType(view) {
@@ -1221,7 +1536,7 @@ async function refreshActivatedView(viewName) {
     return;
   }
 
-  if (viewName === 'tree') {
+  if (visualizationViews.includes(viewName)) {
     if (canAccessObjects() && !hasPendingObjectEdits()) {
       try {
         await loadObjects();
@@ -1229,7 +1544,7 @@ async function refreshActivatedView(viewName) {
         console.error(error);
       }
     }
-    renderTreeGraph();
+    renderVisualizations();
     return;
   }
 
@@ -1313,6 +1628,7 @@ function renderGlobalSearchResults() {
   }
 
   const matches = objectCollections.flatMap((type) => (state.objects[type] || []).map((object) => ({ type, object })))
+    .filter(({ type, object }) => objectRelevantToTimeframe(type, object))
     .filter(({ type, object }) => collectionSearchText(type, object).toLocaleLowerCase('de').includes(query))
     .slice(0, 10);
 
@@ -1400,6 +1716,9 @@ function renderShell() {
   if (sourceControl) {
     sourceControl.hidden = !user || accountOpen || !hasPermission('write');
   }
+  if (timeframeControl) {
+    timeframeControl.hidden = accountOpen || isSetupPage || state.loginOpen || isLoginLinkPage;
+  }
   loginButton.hidden = Boolean(user);
   logoutButton.hidden = !user;
   currentUserLabel.hidden = !user;
@@ -1414,6 +1733,7 @@ function renderShell() {
   if (user) {
     currentUserName.textContent = user.display_name || user.username || 'Eingeloggt';
   }
+  renderTimeframeControl();
   updateSourceControl();
 
   const canManageUsers = hasPermission('manage_users');
@@ -2252,7 +2572,8 @@ async function readJsonResponse(response) {
 }
 
 function render() {
-  renderTreeGraph();
+  renderTimeframeControl();
+  renderVisualizations();
   renderSectionCounts();
   renderCollectionControls();
   renderObjectCollections();
@@ -2352,6 +2673,16 @@ function renderTreeGraph() {
 
   renderPublicGraphFilter(root, groupTypes, groups);
   renderPublicGraph(root, groups, people, roles, groupTypes);
+}
+
+function renderVisualizations() {
+  renderTreeGraph();
+  if (currentViewName() === 'tribe') {
+    renderTribeGraph();
+  }
+  if (currentViewName() === 'timeline') {
+    renderTimelineVisualization();
+  }
 }
 
 function handlePublicGraphFilterChange(event) {
@@ -2483,7 +2814,9 @@ function renderPublicGraphFilter(root, groupTypes, groups = []) {
 }
 
 function availableTreeGroupTypeIds(groups) {
-  return new Set((groups || []).flatMap((group) => (objectId(group) ? groupTypeIds(group) : [])));
+  return new Set((groups || []).flatMap((group) => (
+    objectId(group) && objectRelevantToTimeframe('groups', group) ? groupTypeIds(group) : []
+  )));
 }
 
 function renderPublicGraph(root, groups, people, roles, groupTypes) {
@@ -2499,7 +2832,11 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
     return;
   }
 
-  const graph = publicGraphData(groups, people, roles, groupTypes, state.publicGraphGroupType);
+  const graph = lineageGraphData(groups, people, roles, groupTypes, state.publicGraphGroupType);
+  renderVisualizationSummary(root.querySelector('[data-visualization-summary="tree"]'), [
+    `${graph.nodes.length} Gruppen`,
+    `${graph.edges.length} Verbindungen`,
+  ]);
   if (!graph.nodes.length) {
     if (publicNetwork) {
       publicNetwork.destroy();
@@ -2528,7 +2865,375 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
     edges: new visNetwork.DataSet(graph.edges),
   }, publicGraphOptions(graph));
 
+  bindVisualizationNetwork(publicNetwork, graph);
   settleGraph(publicNetwork, graph);
+}
+
+function renderTribeGraph() {
+  const container = document.querySelector('[data-visualization-graph="tribe"]');
+  const status = document.querySelector('[data-visualization-status="tribe"]');
+  const summary = document.querySelector('[data-visualization-summary="tribe"]');
+  if (!container) {
+    return;
+  }
+
+  const graph = tribeGraphData();
+  renderVisualizationSummary(summary, [
+    `${graph.nodes.length} Gruppen`,
+    `${graph.memberCount} bekannte Mitglieder`,
+    `${graph.leaderCount} bekannte Leitungen`,
+  ]);
+  if (!graph.nodes.length) {
+    destroyTribeGraph();
+    setTreeGraphStatus(status, state.timeframe.start ? 'Keine Gruppen im gewählten Zeitraum.' : 'Noch keine Gruppen mit Zeitraum.');
+    return;
+  }
+
+  const visNetwork = window.vis;
+  if (!visNetwork?.Network || !visNetwork?.DataSet) {
+    setTreeGraphStatus(status, 'Graph-Bibliothek konnte nicht geladen werden.');
+    return;
+  }
+  const signature = JSON.stringify(graph);
+  if (signature === tribeGraphSignature && tribeNetwork) {
+    tribeNetwork.redraw();
+    return;
+  }
+
+  destroyTribeGraph();
+  tribeGraphSignature = signature;
+  setTreeGraphStatus(status, '');
+  tribeNetwork = new visNetwork.Network(container, {
+    nodes: new visNetwork.DataSet(graph.nodes),
+    edges: new visNetwork.DataSet(graph.edges),
+  }, publicGraphOptions(graph));
+  bindVisualizationNetwork(tribeNetwork, graph);
+  settleGraph(tribeNetwork, graph);
+}
+
+function destroyTribeGraph() {
+  tribeNetwork?.destroy();
+  tribeNetwork = null;
+  tribeGraphSignature = '';
+}
+
+function tribeGraphData() {
+  const groups = (state.objects.groups || []).filter((group) => objectRelevantToTimeframe('groups', group));
+  const groupIds = new Set(groups.map(objectId));
+  const memberIds = new Set();
+  const leaderIds = new Set();
+  const counts = new Map(groups.map((group) => [objectId(group), { members: new Set(), leaders: new Set() }]));
+
+  (state.objects.people || []).forEach((person) => {
+    const personId = objectId(person);
+    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
+      const groupId = periodEntryGroupId(membership);
+      if (groupIds.has(groupId) && relationshipRelevantToTimeframe('membership', membership)) {
+        counts.get(groupId).members.add(personId);
+        memberIds.add(personId);
+      }
+    });
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
+      const groupId = periodEntryGroupId(activity);
+      const role = findReferenceObject('roles', activityRoleId(activity));
+      if (groupIds.has(groupId) && isLeadershipRole(role) && relationshipRelevantToTimeframe('activity', activity)) {
+        counts.get(groupId).leaders.add(personId);
+        leaderIds.add(personId);
+      }
+    });
+  });
+
+  const nodes = groups.map((group, index) => {
+    const id = objectId(group);
+    const groupCounts = counts.get(id);
+    return {
+      id: `group:${id}`,
+      label: publicGraphEntryLabel([
+        publicGroupName(group, index),
+        timeframeGroupTypeLabel(group),
+        `${groupCounts.members.size} bekannte Mitglieder`,
+        `${groupCounts.leaders.size} bekannte Leitungen`,
+      ]),
+      title: publicGraphTitle([
+        `${groupCounts.members.size} bekannte Mitglieder`,
+        ...Array.from(groupCounts.members).map((personId) => objectListTitle('people', findReferenceObject('people', personId) || {})),
+        `${groupCounts.leaders.size} bekannte Leitungen`,
+        ...Array.from(groupCounts.leaders).map((personId) => objectListTitle('people', findReferenceObject('people', personId) || {})),
+      ]),
+      group: 'group',
+      shape: 'box',
+      navigation: { type: 'groups', id },
+    };
+  });
+  const edgeIds = new Set();
+  const edges = [];
+  groups.forEach((group) => {
+    groupPhaseEntries(group)
+      .filter(({ phase }) => relationshipRelevantToTimeframe('phase', phase))
+      .forEach(({ phase, rowKey }) => {
+        const parentId = groupPhaseParentGroupId(phase);
+        const id = `${parentId}:${objectId(group)}:${rowKey}`;
+        if (!parentId || !groupIds.has(parentId) || edgeIds.has(id)) {
+          return;
+        }
+        edgeIds.add(id);
+        edges.push({
+          id: `composition:${id}`,
+          from: `group:${parentId}`,
+          to: `group:${objectId(group)}`,
+          label: periodYearLabel(phase.period),
+          arrows: 'to',
+          group: 'type',
+          navigation: { type: 'groups', id: objectId(group), edit: rowKey },
+        });
+      });
+  });
+
+  return {
+    nodes,
+    edges,
+    layout: 'top-down',
+    memberCount: memberIds.size,
+    leaderCount: leaderIds.size,
+  };
+}
+
+function bindVisualizationNetwork(network, graph) {
+  const nodes = new Map((graph.nodes || []).map((node) => [node.id, node]));
+  const edges = new Map((graph.edges || []).map((edge) => [edge.id, edge]));
+  network.on('click', (event) => {
+    const entry = event.edges?.length ? edges.get(event.edges[0]) : nodes.get(event.nodes?.[0]);
+    if (entry?.navigation) {
+      navigateToVisualizationTarget(entry.navigation);
+    }
+  });
+}
+
+async function navigateToVisualizationTarget(target) {
+  if (!state.status?.auth?.user || !target?.type || !target.id) {
+    return;
+  }
+  if (!(await canSwitchToView(target.type))) {
+    return;
+  }
+  clearCollectionNarrowingForDeepLink(target.type);
+  state.deepLinkTarget = { view: target.type, id: target.id, edit: target.edit || '' };
+  activateView(target.type, { id: target.id, edit: target.edit || '' });
+  await refreshActivatedView(target.type);
+  applyDeepLinkTarget();
+}
+
+function renderVisualizationSummary(root, values) {
+  if (root) {
+    root.innerHTML = values.map((value) => `<span>${escapeHtml(value)}</span>`).join('');
+  }
+}
+
+function renderTimelineVisualization() {
+  const root = document.querySelector('[data-visualization-timeline]');
+  const status = document.querySelector('[data-visualization-status="timeline"]');
+  const summary = document.querySelector('[data-visualization-summary="timeline"]');
+  if (!root) {
+    return;
+  }
+
+  const data = timelineVisualizationData();
+  renderVisualizationSummary(summary, [
+    data.periodLabel,
+    `${data.groupCount} Gruppen`,
+    `${data.leadershipCount} bekannte Stammesführungen`,
+  ]);
+  if (!data.lanes.length) {
+    root.innerHTML = '';
+    setTreeGraphStatus(status, 'Keine datierten Gruppen oder Stammesführungen im gewählten Zeitraum.');
+    return;
+  }
+  setTreeGraphStatus(status, '');
+  const ticks = timelineTicks(data.start, data.end);
+  root.innerHTML = `
+    <div class="timeline-chart">
+      <div class="timeline-axis">${ticks.map((tick) => `<span class="timeline-tick" style="left:${tick.left}%"><span>${tick.label}</span></span>`).join('')}</div>
+      ${data.lanes.map((lane) => `
+        <div class="timeline-lane" style="min-height:${Math.max(46, lane.rowCount * 36 + 10)}px">
+          <span class="timeline-lane-label" title="${escapeAttribute(lane.label)}">${escapeHtml(lane.label)}</span>
+          ${lane.segments.map((segment) => `
+            <button class="timeline-segment ${segment.leadership ? 'is-leadership' : ''} ${segment.openStart ? 'is-open-start' : ''} ${segment.openEnd ? 'is-open-end' : ''}" type="button"
+              style="left:${segment.left}%;width:${segment.width}%;top:${8 + segment.row * 36}px"
+              data-visualization-target-type="${escapeAttribute(segment.navigation.type)}"
+              data-visualization-target-id="${escapeAttribute(segment.navigation.id)}"
+              data-visualization-target-edit="${escapeAttribute(segment.navigation.edit || '')}"
+              title="${escapeAttribute(segment.title)}">${escapeHtml(segment.label)}</button>
+          `).join('')}
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function timelineVisualizationData() {
+  const rawLanes = [];
+  const allBounds = [];
+  const leadershipSegments = [];
+  (state.objects.people || []).forEach((person) => {
+    (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
+      const role = findReferenceObject('roles', activityRoleId(activity));
+      if (!isTribeLeadershipRole(role)) {
+        return;
+      }
+      const bounds = effectiveActivityBounds(activity);
+      if (!bounds || (state.timeframe.start && !boundsOverlap(bounds, timeframeBounds(state.timeframe)))) {
+        return;
+      }
+      allBounds.push(bounds);
+      leadershipSegments.push({
+        bounds,
+        label: objectListTitle('people', person),
+        title: [objectListTitle('people', person), objectLabel(role, 'roles'), relationshipPeriodLabel(activity.period)].filter(Boolean).join(' · '),
+        navigation: { type: 'people', id: objectId(person), edit: `activities:${index}` },
+        leadership: true,
+      });
+    });
+  });
+  if (leadershipSegments.length) {
+    rawLanes.push({ label: 'Stammesführung', segments: leadershipSegments });
+  }
+
+  (state.objects.groups || []).forEach((group) => {
+    const segments = groupPhaseEntries(group).flatMap(({ phase, rowKey }) => {
+      const bounds = effectivePhaseBounds(phase);
+      if (!bounds || (state.timeframe.start && !boundsOverlap(bounds, timeframeBounds(state.timeframe)))) {
+        return [];
+      }
+      allBounds.push(bounds);
+      const type = objectLabel(findReferenceObject('group-types', groupPhaseTypeId(phase)), 'group-types');
+      const parent = objectLabel(findReferenceObject('groups', groupPhaseParentGroupId(phase)), 'groups');
+      return [{
+        bounds,
+        label: type || objectListTitle('groups', group),
+        title: [type, parent ? `unter ${parent}` : '', relationshipPeriodLabel(phase.period)].filter(Boolean).join(' · '),
+        navigation: { type: 'groups', id: objectId(group), edit: rowKey },
+      }];
+    });
+    if (segments.length) {
+      rawLanes.push({ label: objectListTitle('groups', group), segments });
+    }
+  });
+
+  const domain = timelineDomain(allBounds);
+  if (!domain) {
+    return { lanes: [], start: 0, end: 0, groupCount: 0, leadershipCount: 0, periodLabel: timeframeLabel(state.timeframe) };
+  }
+  const startMs = dateKeyTimestamp(domain.start);
+  const endMs = dateKeyTimestamp(domain.end);
+  const duration = Math.max(1, endMs - startMs);
+  const lanes = rawLanes.map((lane) => {
+    const segments = lane.segments.flatMap((segment) => {
+      const clipped = clipTimelineBounds(segment.bounds, domain);
+      if (!clipped) {
+        return [];
+      }
+      const left = ((dateKeyTimestamp(clipped.start) - startMs) / duration) * 100;
+      const width = Math.max(0.8, ((dateKeyTimestamp(clipped.end) - dateKeyTimestamp(clipped.start)) / duration) * 100);
+      return [{
+        ...segment,
+        left,
+        width,
+        openStart: segment.bounds.start === null || segment.bounds.start < domain.start,
+        openEnd: segment.bounds.end === null || segment.bounds.end > domain.end,
+      }];
+    });
+    const packed = packTimelineSegments(segments);
+    return { ...lane, segments: packed.segments, rowCount: packed.rowCount };
+  }).filter((lane) => lane.segments.length);
+
+  return {
+    lanes,
+    start: domain.start,
+    end: domain.end,
+    groupCount: lanes.filter((lane) => lane.label !== 'Stammesführung').length,
+    leadershipCount: leadershipSegments.length,
+    periodLabel: `${dateKeyLabel(domain.start)}–${dateKeyLabel(domain.end)}`,
+  };
+}
+
+function packTimelineSegments(segments) {
+  const rowEnds = [];
+  const packed = segments
+    .slice()
+    .sort((left, right) => left.left - right.left || right.width - left.width)
+    .map((segment) => {
+      const end = segment.left + segment.width;
+      let row = rowEnds.findIndex((rowEnd) => rowEnd <= segment.left);
+      if (row === -1) {
+        row = rowEnds.length;
+      }
+      rowEnds[row] = end;
+      return { ...segment, row };
+    });
+  return { segments: packed, rowCount: Math.max(1, rowEnds.length) };
+}
+
+function isTribeLeadershipRole(role) {
+  const label = foldSearchText(role?.label || role?.name || '');
+  return label.includes('stammesfuhrung') && !label.includes('stellv');
+}
+
+function timelineDomain(boundsList) {
+  const scope = timeframeBounds(state.timeframe);
+  if (scope) {
+    return scope;
+  }
+  const combined = combineBounds(boundsList);
+  if (!combined) {
+    return null;
+  }
+  const known = boundsList.flatMap((bounds) => [bounds?.start, bounds?.end]).filter(Number.isFinite);
+  return {
+    start: combined.start ?? Math.min(...known),
+    end: combined.end ?? Math.max(...known),
+  };
+}
+
+function clipTimelineBounds(bounds, domain) {
+  const start = Math.max(bounds.start ?? domain.start, domain.start);
+  const end = Math.min(bounds.end ?? domain.end, domain.end);
+  return start <= end ? { start, end } : null;
+}
+
+function timelineTicks(start, end) {
+  const startYear = dateKeyToParts(start)?.year;
+  const endYear = dateKeyToParts(end)?.year;
+  if (!startYear || !endYear) {
+    return [];
+  }
+  const step = Math.max(1, Math.ceil((endYear - startYear + 1) / 10));
+  const startMs = dateKeyTimestamp(start);
+  const duration = Math.max(1, dateKeyTimestamp(end) - startMs);
+  const ticks = [];
+  for (let year = startYear; year <= endYear; year += step) {
+    ticks.push({
+      label: String(year),
+      left: ((Date.UTC(year, 0, 1) - startMs) / duration) * 100,
+    });
+  }
+  return ticks;
+}
+
+function dateKeyTimestamp(key) {
+  const parts = dateKeyToParts(key);
+  return parts ? Date.UTC(parts.year, parts.month - 1, parts.day) : 0;
+}
+
+function handleVisualizationClick(event) {
+  const button = event.target.closest('[data-visualization-target-type][data-visualization-target-id]');
+  if (!button) {
+    return;
+  }
+  navigateToVisualizationTarget({
+    type: button.dataset.visualizationTargetType,
+    id: button.dataset.visualizationTargetId,
+    edit: button.dataset.visualizationTargetEdit || '',
+  });
 }
 
 function setTreeGraphStatus(status, text) {
@@ -2577,7 +3282,7 @@ function renderContextGraph() {
     return;
   }
 
-  if (['tree', 'users'].includes(currentViewName())) {
+  if ([...visualizationViews, 'users'].includes(currentViewName())) {
     destroyContextGraph();
     return;
   }
@@ -3682,8 +4387,10 @@ function addPersonContext(graph, person, options = {}) {
   const activities = Array.isArray(person.activities) ? person.activities : [];
 
   const membershipEntries = contextPeriodEntries(memberships, 'groups', periodEntryGroupId)
+    .filter(({ value }) => relationshipRelevantToTimeframe('membership', value))
     .slice(0, options.compact ? 4 : 16);
   const activityEntries = contextPeriodEntries(activities, 'groups', periodEntryGroupId, (activity) => objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles'))
+    .filter(({ value }) => relationshipRelevantToTimeframe('activity', value))
     .slice(0, options.compact ? 4 : 16);
 
   membershipEntries.forEach(({ value: membership, index }, slot) => {
@@ -3714,6 +4421,7 @@ function addGroupContext(graph, group, options = {}) {
   const groupNode = addContextNode(graph, 'groups', group, options.focus);
   placePrimaryContextNode(graph, groupNode, options);
   const phaseEntries = groupPhaseEntries(group)
+    .filter(({ phase }) => relationshipRelevantToTimeframe('phase', phase))
     .sort((left, right) => contextPeriodCompare(left.phase?.period, right.phase?.period, objectLabel(findReferenceObject('group-types', groupPhaseTypeId(left.phase)), 'group-types'), objectLabel(findReferenceObject('group-types', groupPhaseTypeId(right.phase)), 'group-types')));
   phaseEntries.forEach(({ phase, rowKey }, slot) => {
     const typeNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', groupPhaseTypeId(phase)));
@@ -3732,7 +4440,7 @@ function addGroupContext(graph, group, options = {}) {
     const personNode = addContextNode(graph, 'people', person);
     let matched = false;
     (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
-      if (periodEntryGroupId(membership) === objectId(group)) {
+      if (periodEntryGroupId(membership) === objectId(group) && relationshipRelevantToTimeframe('membership', membership)) {
         matched = true;
         placeRelationContextNode(graph, personNode, options, 'membership', used, limit);
         addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', relationshipPeriodLabel(membership.period)].filter(Boolean).join('\n'), 'membership', {
@@ -3743,7 +4451,7 @@ function addGroupContext(graph, group, options = {}) {
       }
     });
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
-      if (periodEntryGroupId(activity) === objectId(group)) {
+      if (periodEntryGroupId(activity) === objectId(group) && relationshipRelevantToTimeframe('activity', activity)) {
         matched = true;
         const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivität';
         placeRelationContextNode(graph, personNode, options, 'activity', used, limit);
@@ -3784,7 +4492,7 @@ function addGroupTypeContext(graph, groupType, options = {}) {
   });
 
   (state.objects.groups || [])
-    .filter((group) => groupTypeIds(group).includes(objectId(groupType)))
+    .filter((group) => objectRelevantToTimeframe('groups', group) && groupTypeIds(group).includes(objectId(groupType)))
     .sort((left, right) => compareCollectionObjects('groups', left, right))
     .slice(0, options.compact ? 5 : 18)
     .forEach((group, index) => {
@@ -3823,7 +4531,7 @@ function addRoleContext(graph, role, options = {}) {
   let used = 0;
   (state.objects.people || []).some((person) => {
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
-      if (activityRoleId(activity) !== objectId(role) || used >= limit) {
+      if (activityRoleId(activity) !== objectId(role) || used >= limit || !relationshipRelevantToTimeframe('activity', activity)) {
         return;
       }
       used += 1;
@@ -3847,7 +4555,7 @@ function addTimepointContext(graph, timepoint, options = {}) {
 
   (state.objects.groups || []).some((group) => {
     groupPhaseEntries(group).forEach(({ phase, rowKey }) => {
-      if (used >= limit || !periodTouchesTimepoint(timepoint, phase.period)) {
+      if (used >= limit || !relationshipRelevantToTimeframe('phase', phase) || !periodTouchesTimepoint(timepoint, phase.period)) {
         return;
       }
       used += 1;
@@ -3864,7 +4572,7 @@ function addTimepointContext(graph, timepoint, options = {}) {
 
   (state.objects.people || []).some((person) => {
     (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
-      if (used >= limit || !periodTouchesTimepoint(timepoint, membership.period)) {
+      if (used >= limit || !relationshipRelevantToTimeframe('membership', membership) || !periodTouchesTimepoint(timepoint, membership.period)) {
         return;
       }
       used += 1;
@@ -3877,7 +4585,7 @@ function addTimepointContext(graph, timepoint, options = {}) {
       });
     });
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
-      if (used >= limit || !periodTouchesTimepoint(timepoint, activity.period)) {
+      if (used >= limit || !relationshipRelevantToTimeframe('activity', activity) || !periodTouchesTimepoint(timepoint, activity.period)) {
         return;
       }
       used += 1;
@@ -4027,103 +4735,6 @@ function activeTreeGraphRoot() {
   }) || null;
 }
 
-function publicGraphData(groups, people, roles, groupTypes, groupTypeFilter = '') {
-  const nodes = [];
-  const edges = [];
-  const groupStats = publicGroupStats(groups, people);
-  const visibleGroups = groups.filter((group) => {
-    const id = objectId(group);
-    if (!id) {
-      return false;
-    }
-
-    return !groupTypeFilter || groupTypeIds(group).includes(groupTypeFilter);
-  });
-  const groupIds = new Set(visibleGroups.map(objectId).filter(Boolean));
-  const levelByGroupId = publicGraphGroupDateLevels(visibleGroups);
-
-  visibleGroups.forEach((group, index) => {
-    const id = objectId(group);
-    if (!id) {
-      return;
-    }
-
-    const type = groupTypeLabel(group, groupTypes);
-    const stats = groupStats.get(id) || { members: 0, activities: 0, span: '' };
-    nodes.push({
-      id: `group:${id}`,
-      label: publicGraphEntryLabel([
-        publicGroupLabel(group, groupTypes, index),
-        [type || 'Gruppe', stats.span].filter(Boolean).join(' · '),
-        publicGraphCountLine(stats.members, 'Mitgliedschaft', 'Mitgliedschaften'),
-        publicGraphCountLine(stats.activities, 'Aktivität', 'Aktivitäten'),
-      ]),
-      title: publicGraphTitle([
-        publicGroupLabel(group, groupTypes, index),
-        type ? `Gruppenart: ${type}` : '',
-        stats.span ? `Zeitraum: ${stats.span}` : '',
-        publicGraphCountLine(stats.members, 'Mitgliedschaft', 'Mitgliedschaften'),
-        publicGraphCountLine(stats.activities, 'Aktivität', 'Aktivitäten'),
-        String(group.description || '').trim(),
-      ]),
-      group: 'group',
-      level: levelByGroupId.get(id) || 0,
-      shape: 'box',
-    });
-  });
-
-  people.forEach((person, personIndex) => {
-    const personId = objectId(person);
-    if (!personId) {
-      return;
-    }
-
-    const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
-      .map((membership, index) => ({ membership, index, groupId: periodEntryGroupId(membership) }))
-      .filter((entry) => groupIds.has(entry.groupId));
-
-    const activities = (Array.isArray(person.activities) ? person.activities : [])
-      .map((activity, index) => ({ activity, index, groupId: periodEntryGroupId(activity) }))
-      .filter((entry) => groupIds.has(entry.groupId));
-
-    activities.forEach((activityEntry) => {
-      const sourceMemberships = memberships.filter((membershipEntry) => (
-        periodsCouldOverlap(membershipEntry.membership.period, {
-          startYear: periodStartYear(activityEntry.activity.period),
-          endYear: periodEndYear(activityEntry.activity.period),
-        })
-      ));
-
-      (sourceMemberships.length ? sourceMemberships : memberships).forEach((membershipEntry) => {
-        const role = publicRoleLabel(roles.find((candidate) => objectId(candidate) === activityRoleId(activityEntry.activity)));
-        const membershipYears = relationshipPeriodLabel(membershipEntry.membership.period);
-        const activityYears = relationshipPeriodLabel(activityEntry.activity.period);
-        const personLabel = publicPersonLabel(person, personIndex);
-        const sourceGroup = findReferenceObject('groups', membershipEntry.groupId);
-        const targetGroup = findReferenceObject('groups', activityEntry.groupId);
-        edges.push({
-          id: `membership-activity:${personId}:${membershipEntry.index}:${activityEntry.index}`,
-          from: `group:${membershipEntry.groupId}`,
-          to: `group:${activityEntry.groupId}`,
-          label: publicGraphEdgeLabel([personLabel, role, activityYears]),
-          title: publicGraphTitle([
-            personLabel,
-            role,
-            `Mitgliedschaft: ${objectLabel(sourceGroup, 'groups')}${membershipYears ? ` (${membershipYears})` : ''}`,
-            `Aktivität: ${objectLabel(targetGroup, 'groups')}${activityYears ? ` (${activityYears})` : ''}`,
-            String(person.description || '').trim(),
-          ]),
-          group: 'activity',
-          arrows: 'to',
-          width: 2.1,
-        });
-      });
-    });
-  });
-
-  return { nodes, edges, layout: 'top-down' };
-}
-
 function publicGraphGroupDateLevels(groups) {
   const entries = groups.map((group) => ({
     id: objectId(group),
@@ -4139,6 +4750,118 @@ function publicGraphGroupDateLevels(groups) {
     entry.id,
     Number.isFinite(entry.start) ? datedStarts.indexOf(entry.start) : fallbackLevel,
   ]));
+}
+
+function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '') {
+  const visibleGroups = groups.filter((group) => (
+    objectId(group)
+    && objectRelevantToTimeframe('groups', group)
+    && (!groupTypeFilter || groupTypeIds(group).includes(groupTypeFilter))
+  ));
+  const groupIds = new Set(visibleGroups.map(objectId));
+  const stats = publicGroupStats(visibleGroups, people);
+  const levels = publicGraphGroupDateLevels(visibleGroups);
+  const nodes = visibleGroups.map((group, index) => {
+    const id = objectId(group);
+    const type = groupTypeLabel(group, groupTypes);
+    const groupStats = stats.get(id) || { members: 0, activities: 0, span: '' };
+    return {
+      id: `group:${id}`,
+      label: publicGraphEntryLabel([
+        publicGroupName(group, index),
+        [type || 'Gruppe', groupStats.span].filter(Boolean).join(' · '),
+      ]),
+      title: publicGraphTitle([
+        publicGroupName(group, index),
+        groupStats.span ? `Zeitraum: ${groupStats.span}` : '',
+      ]),
+      group: 'group',
+      level: levels.get(id) || 0,
+      shape: 'box',
+      navigation: { type: 'groups', id },
+    };
+  });
+  const edgeMap = new Map();
+
+  people.forEach((person, personIndex) => {
+    const personId = objectId(person);
+    const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
+      .map((membership, index) => ({ membership, index, groupId: periodEntryGroupId(membership) }))
+      .filter((entry) => groupIds.has(entry.groupId));
+    const activities = (Array.isArray(person.activities) ? person.activities : [])
+      .map((activity, index) => ({
+        activity,
+        index,
+        groupId: periodEntryGroupId(activity),
+        role: roles.find((candidate) => objectId(candidate) === activityRoleId(activity)),
+      }))
+      .filter((entry) => groupIds.has(entry.groupId) && isLeadershipRole(entry.role));
+
+    activities.forEach((activityEntry) => {
+      memberships.forEach((membershipEntry) => {
+        if (!supportsGroupLineage(membershipEntry, activityEntry)) {
+          return;
+        }
+        const key = `${membershipEntry.groupId}:${activityEntry.groupId}`;
+        if (!edgeMap.has(key)) {
+          edgeMap.set(key, {
+            id: `lineage:${key}`,
+            from: `group:${membershipEntry.groupId}`,
+            to: `group:${activityEntry.groupId}`,
+            connections: [],
+          });
+        }
+        edgeMap.get(key).connections.push({
+          personId,
+          personLabel: publicPersonLabel(person, personIndex),
+          role: publicRoleLabel(activityEntry.role),
+          activityIndex: activityEntry.index,
+          period: relationshipPeriodLabel(activityEntry.activity.period),
+        });
+      });
+    });
+  });
+
+  const edges = Array.from(edgeMap.values()).map((edge) => {
+    const names = uniqueStrings(edge.connections.map((entry) => entry.personLabel));
+    const first = edge.connections[0];
+    return {
+      id: edge.id,
+      from: edge.from,
+      to: edge.to,
+      label: publicGraphEdgeLabel([names.length === 1 ? names[0] : `${names.length} Personen`, 'Verbindung']),
+      title: publicGraphTitle(edge.connections.map((entry) => [entry.personLabel, entry.role, entry.period].filter(Boolean).join(' · '))),
+      group: 'activity',
+      arrows: 'to',
+      width: 2.1,
+      navigation: first ? { type: 'people', id: first.personId, edit: `activities:${first.activityIndex}` } : null,
+    };
+  });
+
+  return { nodes, edges, layout: 'top-down' };
+}
+
+function isLeadershipRole(role) {
+  return /(fuhrung|leitung|sprecher)/.test(foldSearchText(role?.label || role?.name || ''));
+}
+
+function supportsGroupLineage(membershipEntry, activityEntry) {
+  if (!membershipEntry.groupId || membershipEntry.groupId === activityEntry.groupId) {
+    return false;
+  }
+  const membership = effectiveMembershipBounds(membershipEntry.membership);
+  const activity = effectiveActivityBounds(activityEntry.activity);
+  const target = effectiveGroupBounds(activityEntry.groupId);
+  if (!membership || !activity || !Number.isFinite(activity.start)) {
+    return false;
+  }
+  if (Number.isFinite(membership.start) && activity.start < membership.start) {
+    return false;
+  }
+  if (Number.isFinite(membership.end) && activity.start < membership.end - 10000) {
+    return false;
+  }
+  return !Number.isFinite(target?.start) || Math.abs(activity.start - target.start) <= 30000;
 }
 
 function publicGraphOptions(graph = {}) {
@@ -4322,12 +5045,6 @@ function publicPeriodSpan(periods) {
   }));
 }
 
-function publicGroupLabel(group, groupTypes, index) {
-  const type = groupTypeLabel(group, groupTypes);
-  const name = String(group.name || group.label || group.description || `Gruppe ${index + 1}`).trim();
-  return [type, name].filter(Boolean).join(' ');
-}
-
 function publicPersonLabel(person, index) {
   return String(person.description || `Person ${index + 1}`).trim();
 }
@@ -4344,16 +5061,13 @@ function publicGraphEntryLabel(lines) {
   return [`<b>${publicGraphShortLabel(clean[0], 34)}</b>`, ...clean.slice(1).map((line) => publicGraphShortLabel(line, 34))].join('\n');
 }
 
-function publicGraphCountLine(count, singular, plural) {
-  return `${Number(count || 0)} ${Number(count || 0) === 1 ? singular : plural}`;
-}
-
 function publicGraphEdgeLabel(lines) {
   return lines.map((line) => publicGraphShortLabel(line, 30)).filter(Boolean).join('\n');
 }
 
-function publicGraphTitle(_lines) {
-  return undefined;
+function publicGraphTitle(lines) {
+  const content = (lines || []).map((line) => String(line || '').trim()).filter(Boolean);
+  return content.length ? content.map(escapeHtml).join('<br>') : undefined;
 }
 
 function renderCreateForm(type, fields) {
@@ -4393,6 +5107,10 @@ function periodYearLabel(period) {
   return '';
 }
 
+function publicGroupName(group, index) {
+  return String(group.name || group.label || group.description || `Gruppe ${index + 1}`).trim();
+}
+
 function relationshipPeriodLabel(period) {
   return periodYearLabel(period) || 'gesamte Gruppenlaufzeit';
 }
@@ -4415,7 +5133,9 @@ function renderNavigationCounts() {
   const collections = state.status?.storage?.collections || {};
   const counts = Object.fromEntries(objectCollections.map((type) => [
     type,
-    Number(Array.isArray(state.objects[type]) ? state.objects[type].length : collections[type] || 0),
+    Number(Array.isArray(state.objects[type])
+      ? state.objects[type].filter((object) => objectRelevantToTimeframe(type, object)).length
+      : collections[type] || 0),
   ]));
   counts.users = state.users.length;
   counts.audit = state.auditLog.length;
@@ -4533,6 +5253,9 @@ function collectionFilterControls(type, filters) {
 function collectionTextFilterOptions(collection, field) {
   const byKey = new Map();
   (state.objects[collection] || []).forEach((object) => {
+    if (!objectRelevantToTimeframe(collection, object)) {
+      return;
+    }
     const text = String(object?.[field] || '').trim();
     const key = foldSearchText(text);
     if (!text || byKey.has(key)) {
@@ -4548,7 +5271,9 @@ function collectionTextFilterOptions(collection, field) {
 
 function collectionMultiSelectControl(type, name, label, collection, selectedValues = []) {
   const selected = new Set(Array.isArray(selectedValues) ? selectedValues : []);
-  const objects = (state.objects[collection] || []).slice()
+  const objects = (state.objects[collection] || [])
+    .filter((object) => objectRelevantToTimeframe(collection, object) || selected.has(objectId(object)))
+    .slice()
     .sort((left, right) => sortCollator.compare(objectLabel(left, collection), objectLabel(right, collection)));
 
   return `
@@ -4617,7 +5342,10 @@ function renderObjectCollection(type) {
   const more = objects.length > visibleObjects.length
     ? renderCollectionMoreButton(type, objects.length - visibleObjects.length)
     : '';
-  list.innerHTML = renderObjectListItems(type, visibleObjects) + more
+  const unknownNotice = state.timeframe.start && sourceObjects.some((object) => !objectHasTimeData(type, object))
+    ? '<p class="timeframe-notice">Einträge ohne ausreichende Zeitangabe sind ausgeblendet.</p>'
+    : '';
+  list.innerHTML = renderObjectListItems(type, visibleObjects) + more + unknownNotice
     || `<div class="empty-state">${sourceObjects.length ? 'Keine Treffer.' : `Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.`}</div>`;
   applyContextSplitRatio();
   scheduleContextGraphRender();
@@ -4692,6 +5420,10 @@ function collectionObjects(type) {
 }
 
 function collectionObjectMatches(type, object) {
+  if (!objectRelevantToTimeframe(type, object)) {
+    return false;
+  }
+
   const ui = collectionUi(type);
   const search = String(ui.search || '').trim().toLocaleLowerCase('de');
   if (search && !collectionSearchText(type, object).toLocaleLowerCase('de').includes(search)) {
@@ -4718,6 +5450,131 @@ function collectionObjectMatches(type, object) {
   }
 
   return true;
+}
+
+function objectRelevantToTimeframe(type, object) {
+  const scope = timeframeBounds(state.timeframe);
+  if (!scope) {
+    return true;
+  }
+
+  if (type === 'groups') {
+    return groupPhaseEntries(object).some(({ phase }) => boundsOverlap(effectivePhaseBounds(phase), scope));
+  }
+  if (type === 'people') {
+    return (Array.isArray(object.memberships) ? object.memberships : [])
+      .some((membership) => boundsOverlap(effectiveMembershipBounds(membership), scope))
+      || (Array.isArray(object.activities) ? object.activities : [])
+        .some((activity) => boundsOverlap(effectiveActivityBounds(activity), scope));
+  }
+  if (type === 'timepoints') {
+    return boundsOverlap(dateValueBounds(object.date), scope);
+  }
+  if (type === 'roles') {
+    const roleId = objectId(object);
+    return (state.objects.people || []).some((person) => (
+      (Array.isArray(person.activities) ? person.activities : [])
+        .some((activity) => activityRoleId(activity) === roleId && boundsOverlap(effectiveActivityBounds(activity), scope))
+    ));
+  }
+  if (type === 'group-types') {
+    const typeId = objectId(object);
+    return (state.objects.groups || []).some((group) => (
+      groupPhaseEntries(group).some(({ phase }) => (
+        groupPhaseTypeId(phase) === typeId && boundsOverlap(effectivePhaseBounds(phase), scope)
+      ))
+    ));
+  }
+  return true;
+}
+
+function objectHasTimeData(type, object) {
+  if (type === 'groups') {
+    return groupPhaseEntries(object).some(({ phase }) => Boolean(effectivePhaseBounds(phase)));
+  }
+  if (type === 'people') {
+    return (Array.isArray(object.memberships) ? object.memberships : []).some((entry) => Boolean(effectiveMembershipBounds(entry)))
+      || (Array.isArray(object.activities) ? object.activities : []).some((entry) => Boolean(effectiveActivityBounds(entry)));
+  }
+  if (type === 'timepoints') {
+    return Boolean(dateValueBounds(object.date));
+  }
+  if (type === 'roles') {
+    return (state.objects.people || []).some((person) => (
+      (Array.isArray(person.activities) ? person.activities : [])
+        .some((entry) => activityRoleId(entry) === objectId(object) && Boolean(effectiveActivityBounds(entry)))
+    ));
+  }
+  if (type === 'group-types') {
+    return (state.objects.groups || []).some((group) => (
+      groupPhaseEntries(group)
+        .some(({ phase }) => groupPhaseTypeId(phase) === objectId(object) && Boolean(effectivePhaseBounds(phase)))
+    ));
+  }
+  return true;
+}
+
+function effectivePhaseBounds(phase) {
+  return periodBounds(phase?.period, resolveTimepointDate);
+}
+
+function effectiveGroupBounds(groupOrId) {
+  const group = typeof groupOrId === 'string' ? findReferenceObject('groups', groupOrId) : groupOrId;
+  return combineBounds(groupPhaseEntries(group || {}).map(({ phase }) => effectivePhaseBounds(phase)));
+}
+
+function effectiveMembershipBounds(membership) {
+  return periodBounds(membership?.period, resolveTimepointDate)
+    || effectiveGroupBounds(periodEntryGroupId(membership));
+}
+
+function effectiveActivityBounds(activity) {
+  const explicit = periodBounds(activity?.period, resolveTimepointDate);
+  if (explicit) {
+    return explicit;
+  }
+
+  const group = findReferenceObject('groups', periodEntryGroupId(activity));
+  const role = findReferenceObject('roles', activityRoleId(activity));
+  const allowedTypes = new Set(roleGroupTypeIds(role || {}));
+  const phases = groupPhaseEntries(group || {})
+    .filter(({ phase }) => !allowedTypes.size || allowedTypes.has(groupPhaseTypeId(phase)))
+    .map(({ phase }) => effectivePhaseBounds(phase));
+  return combineBounds(phases);
+}
+
+function resolveTimepointDate(id) {
+  return id ? findReferenceObject('timepoints', id)?.date : null;
+}
+
+function relationshipRelevantToTimeframe(kind, value) {
+  const scope = timeframeBounds(state.timeframe);
+  if (!scope) {
+    return true;
+  }
+  if (kind === 'membership') {
+    return boundsOverlap(effectiveMembershipBounds(value), scope);
+  }
+  if (kind === 'activity') {
+    return boundsOverlap(effectiveActivityBounds(value), scope);
+  }
+  return boundsOverlap(effectivePhaseBounds(value), scope);
+}
+
+function relationshipRowRelevantToTimeframe(type, object, rowKey) {
+  if (!rowKey || !state.timeframe.start) {
+    return true;
+  }
+  if (rowKey === 'mainPhase') {
+    return relationshipRelevantToTimeframe('phase', object.mainPhase);
+  }
+  const match = /^(additionalPhases|memberships|activities):(\d+)$/.exec(rowKey);
+  if (!match) {
+    return true;
+  }
+  const value = object[match[1]]?.[Number(match[2])];
+  const kind = match[1] === 'memberships' ? 'membership' : (match[1] === 'activities' ? 'activity' : 'phase');
+  return relationshipRelevantToTimeframe(kind, value);
 }
 
 function collectionSearchText(type, object) {
@@ -5012,9 +5869,10 @@ function renderObjectItem(type, object) {
   const titleAttrs = `type="button" data-object-action="toggle-editor" aria-expanded="${isEditing ? 'true' : 'false'}"`;
   const warnings = objectValidationWarnings(type, object);
   const hasStatusMeta = Boolean(modified || warnings.length);
+  const outsideTimeframe = !objectRelevantToTimeframe(type, object);
 
   return `
-    <article class="list-item object-item is-clickable ${canWrite ? '' : 'is-readonly'} ${isEditing ? 'is-editing' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}" data-initial-object="${state.initialObjects.has(key) ? '1' : '0'}">
+    <article class="list-item object-item is-clickable ${canWrite ? '' : 'is-readonly'} ${isEditing ? 'is-editing' : ''} ${outsideTimeframe ? 'is-outside-timeframe' : ''}" data-object-type="${escapeAttribute(type)}" data-object-id="${escapeAttribute(objectId(object))}" data-revision="${Number(object._revision || 0)}" data-initial-object="${state.initialObjects.has(key) ? '1' : '0'}">
       <div class="object-main">
         <button class="object-title-row" ${titleAttrs}>
           <span class="object-title-text">
@@ -5030,6 +5888,7 @@ function renderObjectItem(type, object) {
             </ul>
           </span>
         </button>
+        ${outsideTimeframe && isEditing ? '<p class="timeframe-notice">Außerhalb des gewählten Zeitraums</p>' : ''}
         ${summary ? `<p class="object-summary">${escapeHtml(summary)}</p>` : ''}
         ${isEditing ? renderObjectEditor(type, object) : ''}
         ${type === 'groups' ? renderGroupReverseView(object, { editable: isEditing && canWrite }) : ''}
@@ -5047,13 +5906,13 @@ function renderGroupReverseView(group, options = {}) {
 
   (state.objects.people || []).forEach((person) => {
     (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
-      if (periodEntryGroupId(membership) === groupId) {
+      if (periodEntryGroupId(membership) === groupId && relationshipRelevantToTimeframe('membership', membership)) {
         memberships.push({ person, value: membership, period: membership.period, rowKey: `memberships:${index}`, index });
       }
     });
 
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
-      if (periodEntryGroupId(activity) === groupId) {
+      if (periodEntryGroupId(activity) === groupId && relationshipRelevantToTimeframe('activity', activity)) {
         activities.push({ person, value: activity, role: findReferenceObject('roles', activityRoleId(activity)), period: activity.period, rowKey: `activities:${index}`, index });
       }
     });
@@ -5127,6 +5986,7 @@ function nestedEditUrl(type, id, edit) {
   params.set('view', type);
   params.set('id', id);
   params.set('edit', edit);
+  writeTimeframeSearchParams(params, state.timeframe);
   return `${window.location.pathname}?${params.toString()}`;
 }
 
@@ -5718,6 +6578,7 @@ function objectUrl(type, id) {
   const params = new URLSearchParams();
   params.set('view', type);
   params.set('id', id);
+  writeTimeframeSearchParams(params, state.timeframe);
   return `${window.location.pathname}?${params.toString()}`;
 }
 
@@ -5749,10 +6610,22 @@ function referenceOptions(collection, showIds = false, config = {}) {
     options.push(`<option value="${escapeAttribute(config.actionValue)}">${escapeHtml(config.actionLabel)}</option>`);
   }
 
-  objects.forEach((object) => {
+  const optionHtml = (object) => {
     const id = objectId(object);
-    options.push(`<option value="${escapeAttribute(id)}" ${id === current ? 'selected' : ''}>${escapeHtml(referenceOptionLabel(object, collection, objects, showIds))}</option>`);
-  });
+    return `<option value="${escapeAttribute(id)}" ${id === current ? 'selected' : ''}>${escapeHtml(referenceOptionLabel(object, collection, objects, showIds))}</option>`;
+  };
+  if (state.timeframe.start && objectCollections.includes(collection)) {
+    const inScope = objects.filter((object) => objectRelevantToTimeframe(collection, object));
+    const outOfScope = objects.filter((object) => !objectRelevantToTimeframe(collection, object));
+    if (inScope.length) {
+      options.push(`<optgroup label="Im Zeitraum">${inScope.map(optionHtml).join('')}</optgroup>`);
+    }
+    if (outOfScope.length) {
+      options.push(`<optgroup label="Außerhalb des Zeitraums">${outOfScope.map(optionHtml).join('')}</optgroup>`);
+    }
+  } else {
+    objects.forEach((object) => options.push(optionHtml(object)));
+  }
 
   return options.join('');
 }
@@ -6071,8 +6944,9 @@ function renderGroupTypeAddSelect(selectedValues = []) {
 }
 
 function renderGroupPhaseField(field, value, context = {}) {
+  const hidden = value && !relationshipRelevantToTimeframe('phase', value);
   return `
-    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
+    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}" ${hidden ? 'hidden' : ''}>
       <div class="composite-header">
         <span>${escapeHtml(field.label)}</span>
       </div>
@@ -6100,6 +6974,19 @@ function renderObjectListField(field, value, context = {}) {
   `;
 }
 
+function complexItemRelevantToTimeframe(kind, value) {
+  if (kind === 'membership-list') {
+    return relationshipRelevantToTimeframe('membership', value);
+  }
+  if (kind === 'activity-list') {
+    return relationshipRelevantToTimeframe('activity', value);
+  }
+  if (kind === 'group-phase-list' || kind === 'group-phase') {
+    return relationshipRelevantToTimeframe('phase', value);
+  }
+  return true;
+}
+
 function renderComplexListItem(kind, value = {}, context = {}) {
   const hasValue = complexItemHasValue(kind, value);
   const rowKey = relationshipRowKey(context);
@@ -6113,8 +7000,9 @@ function renderComplexListItem(kind, value = {}, context = {}) {
   const canRemove = !context.disableRemove;
   const deleteLabel = hasEditToggle ? `${summary} löschen` : '';
   const referenceLink = relationshipReferenceLinkHtml(kind, value);
+  const hidden = hasValue && !complexItemRelevantToTimeframe(kind, value);
   return `
-    <div class="composite-item ${summary ? 'has-summary' : ''} ${referenceLink ? 'has-navigation' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
+    <div class="composite-item ${summary ? 'has-summary' : ''} ${referenceLink ? 'has-navigation' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}" ${hidden ? 'hidden' : ''}>
       ${summary ? `
         <button class="composite-summary" type="button" data-list-action="toggle" aria-expanded="${isCollapsed ? 'false' : 'true'}">
           ${compositeSummaryHtml(summary, warnings)}
@@ -8931,6 +9819,12 @@ async function flushObjectEdit(item, force) {
       item.dataset.lastSavedPayload = payloadKey;
       clearNewGroupPhaseMarkers(item);
       setObjectSaveState(item, 'Gespeichert', false, true);
+      if (state.timeframe.start) {
+        applyTimeframeToOpenEditors();
+        if (!objectRelevantToTimeframe(type, response.object)) {
+          setObjectSaveState(item, 'Gespeichert · außerhalb des gewählten Zeitraums', false, true);
+        }
+      }
     } else {
       item.dataset.dirty = '1';
       scheduleObjectSave(item, 900);
@@ -9890,7 +10784,7 @@ function objectListTitle(type, object) {
   }
 
   if (type === 'groups') {
-    const groupType = groupTypeLabel(object, state.groupTypes || []) || 'Gruppe';
+    const groupType = timeframeGroupTypeLabel(object) || 'Gruppe';
     const name = object.name || object.label || object.description;
     return name ? [groupType, name].filter(Boolean).join(' ') : fallbackObjectTitle(type, id);
   }
@@ -9898,9 +10792,17 @@ function objectListTitle(type, object) {
   return objectLabel(object, type);
 }
 
+function timeframeGroupTypeLabel(group) {
+  const phase = groupPhaseEntries(group)
+    .find((entry) => relationshipRelevantToTimeframe('phase', entry.phase))?.phase;
+  return objectLabel(findReferenceObject('group-types', groupPhaseTypeId(phase)), 'group-types')
+    || groupTypeLabel(group, state.groupTypes || []);
+}
+
 function objectPropertyTags(type, object) {
   if (type === 'people') {
     const roleIds = uniqueStrings((Array.isArray(object.activities) ? object.activities : [])
+      .filter((activity) => relationshipRelevantToTimeframe('activity', activity))
       .map((activity) => activityRoleId(activity))
       .filter(Boolean));
     return roleIds
@@ -9909,7 +10811,9 @@ function objectPropertyTags(type, object) {
   }
 
   if (type === 'groups') {
-    return groupTypeIds(object)
+    return uniqueStrings(groupPhaseEntries(object)
+      .filter(({ phase }) => relationshipRelevantToTimeframe('phase', phase))
+      .map(({ phase }) => groupPhaseTypeId(phase)))
       .map((id) => referenceLabelForSubtitle('group-types', id, 'Gruppenart'))
       .filter(Boolean);
   }
@@ -9927,8 +10831,14 @@ function objectPropertyTagsHtml(tags) {
 
 function objectListMeta(type, object) {
   if (type === 'groups') {
-    const period = object.mainPhase && typeof object.mainPhase === 'object' ? object.mainPhase.period : null;
-    return periodYearLabel(period) || 'offener Zeitraum';
+    if (!state.timeframe.start) {
+      const period = object.mainPhase && typeof object.mainPhase === 'object' ? object.mainPhase.period : null;
+      return periodYearLabel(period) || 'offener Zeitraum';
+    }
+    const periods = groupPhaseEntries(object)
+      .filter(({ phase }) => relationshipRelevantToTimeframe('phase', phase))
+      .map(({ phase }) => phase.period);
+    return publicPeriodSpan(periods) || 'offener Zeitraum';
   }
 
   if (type === 'timepoints') {
@@ -10002,8 +10912,10 @@ function ageDisplayValue(value) {
 function personRelationshipSpan(person) {
   const periods = [
     ...(Array.isArray(person.memberships) ? person.memberships : [])
+      .filter((entry) => relationshipRelevantToTimeframe('membership', entry))
       .flatMap((entry) => effectiveRelationshipPeriods(entry, 'membership')),
     ...(Array.isArray(person.activities) ? person.activities : [])
+      .filter((entry) => relationshipRelevantToTimeframe('activity', entry))
       .flatMap((entry) => effectiveRelationshipPeriods(entry, 'activity')),
   ]
     .filter((period) => period && typeof period === 'object' && periodHasValue(period));
