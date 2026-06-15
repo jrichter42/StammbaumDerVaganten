@@ -87,7 +87,7 @@ const emptyCollectionLabels = {
 };
 
 const objectCollections = ['people', 'groups', 'group-types', 'roles', 'timepoints'];
-const visualizationViews = ['tree', 'tribe', 'timeline'];
+const visualizationViews = ['tree', 'timeline'];
 const contextGraphTypeGroups = {
   data: ['people', 'groups', 'timepoints'],
   structure: ['roles', 'group-types'],
@@ -349,8 +349,6 @@ let isSetupPage = false;
 let isLoginLinkPage = Boolean(urlLoginToken);
 let publicNetwork = null;
 let publicGraphSignature = '';
-let tribeNetwork = null;
-let tribeGraphSignature = '';
 let contextNetwork = null;
 let contextGraphSignature = '';
 let contextGraphFrame = 0;
@@ -631,7 +629,6 @@ function activateView(viewName, urlExtra = {}) {
   writeUrlState({ view: viewName, ...urlExtra });
   if (visualizationViews.includes(viewName)) {
     publicGraphSignature = '';
-    tribeGraphSignature = '';
     renderVisualizations();
   }
   if ((viewName === 'log' || viewName === 'audit') && previousViewName !== viewName) {
@@ -686,8 +683,8 @@ function restoreUrlState() {
   state.timeframe = timeframeFromSearchParams(params);
   state.publicGraphGroupType = params.get('group-type') || params.get('gruppenart') || params.get('groupType') || '';
 
-  if (visualizationViews.includes(view)) {
-    window.requestAnimationFrame(() => activateView(view));
+  if (visualizationViews.includes(view) || view === 'tribe') {
+    window.requestAnimationFrame(() => activateView(view === 'tribe' ? 'tree' : view));
     return;
   }
 
@@ -1023,7 +1020,6 @@ function applyTimeframeChange(updateUrl = true, renderControl = true) {
     }
   }
   publicGraphSignature = '';
-  tribeGraphSignature = '';
   contextGraphSignature = '';
   if (renderControl) {
     renderTimeframeControl();
@@ -2677,9 +2673,6 @@ function renderTreeGraph() {
 
 function renderVisualizations() {
   renderTreeGraph();
-  if (currentViewName() === 'tribe') {
-    renderTribeGraph();
-  }
   if (currentViewName() === 'timeline') {
     renderTimelineVisualization();
   }
@@ -2836,6 +2829,8 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
   renderVisualizationSummary(root.querySelector('[data-visualization-summary="tree"]'), [
     `${graph.nodes.length} Gruppen`,
     `${graph.edges.length} Verbindungen`,
+    `${graph.memberCount} bekannte Mitglieder`,
+    `${graph.leaderCount} bekannte Leitungen`,
   ]);
   if (!graph.nodes.length) {
     if (publicNetwork) {
@@ -2867,135 +2862,6 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
 
   bindVisualizationNetwork(publicNetwork, graph);
   settleGraph(publicNetwork, graph);
-}
-
-function renderTribeGraph() {
-  const container = document.querySelector('[data-visualization-graph="tribe"]');
-  const status = document.querySelector('[data-visualization-status="tribe"]');
-  const summary = document.querySelector('[data-visualization-summary="tribe"]');
-  if (!container) {
-    return;
-  }
-
-  const graph = tribeGraphData();
-  renderVisualizationSummary(summary, [
-    `${graph.nodes.length} Gruppen`,
-    `${graph.memberCount} bekannte Mitglieder`,
-    `${graph.leaderCount} bekannte Leitungen`,
-  ]);
-  if (!graph.nodes.length) {
-    destroyTribeGraph();
-    setTreeGraphStatus(status, state.timeframe.start ? 'Keine Gruppen im gewählten Zeitraum.' : 'Noch keine Gruppen mit Zeitraum.');
-    return;
-  }
-
-  const visNetwork = window.vis;
-  if (!visNetwork?.Network || !visNetwork?.DataSet) {
-    setTreeGraphStatus(status, 'Graph-Bibliothek konnte nicht geladen werden.');
-    return;
-  }
-  const signature = JSON.stringify(graph);
-  if (signature === tribeGraphSignature && tribeNetwork) {
-    tribeNetwork.redraw();
-    return;
-  }
-
-  destroyTribeGraph();
-  tribeGraphSignature = signature;
-  setTreeGraphStatus(status, '');
-  tribeNetwork = new visNetwork.Network(container, {
-    nodes: new visNetwork.DataSet(graph.nodes),
-    edges: new visNetwork.DataSet(graph.edges),
-  }, publicGraphOptions(graph));
-  bindVisualizationNetwork(tribeNetwork, graph);
-  settleGraph(tribeNetwork, graph);
-}
-
-function destroyTribeGraph() {
-  tribeNetwork?.destroy();
-  tribeNetwork = null;
-  tribeGraphSignature = '';
-}
-
-function tribeGraphData() {
-  const groups = (state.objects.groups || []).filter((group) => objectRelevantToTimeframe('groups', group));
-  const groupIds = new Set(groups.map(objectId));
-  const memberIds = new Set();
-  const leaderIds = new Set();
-  const counts = new Map(groups.map((group) => [objectId(group), { members: new Set(), leaders: new Set() }]));
-
-  (state.objects.people || []).forEach((person) => {
-    const personId = objectId(person);
-    (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership) => {
-      const groupId = periodEntryGroupId(membership);
-      if (groupIds.has(groupId) && relationshipRelevantToTimeframe('membership', membership)) {
-        counts.get(groupId).members.add(personId);
-        memberIds.add(personId);
-      }
-    });
-    (Array.isArray(person.activities) ? person.activities : []).forEach((activity) => {
-      const groupId = periodEntryGroupId(activity);
-      const role = findReferenceObject('roles', activityRoleId(activity));
-      if (groupIds.has(groupId) && isLeadershipRole(role) && relationshipRelevantToTimeframe('activity', activity)) {
-        counts.get(groupId).leaders.add(personId);
-        leaderIds.add(personId);
-      }
-    });
-  });
-
-  const nodes = groups.map((group, index) => {
-    const id = objectId(group);
-    const groupCounts = counts.get(id);
-    return {
-      id: `group:${id}`,
-      label: publicGraphEntryLabel([
-        publicGroupName(group, index),
-        timeframeGroupTypeLabel(group),
-        `${groupCounts.members.size} bekannte Mitglieder`,
-        `${groupCounts.leaders.size} bekannte Leitungen`,
-      ]),
-      title: publicGraphTitle([
-        `${groupCounts.members.size} bekannte Mitglieder`,
-        ...Array.from(groupCounts.members).map((personId) => objectListTitle('people', findReferenceObject('people', personId) || {})),
-        `${groupCounts.leaders.size} bekannte Leitungen`,
-        ...Array.from(groupCounts.leaders).map((personId) => objectListTitle('people', findReferenceObject('people', personId) || {})),
-      ]),
-      group: 'group',
-      shape: 'box',
-      navigation: { type: 'groups', id },
-    };
-  });
-  const edgeIds = new Set();
-  const edges = [];
-  groups.forEach((group) => {
-    groupPhaseEntries(group)
-      .filter(({ phase }) => relationshipRelevantToTimeframe('phase', phase))
-      .forEach(({ phase, rowKey }) => {
-        const parentId = groupPhaseParentGroupId(phase);
-        const id = `${parentId}:${objectId(group)}:${rowKey}`;
-        if (!parentId || !groupIds.has(parentId) || edgeIds.has(id)) {
-          return;
-        }
-        edgeIds.add(id);
-        edges.push({
-          id: `composition:${id}`,
-          from: `group:${parentId}`,
-          to: `group:${objectId(group)}`,
-          label: periodYearLabel(phase.period),
-          arrows: 'to',
-          group: 'type',
-          navigation: { type: 'groups', id: objectId(group), edit: rowKey },
-        });
-      });
-  });
-
-  return {
-    nodes,
-    edges,
-    layout: 'top-down',
-    memberCount: memberIds.size,
-    leaderCount: leaderIds.size,
-  };
 }
 
 function bindVisualizationNetwork(network, graph) {
@@ -4760,34 +4626,20 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
   ));
   const groupIds = new Set(visibleGroups.map(objectId));
   const stats = publicGroupStats(visibleGroups, people);
+  const memberIds = new Set();
+  const leaderIds = new Set();
+  const counts = new Map(visibleGroups.map((group) => [objectId(group), {
+    members: new Set(),
+    leaders: new Set(),
+  }]));
   const levels = publicGraphGroupDateLevels(visibleGroups);
-  const nodes = visibleGroups.map((group, index) => {
-    const id = objectId(group);
-    const type = groupTypeLabel(group, groupTypes);
-    const groupStats = stats.get(id) || { members: 0, activities: 0, span: '' };
-    return {
-      id: `group:${id}`,
-      label: publicGraphEntryLabel([
-        publicGroupName(group, index),
-        [type || 'Gruppe', groupStats.span].filter(Boolean).join(' · '),
-      ]),
-      title: publicGraphTitle([
-        publicGroupName(group, index),
-        groupStats.span ? `Zeitraum: ${groupStats.span}` : '',
-      ]),
-      group: 'group',
-      level: levels.get(id) || 0,
-      shape: 'box',
-      navigation: { type: 'groups', id },
-    };
-  });
   const edgeMap = new Map();
 
   people.forEach((person, personIndex) => {
     const personId = objectId(person);
     const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
       .map((membership, index) => ({ membership, index, groupId: periodEntryGroupId(membership) }))
-      .filter((entry) => groupIds.has(entry.groupId));
+      .filter((entry) => groupIds.has(entry.groupId) && relationshipRelevantToTimeframe('membership', entry.membership));
     const activities = (Array.isArray(person.activities) ? person.activities : [])
       .map((activity, index) => ({
         activity,
@@ -4795,7 +4647,24 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
         groupId: periodEntryGroupId(activity),
         role: roles.find((candidate) => objectId(candidate) === activityRoleId(activity)),
       }))
-      .filter((entry) => groupIds.has(entry.groupId) && isLeadershipRole(entry.role));
+      .filter((entry) => (
+        groupIds.has(entry.groupId)
+        && isLeadershipRole(entry.role)
+        && relationshipRelevantToTimeframe('activity', entry.activity)
+      ));
+
+    memberships.forEach(({ groupId }) => {
+      if (personId) {
+        counts.get(groupId).members.add(personId);
+        memberIds.add(personId);
+      }
+    });
+    activities.forEach(({ groupId }) => {
+      if (personId) {
+        counts.get(groupId).leaders.add(personId);
+        leaderIds.add(personId);
+      }
+    });
 
     activities.forEach((activityEntry) => {
       memberships.forEach((membershipEntry) => {
@@ -4822,7 +4691,55 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
     });
   });
 
-  const edges = Array.from(edgeMap.values()).map((edge) => {
+  const nodes = visibleGroups.map((group, index) => {
+    const id = objectId(group);
+    const type = groupTypeLabel(group, groupTypes);
+    const groupStats = stats.get(id) || { members: 0, activities: 0, span: '' };
+    const groupCounts = counts.get(id);
+    return {
+      id: `group:${id}`,
+      label: publicGraphEntryLabel([
+        publicGroupName(group, index),
+        [type || 'Gruppe', groupStats.span].filter(Boolean).join(' · '),
+        `${groupCounts.members.size} bekannte Mitglieder`,
+        `${groupCounts.leaders.size} bekannte Leitungen`,
+      ]),
+      title: publicGraphTitle([
+        publicGroupName(group, index),
+        groupStats.span ? `Zeitraum: ${groupStats.span}` : '',
+        `${groupCounts.members.size} bekannte Mitglieder`,
+        `${groupCounts.leaders.size} bekannte Leitungen`,
+      ]),
+      group: 'group',
+      level: levels.get(id) || 0,
+      shape: 'box',
+      navigation: { type: 'groups', id },
+    };
+  });
+  const compositionEdges = visibleGroups.flatMap((group) => (
+    groupPhaseEntries(group)
+      .filter(({ phase }) => relationshipRelevantToTimeframe('phase', phase))
+      .flatMap(({ phase, rowKey }) => {
+        const parentId = groupPhaseParentGroupId(phase);
+        if (!parentId || !groupIds.has(parentId)) {
+          return [];
+        }
+        return [{
+          id: `composition:${parentId}:${objectId(group)}:${rowKey}`,
+          from: `group:${parentId}`,
+          to: `group:${objectId(group)}`,
+          label: publicGraphEdgeLabel(['Phase', periodYearLabel(phase.period)]),
+          title: publicGraphTitle([
+            'Formale Gruppenzuordnung',
+            relationshipPeriodLabel(phase.period),
+          ]),
+          arrows: 'to',
+          group: 'type',
+          navigation: { type: 'groups', id: objectId(group), edit: rowKey },
+        }];
+      })
+  ));
+  const lineageEdges = Array.from(edgeMap.values()).map((edge) => {
     const names = uniqueStrings(edge.connections.map((entry) => entry.personLabel));
     const first = edge.connections[0];
     return {
@@ -4838,7 +4755,13 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
     };
   });
 
-  return { nodes, edges, layout: 'top-down' };
+  return {
+    nodes,
+    edges: [...compositionEdges, ...lineageEdges],
+    layout: 'top-down',
+    memberCount: memberIds.size,
+    leaderCount: leaderIds.size,
+  };
 }
 
 function isLeadershipRole(role) {

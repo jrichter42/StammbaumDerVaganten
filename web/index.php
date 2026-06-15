@@ -145,8 +145,7 @@ $configWarnings = array_map(
           <div class="nav-group">
             <span class="nav-label">Visualisierung</span>
             <button class="nav-item" type="button" data-view="tree"><span class="nav-count"></span><span>Baum</span></button>
-            <button class="nav-item" type="button" data-view="tribe"><span class="nav-count"></span><span>Stamm</span></button>
-            <button class="nav-item" type="button" data-view="timeline"><span class="nav-count"></span><span>Chronik</span></button>
+            <button class="nav-item" type="button" data-view="timeline"><span class="nav-count"></span><span>Zeitstrahl</span></button>
           </div>
           <div class="nav-group">
             <span class="nav-label">Daten</span>
@@ -251,10 +250,6 @@ $configWarnings = array_map(
             <section class="panel public-map" aria-label="Baum-Visualisierung">
               <div class="panel-header collection-header">
                 <div class="collection-heading">
-                  <div class="tree-view-title">
-                    <h2>Baum</h2>
-                    <p>Historische Verbindungen zwischen Gruppen</p>
-                  </div>
                   <div class="collection-controls">
                     <section class="collection-filter-section">
                       <div class="collection-filter-controls">
@@ -276,31 +271,11 @@ $configWarnings = array_map(
             </section>
           </div>
 
-          <div class="view visualization-view" id="view-tribe">
-            <section class="panel public-map" aria-label="Stamm-Visualisierung">
-              <div class="visualization-heading">
-                <div>
-                  <h2>Stamm</h2>
-                  <p>Formale Zusammensetzung im gewählten Zeitraum</p>
-                </div>
-                <div class="visualization-summary" data-visualization-summary="tribe"></div>
-              </div>
-              <p data-visualization-status="tribe" hidden></p>
-              <div class="public-graph" data-visualization-graph="tribe" aria-label="Stamm-Visualisierung"></div>
-            </section>
-          </div>
-
           <div class="view visualization-view" id="view-timeline">
-            <section class="panel public-map" aria-label="Chronik-Visualisierung">
-              <div class="visualization-heading">
-                <div>
-                  <h2>Chronik</h2>
-                  <p>Gruppen und Stammesführung im Zeitverlauf</p>
-                </div>
-                <div class="visualization-summary" data-visualization-summary="timeline"></div>
-              </div>
+            <section class="panel public-map" aria-label="Zeitstrahl-Visualisierung">
+              <div class="visualization-summary" data-visualization-summary="timeline"></div>
               <p data-visualization-status="timeline" hidden></p>
-              <div class="timeline-visualization" data-visualization-timeline aria-label="Chronik"></div>
+              <div class="timeline-visualization" data-visualization-timeline aria-label="Zeitstrahl"></div>
             </section>
           </div>
 

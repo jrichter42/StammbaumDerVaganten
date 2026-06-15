@@ -1214,7 +1214,6 @@ body.is-context-resizing {
 }
 
 .workspace[data-active-view="tree"] .content-area,
-.workspace[data-active-view="tribe"] .content-area,
 .workspace[data-active-view="timeline"] .content-area {
   grid-template-rows: minmax(0, 1fr);
   align-items: stretch;
@@ -1225,29 +1224,26 @@ body.is-context-resizing {
 }
 
 @media (min-width: 1180px) {
-  .workspace[data-active-view="tribe"],
   .workspace[data-active-view="timeline"] {
     grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
   }
 
-  .workspace[data-active-view="tribe"] .context-resizer,
   .workspace[data-active-view="timeline"] .context-resizer,
-  .workspace[data-active-view="tribe"] .context-panel,
   .workspace[data-active-view="timeline"] .context-panel {
     display: none;
   }
 
-  .workspace:not([data-active-view="tree"]):not([data-active-view="tribe"]):not([data-active-view="timeline"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="timeline"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) {
     grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) 8px minmax(280px, var(--context-panel-width));
     align-items: stretch;
     column-gap: 8px;
   }
 
-  .workspace:not([data-active-view="tree"]):not([data-active-view="tribe"]):not([data-active-view="timeline"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) .context-resizer {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="timeline"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) .context-resizer {
     display: block;
   }
 
-  .workspace:not([data-active-view="tree"]):not([data-active-view="tribe"]):not([data-active-view="timeline"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) .context-panel {
+  .workspace:not([data-active-view="tree"]):not([data-active-view="timeline"]):not([data-active-view="users"]):not([data-active-view="audit"]):not([data-active-view="log"]) .context-panel {
     position: relative;
     top: auto;
     display: grid;
@@ -1273,7 +1269,6 @@ body.is-context-resizing {
 }
 
 #view-tree.is-active,
-#view-tribe.is-active,
 #view-timeline.is-active {
   height: 100%;
   min-height: 0;
@@ -1299,12 +1294,6 @@ body.is-context-resizing {
 #view-tree .collection-heading {
   min-width: 0;
   flex: 0 1 auto;
-}
-
-.tree-view-title p {
-  margin: 2px 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
 }
 
 #view-tree [data-tree-graph-status] {
@@ -1337,26 +1326,12 @@ body.is-context-resizing {
   right: 14px;
 }
 
-#view-tribe .public-map,
 #view-timeline .public-map {
   display: flex;
   height: 100%;
   min-height: 0;
   flex-direction: column;
   gap: 12px;
-}
-
-.visualization-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
-  padding-top: 12px;
-}
-
-.visualization-heading p {
-  margin: 3px 0 0;
-  color: var(--muted);
 }
 
 .visualization-summary {
@@ -1382,12 +1357,6 @@ body.is-context-resizing {
   border-radius: 8px;
   color: var(--muted);
   background: var(--surface);
-}
-
-#view-tribe .public-graph {
-  flex: 1 1 0;
-  height: auto;
-  min-height: 420px;
 }
 
 .timeline-visualization {
@@ -1509,7 +1478,6 @@ body.is-context-resizing {
 #view-roles .panel,
 #view-timepoints .panel,
 #view-tree .panel,
-#view-tribe .panel,
 #view-timeline .panel,
 #view-users .panel,
 #view-audit .panel,
@@ -3233,11 +3201,6 @@ button.object-title-row.is-graph-highlighted::before {
     left: 12px;
     width: auto;
     transform: none;
-  }
-
-  .visualization-heading {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .visualization-summary {
