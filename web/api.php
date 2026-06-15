@@ -494,12 +494,14 @@ try {
             $challengeId = (string) ($body['challenge_id'] ?? '');
             $credential = $body['credential'] ?? null;
             if ($challengeId === '' || !is_array($credential)) {
+                $auth->recordSecurityEvent('auth_verification_failed', ['action' => $action]);
                 Http::json(['ok' => false, 'error' => 'Missing registration response'], 400);
             }
 
             $challenge = $auth->consumeChallengeById('account-register', $challengeId);
             $context = is_array($challenge['context'] ?? null) ? $challenge['context'] : [];
             if (($context['username'] ?? '') !== ($user['username'] ?? '')) {
+                $auth->recordSecurityEvent('auth_verification_failed', ['action' => $action]);
                 Http::json(['ok' => false, 'error' => 'Registration challenge did not match user'], 400);
             }
 
