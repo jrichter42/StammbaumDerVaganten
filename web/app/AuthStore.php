@@ -769,7 +769,7 @@ final class AuthStore
             throw $exception;
         }
 
-        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId, $reservationId): array {
+        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId, $reservationId, $username): array {
             foreach (($data['tokens'] ?? []) as $index => $token) {
                 if (($token['id'] ?? '') !== $tokenId) {
                     continue;
@@ -785,6 +785,11 @@ final class AuthStore
                     || ($token['consumed_at'] ?? null) !== null
                 ) {
                     continue;
+                }
+
+                $user = $this->findUserByUsername($username);
+                if ($user === null || !($user['enabled'] ?? false)) {
+                    throw new RuntimeException('User no longer exists or is disabled.');
                 }
 
                 $data['tokens'][$index]['consumed_at'] = $this->now();
