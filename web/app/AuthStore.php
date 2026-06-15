@@ -1092,9 +1092,10 @@ final class AuthStore
 
     private function ensureFiles(): void
     {
-        if (!is_dir($this->authPath) && !mkdir($this->authPath, 0775, true) && !is_dir($this->authPath)) {
+        if (!is_dir($this->authPath) && !mkdir($this->authPath, 0700, true) && !is_dir($this->authPath)) {
             throw new RuntimeException('Could not create auth directory.');
         }
+        @chmod($this->authPath, 0700);
 
         $this->ensureJsonFile($this->usersPath, $this->defaultUsers());
         $this->ensureJsonFile($this->tokensPath, $this->defaultTokens());
@@ -1102,6 +1103,10 @@ final class AuthStore
         $this->ensureJsonFile($this->loginLinksPath, $this->defaultLoginLinks());
         $this->ensureJsonFile($this->rateLimitsPath, $this->defaultRateLimits());
         $this->ensureJsonFile($this->accessControlCheckPath, $this->defaultAccessControlCheck());
+        if (!is_file($this->auditPath)) {
+            @touch($this->auditPath);
+            @chmod($this->auditPath, 0600);
+        }
     }
 
     /**
@@ -1485,6 +1490,7 @@ final class AuthStore
             @unlink($tmp);
             throw new RuntimeException('Could not replace auth JSON.');
         }
+        @chmod($path, 0600);
     }
 
     /**
@@ -1498,6 +1504,7 @@ final class AuthStore
         if ($lock === false || !flock($lock, LOCK_EX)) {
             throw new RuntimeException('Could not lock auth JSON.');
         }
+        @chmod($lockPath, 0600);
 
         try {
             $data = $this->readJson($path, $default);

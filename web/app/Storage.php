@@ -95,9 +95,10 @@ final class Storage
                 continue;
             }
 
-            if (!mkdir($directory, 0775, true) && !is_dir($directory)) {
+            if (!mkdir($directory, 0700, true) && !is_dir($directory)) {
                 throw new RuntimeException('Could not create storage directory.');
             }
+            @chmod($directory, 0700);
         }
     }
 
@@ -951,6 +952,7 @@ final class Storage
         if ($lock === false || !flock($lock, LOCK_EX)) {
             throw new RuntimeException('Could not lock object storage.');
         }
+        @chmod($lockPath, 0600);
 
         try {
             return $callback();
@@ -975,6 +977,7 @@ final class Storage
             @unlink($tmp);
             throw new RuntimeException('Could not replace data JSON.');
         }
+        @chmod($path, 0600);
     }
 
     private function assertCollection(string $type): void

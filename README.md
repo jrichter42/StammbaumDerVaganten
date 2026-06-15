@@ -51,6 +51,10 @@ For production, set a stable passkey relying-party configuration in `config/app.
 }
 ```
 
+Runtime filesystem permissions are set restrictively: directories use `0700` and
+files use `0600` (subject to platform support; Windows ignores POSIX `chmod`).
+Verify correct ownership and permissions on production.
+
 Auth configuration is required and validated before auth storage or sessions initialize. `base_url` and `origin` must use HTTPS; `rp_id` and `allowed_hosts` must contain hostnames; `trusted_proxies` accepts only literal IP addresses. Keep local-development values in a separate local `config/app.json` rather than deriving them from request headers.
 `base_url` is used for generated setup and login links.
 Email login links are single-use, expire after `auth.login_link_ttl_seconds`, and are not re-sent while an earlier unused link is still valid.
