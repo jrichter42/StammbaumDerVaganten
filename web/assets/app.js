@@ -296,7 +296,7 @@ const loginEmailForm = document.querySelector('#loginEmailForm');
 const loginEmailInput = document.querySelector('#loginEmailInput');
 const loginEmailState = document.querySelector('#loginEmailState');
 const authScreen = document.querySelector('#authScreen');
-const publicOverview = document.querySelector('#publicOverview');
+const publicVisualizationNav = document.querySelector('#publicVisualizationNav');
 const workspace = document.querySelector('#workspace');
 const accountPage = document.querySelector('#accountPage');
 const accountForm = document.querySelector('#accountForm');
@@ -604,6 +604,10 @@ function handleBeforeUnload(event) {
 }
 
 function activateView(viewName, urlExtra = {}) {
+  if (state.status?.auth && !state.status.auth.user && !visualizationViews.includes(viewName)) {
+    viewName = 'tree';
+    urlExtra = {};
+  }
   const previousViewName = currentViewName();
   if (viewName !== 'users') {
     clearAdminSetupResult();
@@ -765,7 +769,7 @@ function writeTreeGraphUrlState() {
   const loggedIn = Boolean(state.status?.auth?.user);
   const activeView = document.querySelector('[data-view].is-active')?.dataset.view || '';
   const params = new URLSearchParams();
-  if (loggedIn) {
+  if (loggedIn || visualizationViews.includes(activeView)) {
     params.set('view', visualizationViews.includes(activeView) ? activeView : activeView || 'people');
   }
   if (state.publicGraphGroupType) {
@@ -1622,8 +1626,11 @@ function renderShell() {
     accessControlWarning.hidden = true;
   }
   authScreen.hidden = !isSetupPage && (Boolean(user) || (!state.loginOpen && !isLoginLinkPage));
-  publicOverview.hidden = Boolean(user) || isSetupPage || state.loginOpen || isLoginLinkPage;
-  workspace.hidden = !user || accountOpen || isSetupPage;
+  workspace.hidden = accountOpen || isSetupPage || state.loginOpen || isLoginLinkPage;
+  workspace.classList.toggle('is-public', !user);
+  if (publicVisualizationNav) {
+    publicVisualizationNav.hidden = Boolean(user) || accountOpen || isSetupPage || state.loginOpen || isLoginLinkPage;
+  }
   if (accountPage) {
     accountPage.hidden = !accountOpen;
   }
@@ -1650,6 +1657,8 @@ function renderShell() {
 
   if (user) {
     currentUserName.textContent = user.display_name || user.username || 'Eingeloggt';
+  } else if (!visualizationViews.includes(currentViewName())) {
+    activateView('tree');
   }
   renderTimeframeControl();
   updateSourceControl();

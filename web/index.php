@@ -41,6 +41,10 @@ $configWarnings = array_map(
           <a class="version-chip" href="https://github.stammbaumdervaganten.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a>
         </div>
         <div class="topbar-tools" aria-label="Datenwerkzeuge">
+          <nav class="public-visualization-nav" id="publicVisualizationNav" aria-label="Visualisierungen" hidden>
+            <button class="nav-item" type="button" data-view="tree">Baum</button>
+            <button class="nav-item" type="button" data-view="timeline">Zeitstrahl</button>
+          </nav>
           <div class="timeframe-control" id="timeframeControl" hidden>
             <span class="tool-label">Zeitraum</span>
             <div class="timeframe-compact">
@@ -123,22 +127,6 @@ $configWarnings = array_map(
       </section>
 
       <p class="message global-message" id="authMessage" role="alert" hidden></p>
-
-      <main class="public-overview" id="publicOverview" data-tree-graph-root hidden>
-        <section class="public-map" aria-labelledby="publicTreeTitle">
-          <div class="public-section-heading">
-            <h2 id="publicTreeTitle">Stammbaum</h2>
-            <div class="public-graph-tools">
-              <p id="publicGraphStatus" data-tree-graph-status>Öffentliche Struktur wird geladen.</p>
-              <label class="public-graph-filter" for="publicGraphGroupTypeFilter">
-                <span>Gruppenart</span>
-                <select id="publicGraphGroupTypeFilter" data-tree-group-type-filter></select>
-              </label>
-            </div>
-          </div>
-          <div class="public-graph" id="publicGraph" data-tree-graph aria-label="Öffentlicher Stammbaum-Graph"></div>
-        </section>
-      </main>
 
       <main class="workspace" id="workspace" hidden>
         <nav class="sidebar editor-nav" aria-label="Editorbereiche">

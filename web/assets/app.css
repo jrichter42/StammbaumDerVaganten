@@ -226,6 +226,25 @@ h3 {
   justify-self: stretch;
 }
 
+.topbar-tools:has(.public-visualization-nav:not([hidden])) {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: space-evenly;
+  column-gap: clamp(32px, 8vw, 128px);
+}
+
+.public-visualization-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.public-visualization-nav .nav-item {
+  width: auto;
+  min-width: 92px;
+  justify-content: center;
+}
+
 .timeframe-control {
   position: relative;
   z-index: 4;
@@ -616,14 +635,15 @@ h3 {
   padding: var(--workspace-pad) var(--workspace-pad) var(--workspace-pad) var(--workspace-pad-left);
 }
 
-.public-overview {
-  display: grid;
-  gap: 24px;
-  width: min(1480px, 100%);
-  max-height: 100%;
-  overflow-y: auto;
-  margin: 0 auto;
-  padding: clamp(18px, 3vw, 38px);
+.workspace.is-public {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: var(--workspace-pad);
+}
+
+.workspace.is-public .editor-nav,
+.workspace.is-public .context-resizer,
+.workspace.is-public .context-panel {
+  display: none;
 }
 
 .public-hero {
@@ -1173,6 +1193,11 @@ body.is-context-resizing {
 @media (min-width: 1180px) {
   .workspace[data-active-view="timeline"] {
     grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  }
+
+  .workspace.is-public[data-active-view="tree"],
+  .workspace.is-public[data-active-view="timeline"] {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .workspace[data-active-view="timeline"] .context-resizer,
