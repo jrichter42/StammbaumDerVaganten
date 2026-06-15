@@ -134,7 +134,22 @@ function enforce_auth_rate(
 ): void {
     $clientIp = auth_client_ip($config);
     $auth->enforceRateLimit('auth-global-ip', $clientIp, 300, 300);
+    $auth->enforceRateLimit('auth-global', 'global', 5000, 60);
     $auth->enforceRateLimit($scope, $key, $limit, $windowSeconds);
+}
+
+/**
+ * @param array<string, mixed> $config
+ */
+function record_auth_failure(AuthStore $auth, array $config, string $event, string $action): void
+{
+    $auth->recordSecurityEvent($event, ['action' => $action]);
+    try {
+        $auth->enforceRateLimit('failed-auth-ip', auth_client_ip($config), 20, 900);
+    } catch (RateLimitException) {
+        $auth->recordSecurityEvent('rate_limit_exceeded', ['action' => $action]);
+        Http::json(['ok' => false, 'error' => 'Too many requests'], 429);
+    }
 }
 
 try {
@@ -297,6 +312,7 @@ try {
             $challengeId = (string) ($body['challenge_id'] ?? '');
             $credential = $body['credential'] ?? null;
             if ($challengeId === '' || !is_array($credential)) {
+                record_auth_failure($auth, $config, 'auth_verification_failed', $action);
                 Http::json(['ok' => false, 'error' => 'Missing login response'], 400);
             }
 
@@ -304,6 +320,7 @@ try {
             $credentialId = (string) ($credential['id'] ?? $credential['rawId'] ?? '');
             $stored = $auth->findCredential($credentialId);
             if (!($stored['user']['enabled'] ?? false)) {
+                record_auth_failure($auth, $config, 'auth_verification_failed', $action);
                 Http::json(['ok' => false, 'error' => 'User is disabled'], 403);
             }
 
@@ -323,6 +340,7 @@ try {
 
             $email = trim((string) ($body['email'] ?? ''));
             if ($email === '') {
+                record_auth_failure($auth, $config, 'auth_verification_failed', $action);
                 Http::json(['ok' => false, 'error' => 'Email address is required.'], 400);
             }
 
@@ -361,7 +379,7 @@ try {
         case 'auth-register-options':
             Http::requireMethod('POST');
             $body = Http::readJsonBody();
-            $setupInput = (string) ($body['setup'] ?? $body['token'] ?? '');
+            $setupInput = trim((string) ($body['setup'] ?? $body['token'] ?? ''));
             enforce_auth_rate($auth, $config, 'setup-options-ip', auth_client_ip($config), 20, 900);
             $auth->enforceRateLimit('setup-token', hash('sha256', $setupInput), 10, 900);
             $resolved = $auth->resolveSetupToken($setupInput);
@@ -383,18 +401,21 @@ try {
             Http::requireMethod('POST');
             enforce_auth_rate($auth, $config, 'setup-verify-ip', auth_client_ip($config), 20, 900);
             $body = Http::readJsonBody();
-            $setupInput = (string) ($body['setup'] ?? $body['token'] ?? '');
+            $setupInput = trim((string) ($body['setup'] ?? $body['token'] ?? ''));
             $challengeId = (string) ($body['challenge_id'] ?? '');
             $credential = $body['credential'] ?? null;
             if ($setupInput === '' || $challengeId === '' || !is_array($credential)) {
+                record_auth_failure($auth, $config, 'setup_verification_failed', $action);
                 Http::json(['ok' => false, 'error' => 'Missing registration response'], 400);
             }
 
+            $auth->enforceRateLimit('setup-token', hash('sha256', $setupInput), 10, 900);
             $resolved = $auth->resolveSetupToken($setupInput);
             $challenge = $auth->consumeChallengeById('register', $challengeId);
             $context = is_array($challenge['context'] ?? null) ? $challenge['context'] : [];
             if (($context['setup_token_id'] ?? '') !== ($resolved['token']['id'] ?? '')
                 || ($context['username'] ?? '') !== ($resolved['user']['username'] ?? '')) {
+                record_auth_failure($auth, $config, 'setup_verification_failed', $action);
                 Http::json(['ok' => false, 'error' => 'Registration challenge did not match setup token'], 400);
             }
 
@@ -621,16 +642,21 @@ try {
         $event = str_starts_with($action, 'auth-register')
             ? 'setup_verification_failed'
             : 'auth_verification_failed';
-        $auth->recordSecurityEvent($event, ['action' => $action]);
-        try {
-            $auth->enforceRateLimit('failed-auth-ip', auth_client_ip($config), 20, 900);
-        } catch (RateLimitException) {
-            $auth->recordSecurityEvent('rate_limit_exceeded', ['action' => $action]);
-            Http::json(['ok' => false, 'error' => 'Too many requests'], 429);
-        }
+        record_auth_failure($auth, $config, $event, $action);
     }
     Http::json(['ok' => false, 'error' => $exception->getMessage()], 400);
 } catch (Throwable $exception) {
+    if (in_array($action, [
+        'auth-login-verify',
+        'auth-email-login-verify',
+        'auth-register-options',
+        'auth-register-verify',
+    ], true)) {
+        $event = str_starts_with($action, 'auth-register')
+            ? 'setup_verification_failed'
+            : 'auth_verification_failed';
+        $auth->recordSecurityEvent($event, ['action' => $action]);
+    }
     error_log($exception->getMessage());
     Http::json(['ok' => false, 'error' => 'Internal server error'], 500);
 }
