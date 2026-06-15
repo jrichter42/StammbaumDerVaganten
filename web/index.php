@@ -45,7 +45,7 @@ $configWarnings = array_map(
             <span class="tool-label">Zeitraum</span>
             <div class="timeframe-compact">
               <button class="icon-button" type="button" data-timeframe-action="previous" aria-label="Ein Jahr früher">‹</button>
-              <output class="timeframe-value">Gesamte Zeit</output>
+              <input class="timeframe-value" type="text" value="Gesamte Zeit" inputmode="numeric" autocomplete="off" aria-label="Jahr">
               <button class="icon-button" type="button" data-timeframe-action="next" aria-label="Ein Jahr später">›</button>
               <button class="period-toggle timeframe-clear" type="button" data-timeframe-action="clear" disabled>(reset)</button>
             </div>

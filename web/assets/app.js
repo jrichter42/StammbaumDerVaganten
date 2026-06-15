@@ -392,6 +392,8 @@ timeframeControl?.addEventListener('input', handleTimeframeInput);
 timeframeControl?.addEventListener('change', handleTimeframeInput);
 timeframeControl?.addEventListener('wheel', handleTimeframeWheel, { passive: false });
 timeframeControl?.addEventListener('keydown', handleTimeframeKeydown);
+timeframeControl?.addEventListener('focusin', handleTimeframeFocus);
+timeframeControl?.addEventListener('focusout', handleTimeframeBlur);
 treeGroupTypeFilters.forEach((filter) => filter.addEventListener('change', handlePublicGraphFilterChange));
 treeGroupTypeClearButtons.forEach((button) => button.addEventListener('click', clearPublicGraphFilter));
 contextGraphTypeToggles.forEach((toggle) => toggle.addEventListener('change', handleContextGraphTypeToggle));
@@ -803,8 +805,8 @@ function renderTimeframeControl() {
 function updateTimeframeCompactValue() {
   const value = timeframeControl.querySelector('.timeframe-value');
   const clear = timeframeControl.querySelector('.timeframe-clear');
-  if (value) {
-    value.textContent = timeframeLabel(state.timeframe);
+  if (value && document.activeElement !== value) {
+    value.value = timeframeLabel(state.timeframe);
   }
   if (clear) {
     clear.disabled = !state.timeframe.start;
@@ -827,6 +829,15 @@ function handleTimeframeClick(event) {
 }
 
 function handleTimeframeInput(event) {
+  if (event.target.matches('.timeframe-value')) {
+    const raw = event.target.value.trim();
+    if (/^\d{4}$/.test(raw)) {
+      setSimpleTimeframeYear(raw);
+      applyTimeframeChange();
+      event.target.value = timeframeLabel(state.timeframe);
+    }
+    return;
+  }
   if (event.target.matches('[data-timeframe-slider]')) {
     setSimpleTimeframeYear(event.target.value);
     applyTimeframeChange(true, event.type !== 'input');
@@ -844,6 +855,13 @@ function handleTimeframeWheel(event) {
 }
 
 function handleTimeframeKeydown(event) {
+  if (event.target.matches('.timeframe-value')) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.target.blur();
+    }
+    return;
+  }
   if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.target.matches('input[type="range"]')) {
     return;
   }
@@ -851,6 +869,18 @@ function handleTimeframeKeydown(event) {
   const delta = event.key === 'ArrowLeft' ? -1 : 1;
   setSimpleTimeframeYear((state.timeframe.start || defaultTimeframePoint()).year + delta);
   applyTimeframeChange();
+}
+
+function handleTimeframeFocus(event) {
+  if (event.target.matches('.timeframe-value')) {
+    event.target.select();
+  }
+}
+
+function handleTimeframeBlur(event) {
+  if (event.target.matches('.timeframe-value')) {
+    event.target.value = timeframeLabel(state.timeframe);
+  }
 }
 
 function setSimpleTimeframeYear(year) {

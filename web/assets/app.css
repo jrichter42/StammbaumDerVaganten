@@ -258,6 +258,11 @@ h3 {
   white-space: nowrap;
 }
 
+.timeframe-value:focus {
+  border-color: var(--brand-primary);
+  outline: 0;
+}
+
 .timeframe-slider {
   grid-column: 1 / -1;
   width: 100%;
