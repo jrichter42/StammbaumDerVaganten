@@ -62,7 +62,9 @@ Setup and email-login tokens are carried in URL fragments (`#setup=...` and `#lo
 
 Every request must use an `allowed_hosts` hostname. Plain HTTP is redirected with status `308` to the configured HTTPS `origin` while preserving a validated path and query. `X-Forwarded-Proto` is honored only when `REMOTE_ADDR` exactly matches a configured `trusted_proxies` IP; leave that list empty when Apache terminates TLS directly. Session cookies are always `Secure`, `HttpOnly`, `SameSite=Strict`, and scoped to `/`. HTTPS responses include one-year HSTS.
 
-JSON API bodies are limited to 65,536 bytes in both PHP and Apache configuration. Authentication challenge counts and time-window request counters are stored atomically under `var/auth`; source IPs use forwarded headers only from configured trusted proxies.
+JSON API bodies are limited to 65,536 bytes by `Http::readJsonBody()`. On shared hosting, `.htaccess` additionally applies `LimitRequestBody 65536` to `api.php`. No PHP configuration is required.
+
+Authentication challenge counts and time-window request counters are stored atomically under `var/auth`; source IPs use forwarded headers only from configured trusted proxies.
 
 Anonymous `status` responses expose only login availability and an empty auth identity. After login, the browser verifies that `config/app.json` is blocked, records the result under `var/auth/access_control_check.json`, reuses success for 24 hours, and shows a persistent warning when protection for `/app`, `/config`, `/data`, `/var`, or `/bootstrap_setup.txt` cannot be confirmed.
 
