@@ -45,11 +45,11 @@ $configWarnings = array_map(
             <span class="tool-label">Zeitraum</span>
             <div class="timeframe-compact">
               <button class="icon-button" type="button" data-timeframe-action="previous" aria-label="Ein Jahr früher">‹</button>
-              <button class="timeframe-value" type="button" data-timeframe-action="toggle" aria-expanded="false">Gesamte Zeit</button>
+              <output class="timeframe-value">Gesamte Zeit</output>
               <button class="icon-button" type="button" data-timeframe-action="next" aria-label="Ein Jahr später">›</button>
-              <button class="period-toggle timeframe-clear" type="button" data-timeframe-action="clear" hidden>(reset)</button>
+              <button class="period-toggle timeframe-clear" type="button" data-timeframe-action="clear" disabled>(reset)</button>
             </div>
-            <div class="timeframe-popover" data-timeframe-popover hidden></div>
+            <input class="timeframe-slider" type="range" min="2000" max="<?= date('Y') ?>" value="<?= date('Y') ?>" step="1" data-timeframe-slider aria-label="Jahr">
           </div>
           <div class="global-search" id="globalSearch" hidden>
             <label class="tool-label" for="globalSearchInput">Suche</label>

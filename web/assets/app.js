@@ -26,9 +26,6 @@ import {
   writeTimeframeSearchParams,
   timeframeLabel,
   timeframeBounds,
-  stepTimeframePoint,
-  setTimeframePointPrecision,
-  updateTimeframePoint,
   dateValueBounds,
   periodBounds,
   boundsOverlap,
@@ -284,7 +281,6 @@ const state = {
   exampleDataCreating: false,
   publicGraphGroupType: '',
   timeframe: emptyTimeframe(),
-  timeframeOpen: false,
   sourceOverride: readStoredSourceOverride(),
 };
 
@@ -312,7 +308,6 @@ const globalSearch = document.querySelector('#globalSearch');
 const globalSearchInput = document.querySelector('#globalSearchInput');
 const globalSearchResults = document.querySelector('#globalSearchResults');
 const timeframeControl = document.querySelector('#timeframeControl');
-const timeframePopover = timeframeControl?.querySelector('[data-timeframe-popover]');
 const sourceControl = document.querySelector('#sourceControl');
 const sourceInput = document.querySelector('#sourceInput');
 const setupForm = document.querySelector('#setupForm');
@@ -421,7 +416,6 @@ document.addEventListener('click', handleGlobalSearchClick);
 document.addEventListener('click', handleExampleDataClick);
 document.addEventListener('click', handleObjectClick);
 document.addEventListener('click', handleVisualizationClick);
-document.addEventListener('click', handleTimeframeOutsideClick);
 document.addEventListener('pointermove', handleDateDetailPointerMove);
 document.addEventListener('pointerover', handleDateDetailPreview);
 document.addEventListener('pointerover', handleObjectGraphHover);
@@ -793,37 +787,17 @@ function renderTimeframeControl() {
     return;
   }
 
-  updateTimeframeCompactValue();
-  if (!timeframePopover) {
-    return;
-  }
-
-  timeframePopover.hidden = !state.timeframeOpen;
-  if (!state.timeframeOpen) {
-    timeframePopover.innerHTML = '';
-    return;
-  }
-
   const bounds = availableDataYearBounds();
-  const fallbackYear = bounds.max || new Date().getFullYear();
-  const start = state.timeframe.start || { year: fallbackYear, month: null, day: null, precision: 'year' };
-  const end = state.timeframe.end;
-  timeframePopover.innerHTML = `
-    <div class="timeframe-slider-row">
-      <span>${bounds.min}</span>
-      <input type="range" min="${bounds.min}" max="${bounds.max}" value="${start.year}" step="1" data-timeframe-slider aria-label="Jahr">
-      <span>${bounds.max}</span>
-    </div>
-    <div class="timeframe-points">
-      ${renderTimeframePoint('start', 'Von', start)}
-      ${end ? renderTimeframePoint('end', 'Bis', end) : ''}
-    </div>
-    <div class="timeframe-range-actions">
-      <button class="button button-secondary" type="button" data-timeframe-action="${end ? 'remove-range' : 'add-range'}">${end ? 'Bereich entfernen' : 'Bis hinzufügen'}</button>
-      <button class="button button-secondary" type="button" data-timeframe-action="close">Schließen</button>
-    </div>
-    <p class="timeframe-notice">Jahr wählen. Monat oder Tag nur bei Bedarf ergänzen.</p>
-  `;
+  const slider = timeframeControl.querySelector('[data-timeframe-slider]');
+  const selectedYear = Math.min(bounds.max, Math.max(bounds.min, state.timeframe.start?.year || bounds.max));
+  if (slider) {
+    slider.min = String(bounds.min);
+    slider.max = String(bounds.max);
+    slider.value = String(selectedYear);
+  }
+  timeframeControl.querySelector('[data-timeframe-action="previous"]')?.toggleAttribute('disabled', selectedYear <= bounds.min);
+  timeframeControl.querySelector('[data-timeframe-action="next"]')?.toggleAttribute('disabled', selectedYear >= bounds.max);
+  updateTimeframeCompactValue();
 }
 
 function updateTimeframeCompactValue() {
@@ -831,101 +805,32 @@ function updateTimeframeCompactValue() {
   const clear = timeframeControl.querySelector('.timeframe-clear');
   if (value) {
     value.textContent = timeframeLabel(state.timeframe);
-    value.setAttribute('aria-expanded', state.timeframeOpen ? 'true' : 'false');
   }
   if (clear) {
-    clear.hidden = !state.timeframe.start;
+    clear.disabled = !state.timeframe.start;
   }
-}
-
-function renderTimeframePoint(key, label, point) {
-  const monthOptions = Array.from({ length: 12 }, (_, index) => {
-    const value = index + 1;
-    return `<option value="${value}" ${point.month === value ? 'selected' : ''}>${new Intl.DateTimeFormat('de', { month: 'long' }).format(new Date(2024, index, 1))}</option>`;
-  }).join('');
-  return `
-    <div class="timeframe-point" data-timeframe-point="${key}">
-      <strong>${label}</strong>
-      <div class="timeframe-point-fields">
-        <button class="icon-button" type="button" data-timeframe-step="${key}" data-timeframe-step-delta="-1" aria-label="${label} ein Jahr früher">‹</button>
-        <input type="number" min="1" max="9999" value="${point.year}" data-timeframe-field="year" aria-label="${label} Jahr">
-        <button class="icon-button" type="button" data-timeframe-step="${key}" data-timeframe-step-delta="1" aria-label="${label} ein Jahr später">›</button>
-        ${point.precision !== 'year' ? `<select data-timeframe-field="month" aria-label="${label} Monat">${monthOptions}</select>` : ''}
-        ${point.precision === 'day' ? `<input type="number" min="1" max="31" value="${point.day || 1}" data-timeframe-field="day" aria-label="${label} Tag">` : ''}
-      </div>
-      <select data-timeframe-field="precision" aria-label="${label} Genauigkeit">
-        <option value="year" ${point.precision === 'year' ? 'selected' : ''}>Jahr</option>
-        <option value="month" ${point.precision === 'month' ? 'selected' : ''}>Monat</option>
-        <option value="day" ${point.precision === 'day' ? 'selected' : ''}>Tag</option>
-      </select>
-    </div>
-  `;
 }
 
 function handleTimeframeClick(event) {
-  const stepButton = event.target.closest('[data-timeframe-step]');
-  if (stepButton) {
-    const key = stepButton.dataset.timeframeStep;
-    const point = state.timeframe[key] || defaultTimeframePoint();
-    state.timeframe = {
-      ...state.timeframe,
-      [key]: stepTimeframePoint(point, Number(stepButton.dataset.timeframeStepDelta || 0)),
-    };
-    normalizeTimeframeRange();
-    applyTimeframeChange(true, event.type !== 'input');
-    return;
-  }
-
   const action = event.target.closest('[data-timeframe-action]')?.dataset.timeframeAction;
   if (!action) {
     return;
   }
 
-  if (action === 'toggle' || action === 'close') {
-    state.timeframeOpen = action === 'toggle' ? !state.timeframeOpen : false;
-    renderTimeframeControl();
-    return;
-  }
   if (action === 'clear') {
     state.timeframe = emptyTimeframe();
-  } else if (action === 'add-range') {
-    const start = state.timeframe.start || defaultTimeframePoint();
-    state.timeframe = { start, end: { ...start } };
-  } else if (action === 'remove-range') {
-    state.timeframe = { start: state.timeframe.start, end: null };
   } else if (action === 'previous' || action === 'next') {
     const delta = action === 'previous' ? -1 : 1;
-    const start = state.timeframe.start || defaultTimeframePoint();
-    state.timeframe = {
-      start: stepTimeframePoint(start, delta),
-      end: state.timeframe.end ? stepTimeframePoint(state.timeframe.end, delta) : null,
-    };
+    setSimpleTimeframeYear((state.timeframe.start || defaultTimeframePoint()).year + delta);
   }
   applyTimeframeChange(true, event.type !== 'input');
 }
 
 function handleTimeframeInput(event) {
   if (event.target.matches('[data-timeframe-slider]')) {
-    const current = state.timeframe.start || defaultTimeframePoint();
-    state.timeframe = { start: updateTimeframePoint(current, { year: event.target.value }), end: state.timeframe.end };
+    setSimpleTimeframeYear(event.target.value);
     applyTimeframeChange(true, event.type !== 'input');
-    return;
   }
-
-  const root = event.target.closest('[data-timeframe-point]');
-  const field = event.target.dataset.timeframeField;
-  if (!root || !field) {
-    return;
-  }
-
-  const key = root.dataset.timeframePoint;
-  let point = state.timeframe[key] || defaultTimeframePoint();
-  point = field === 'precision'
-    ? setTimeframePointPrecision(point, event.target.value)
-    : updateTimeframePoint(point, { [field]: event.target.value });
-  state.timeframe = { ...state.timeframe, [key]: point };
-  normalizeTimeframeRange();
-  applyTimeframeChange(true, event.type !== 'input');
 }
 
 function handleTimeframeWheel(event) {
@@ -934,40 +839,27 @@ function handleTimeframeWheel(event) {
   }
   event.preventDefault();
   const delta = event.deltaY > 0 ? -1 : 1;
-  const start = state.timeframe.start || defaultTimeframePoint();
-  state.timeframe = {
-    start: stepTimeframePoint(start, delta),
-    end: state.timeframe.end ? stepTimeframePoint(state.timeframe.end, delta) : null,
-  };
+  setSimpleTimeframeYear((state.timeframe.start || defaultTimeframePoint()).year + delta);
   applyTimeframeChange();
 }
 
 function handleTimeframeKeydown(event) {
-  if (event.key === 'Escape' && state.timeframeOpen) {
-    state.timeframeOpen = false;
-    renderTimeframeControl();
-    timeframeControl.querySelector('.timeframe-value')?.focus();
-    return;
-  }
-  if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.target.matches('select, input[type="number"]')) {
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.target.matches('input[type="range"]')) {
     return;
   }
   event.preventDefault();
   const delta = event.key === 'ArrowLeft' ? -1 : 1;
-  const start = state.timeframe.start || defaultTimeframePoint();
-  state.timeframe = {
-    start: stepTimeframePoint(start, delta),
-    end: state.timeframe.end ? stepTimeframePoint(state.timeframe.end, delta) : null,
-  };
+  setSimpleTimeframeYear((state.timeframe.start || defaultTimeframePoint()).year + delta);
   applyTimeframeChange();
 }
 
-function handleTimeframeOutsideClick(event) {
-  if (!state.timeframeOpen || timeframeControl?.contains(event.target)) {
-    return;
-  }
-  state.timeframeOpen = false;
-  renderTimeframeControl();
+function setSimpleTimeframeYear(year) {
+  const bounds = availableDataYearBounds();
+  const normalizedYear = Math.min(bounds.max, Math.max(bounds.min, Number(year) || bounds.max));
+  state.timeframe = {
+    start: { year: normalizedYear, month: null, day: null, precision: 'year' },
+    end: null,
+  };
 }
 
 function defaultTimeframePoint() {
@@ -994,8 +886,8 @@ function availableDataYearBounds() {
   });
   const current = new Date().getFullYear();
   return {
-    min: years.length ? Math.min(...years) : current - 20,
-    max: years.length ? Math.max(...years) : current,
+    min: years.length ? Math.min(current, ...years) : current - 20,
+    max: current,
   };
 }
 
