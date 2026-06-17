@@ -300,6 +300,29 @@ If a membership or activity period is known, group pickers hide groups that clea
 Period timepoint pickers filter each other so starts stay before ends and ends stay after starts.\
 Missing dates, missing group types, and unrestricted roles keep pickers broad instead of blocking selection.
 
+## Deleted-User Behavior
+
+The application deletes users hard through `admin-delete-user`:
+
+- The identity record is removed from `var/auth/users.json`.
+- The username remains attributable in audit events, `_modifiedBy` fields
+  on genealogy objects, and change-history entries. These are not anonymized.
+- Passkeys, setup tokens, and login links for that user are revoked immediately.
+- Audit log entries are retained as long as the application operates.
+- Genealogy objects are never modified to strip `_modifiedBy` references.
+- There is no separate legal-erasure (right-to-be-forgotten) process distinct
+  from application deletion. If legal erasure is required, the operator must
+  manually replace the username in audit log and genealogy data, or take the
+  application offline and clear all audit and user records.
+- Source IPs, user agents, passkey credential IDs, token values, CSRF tokens,
+  and raw email addresses are deliberately excluded from audit log entries.
+  See `AuthStore::appendAudit()` call sites for the audited field set.
+- Backups retain the state at the time of backup. A deleted user may reappear
+  if a backup is restored; the operator must repeat deletion after restore or
+  exclude the relevant backup.
+- The audit log is an append-only record of application events; no entries
+  are ever deleted or modified.
+
 ## Current Gaps
 
 - The main tree visualization is not implemented yet.
