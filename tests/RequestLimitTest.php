@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 $baseUrl = $argv[1] ?? 'http://localhost:8000';
 
-function request_413(string $url, string $payload, string $label): void
+function httpPost(string $url, string $payload): array
 {
     $context = stream_context_create([
         'http' => [
@@ -23,58 +23,61 @@ function request_413(string $url, string $payload, string $label): void
         ],
     ]);
 
-    $response = @file_get_contents($url, false, $context);
+    $body = @file_get_contents($url, false, $context);
     $statusLine = $http_response_header[0] ?? '';
     $httpCode = 0;
     if (preg_match('/\b(\d{3})\b/', $statusLine, $m)) {
         $httpCode = (int) $m[1];
     }
 
-    $decoded = $response !== false ? json_decode($response, true) : null;
-    $is413 = $httpCode === 413;
-    $hasOkFalse = ($decoded['ok'] ?? true) === false;
-    $hasError = is_string($decoded['error'] ?? null);
+    $decoded = $body !== false ? json_decode($body, true) : null;
 
-    $passed = $is413 || ($hasOkFalse && $hasError);
-    echo ($passed ? 'PASS' : 'FAIL') . ": {$label} (HTTP {$httpCode})\n";
+    return ['code' => $httpCode, 'body' => $decoded, 'raw' => $body ?: '(empty)'];
+}
+
+function assert413(string $url, string $payload, string $label): void
+{
+    $result = httpPost($url, $payload);
+    $passed = $result['code'] === 413;
+    echo ($passed ? 'PASS' : 'FAIL') . ": {$label} (HTTP {$result['code']})\n";
     if (!$passed) {
-        echo "  Response: " . ($response ?: '(empty)') . "\n";
+        echo "  Body: {$result['raw']}\n";
+    }
+}
+
+function assertNot413(string $url, string $payload, string $label): void
+{
+    $result = httpPost($url, $payload);
+    $passed = $result['code'] !== 413;
+    echo ($passed ? 'PASS' : 'FAIL') . ": {$label} (HTTP {$result['code']})\n";
+    if (!$passed) {
+        echo "  Body: {$result['raw']}\n";
     }
 }
 
 echo "=== Request-Body Limit Smoke Tests ===\n\n";
 
-$apiUrl = rtrim($baseUrl, '/') . '/api.php?action=status';
+$apiUrl = rtrim($baseUrl, '/') . '/api.php?action=auth-login-verify';
 
 // 1. Payload just under limit (65536 bytes)
 $safe = json_encode(['_pad' => str_repeat('A', 65500)]);
-request_413($apiUrl, $safe, 'Payload ~65500 bytes (under limit)');
+assertNot413($apiUrl, $safe, 'Payload ~65500 bytes (under limit, expect non-413)');
 
 // 2. Payload at exact limit
 $exact = json_encode(['_pad' => str_repeat('A', 65518)]);
-request_413($apiUrl, $exact, 'Payload ~65518 bytes (at limit)');
+assertNot413($apiUrl, $exact, 'Payload ~65518 bytes (at limit, expect non-413)');
 
-// 3. Payload exceeding limit via Content-Length
+// 3. Payload exceeding limit
 $large = json_encode(['_pad' => str_repeat('A', 70000)]);
-request_413($apiUrl, $large, 'Payload ~70000 bytes (over limit via size)');
+assert413($apiUrl, $large, 'Payload ~70000 bytes (over limit, expect 413)');
 
-// 4. Payload with Content-Length header exceeding limit (trimmed body)
+// 4. Payload with Content-Length exceeding limit (trimmed body)
 $headerLarge = json_encode(['_pad' => str_repeat('A', 66000)]);
-request_413($apiUrl, $headerLarge, 'Payload ~66000 bytes (over limit)');
+assert413($apiUrl, $headerLarge, 'Payload ~66000 bytes (over limit, expect 413)');
 
-// 5. Empty JSON object (should be valid, not 413)
-$empty = '{}';
-$ctx = stream_context_create([
-    'http' => [
-        'method' => 'POST',
-        'header' => "Content-Type: application/json\r\n",
-        'content' => $empty,
-        'ignore_errors' => true,
-    ],
-]);
-$response = @file_get_contents($apiUrl, false, $ctx);
-$decoded = $response !== false ? json_decode($response, true) : null;
-$passed = ($decoded['ok'] ?? null) === true;
-echo ($passed ? 'PASS' : 'FAIL') . ": Empty object (should not be 413)\n";
+// 5. Empty JSON object (valid body, should not 413)
+$result = httpPost($apiUrl, '{}');
+$passed = $result['code'] !== 413;
+echo ($passed ? 'PASS' : 'FAIL') . ": Empty object (expect non-413, got HTTP {$result['code']})\n";
 
-echo "\nDone. Spot-check: empty object must pass, large payloads must 413.\n";
+echo "\nDone. Over-limit payloads must 413; under-limit and empty must not 413.\n";
