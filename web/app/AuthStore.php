@@ -769,41 +769,47 @@ final class AuthStore
             throw $exception;
         }
 
-        $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId, $reservationId, $username): array {
-            foreach (($data['tokens'] ?? []) as $index => $token) {
-                if (($token['id'] ?? '') !== $tokenId) {
-                    continue;
-                }
+        try {
+            $this->updateJson($this->tokensPath, $this->defaultTokens(), function (array $data) use ($tokenId, $reservationId, $username): array {
+                foreach (($data['tokens'] ?? []) as $index => $token) {
+                    if (($token['id'] ?? '') !== $tokenId) {
+                        continue;
+                    }
 
-                if (($token['consumed_at'] ?? null) !== null
-                    && hash_equals((string) ($token['registration_completed_id'] ?? ''), $reservationId)
-                ) {
+                    if (($token['consumed_at'] ?? null) !== null
+                        && hash_equals((string) ($token['registration_completed_id'] ?? ''), $reservationId)
+                    ) {
+                        return [$data, null];
+                    }
+
+                    if (!hash_equals((string) ($token['registration_reservation_id'] ?? ''), $reservationId)
+                        || ($token['consumed_at'] ?? null) !== null
+                    ) {
+                        continue;
+                    }
+
+                    $user = $this->findUserByUsername($username);
+                    if ($user === null || !($user['enabled'] ?? false)) {
+                        throw new RuntimeException('User no longer exists or is disabled.');
+                    }
+
+                    $data['tokens'][$index]['consumed_at'] = $this->now();
+                    $data['tokens'][$index]['registration_completed_id'] = $reservationId;
+                    unset(
+                        $data['tokens'][$index]['registration_reservation_id'],
+                        $data['tokens'][$index]['registration_reserved_at'],
+                        $data['tokens'][$index]['registration_credential_id']
+                    );
                     return [$data, null];
                 }
 
-                if (!hash_equals((string) ($token['registration_reservation_id'] ?? ''), $reservationId)
-                    || ($token['consumed_at'] ?? null) !== null
-                ) {
-                    continue;
-                }
-
-                $user = $this->findUserByUsername($username);
-                if ($user === null || !($user['enabled'] ?? false)) {
-                    throw new RuntimeException('User no longer exists or is disabled.');
-                }
-
-                $data['tokens'][$index]['consumed_at'] = $this->now();
-                $data['tokens'][$index]['registration_completed_id'] = $reservationId;
-                unset(
-                    $data['tokens'][$index]['registration_reservation_id'],
-                    $data['tokens'][$index]['registration_reserved_at'],
-                    $data['tokens'][$index]['registration_credential_id']
-                );
-                return [$data, null];
-            }
-
-            throw new RuntimeException('Could not finalize setup token consumption.');
-        });
+                throw new RuntimeException('Could not finalize setup token consumption.');
+            });
+        } catch (RuntimeException $exception) {
+            $this->removeSetupCredentialByToken($username, $credentialId);
+            $this->releaseSetupRegistrationReservation($tokenId, $reservationId);
+            throw $exception;
+        }
 
         if (!$this->bootstrapPending()) {
             $this->deleteBootstrapFiles();
@@ -1594,6 +1600,9 @@ final class AuthStore
         $users = $this->readJson($this->usersPath, $this->defaultUsers());
         $completed = [];
         foreach (($users['users'] ?? []) as $user) {
+            if (!($user['enabled'] ?? false)) {
+                continue;
+            }
             foreach (($user['credentials'] ?? []) as $credential) {
                 $registrationId = (string) ($credential['setup_registration_id'] ?? '');
                 $tokenId = (string) ($credential['setup_token_id'] ?? '');
@@ -1644,6 +1653,36 @@ final class AuthStore
             }
 
             return [$data, $changed];
+        });
+    }
+
+    private function removeSetupCredentialByToken(string $username, string $credentialId): void
+    {
+        $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username, $credentialId): array {
+            $index = $this->findUserIndex($data, $username);
+            if ($index === null) {
+                return [$data, null];
+            }
+
+            $credentials = is_array($data['users'][$index]['credentials'] ?? null)
+                ? $data['users'][$index]['credentials']
+                : [];
+            $remaining = [];
+            foreach ($credentials as $credential) {
+                if (($credential['id'] ?? '') === $credentialId) {
+                    continue;
+                }
+                $remaining[] = $credential;
+            }
+
+            if (count($remaining) === count($credentials)) {
+                return [$data, null];
+            }
+
+            $data['users'][$index]['credentials'] = $remaining;
+            $data['users'][$index]['updated_at'] = $this->now();
+
+            return [$data, null];
         });
     }
 
