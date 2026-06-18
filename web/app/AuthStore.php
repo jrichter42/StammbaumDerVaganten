@@ -1111,8 +1111,8 @@ final class AuthStore
         $this->ensureJsonFile($this->accessControlCheckPath, $this->defaultAccessControlCheck());
         if (!is_file($this->auditPath)) {
             @touch($this->auditPath);
-            @chmod($this->auditPath, 0600);
         }
+        @chmod($this->auditPath, 0600);
     }
 
     /**
@@ -1770,6 +1770,7 @@ final class AuthStore
         $json = json_encode($row, JSON_UNESCAPED_SLASHES);
         if ($json !== false) {
             file_put_contents($this->auditPath, $json . PHP_EOL, FILE_APPEND | LOCK_EX);
+            @chmod($this->auditPath, 0600);
         }
     }
 
