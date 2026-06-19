@@ -603,10 +603,10 @@ function handleBeforeUnload(event) {
   event.returnValue = '';
 }
 
-function activateView(viewName, urlExtra = {}) {
+function activateView(viewName, opts = {}) {
   if (state.status?.auth && !state.status.auth.user && !visualizationViews.includes(viewName)) {
     viewName = 'tree';
-    urlExtra = {};
+    opts = {};
   }
   const previousViewName = currentViewName();
   if (viewName !== 'users') {
@@ -626,7 +626,10 @@ function activateView(viewName, urlExtra = {}) {
     view.classList.toggle('is-active', view.id === `view-${viewName}`);
   });
 
-  writeUrlState({ view: viewName, ...urlExtra });
+  const { silent, ...urlExtra } = opts;
+  if (!silent) {
+    writeUrlState({ view: viewName, ...urlExtra });
+  }
   if (visualizationViews.includes(viewName)) {
     publicGraphSignature = '';
     renderVisualizations();
@@ -1658,7 +1661,7 @@ function renderShell() {
   if (user) {
     currentUserName.textContent = user.display_name || user.username || 'Eingeloggt';
   } else if (!visualizationViews.includes(currentViewName())) {
-    activateView('tree');
+    activateView('tree', { silent: true });
   }
   renderTimeframeControl();
   updateSourceControl();
@@ -1673,13 +1676,13 @@ function renderShell() {
     logNav.hidden = !canManageUsers;
   }
   if (!canManageUsers && document.querySelector('#view-users')?.classList.contains('is-active')) {
-    activateView('people');
+    activateView('people', { silent: true });
   }
   if (!canManageUsers && document.querySelector('#view-audit')?.classList.contains('is-active')) {
-    activateView('people');
+    activateView('people', { silent: true });
   }
   if (!canManageUsers && document.querySelector('#view-log')?.classList.contains('is-active')) {
-    activateView('people');
+    activateView('people', { silent: true });
   }
 
   document.querySelectorAll('[data-create-type]').forEach((button) => {
