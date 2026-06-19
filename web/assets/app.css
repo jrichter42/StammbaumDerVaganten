@@ -92,6 +92,10 @@ body {
   line-height: 1.45;
 }
 
+body.is-full-page-open {
+  overflow: auto;
+}
+
 button,
 input,
 select,
@@ -131,6 +135,14 @@ textarea {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   align-content: stretch;
+}
+
+body.is-full-page-open .app-content,
+.app-content:has(> .account-page:not([hidden])),
+.app-content:has(> .auth-screen:not([hidden])) {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .panel-header p {
@@ -895,8 +907,8 @@ h3 {
 }
 
 .account-page {
-  min-height: 0;
-  overflow-y: auto;
+  min-height: 100%;
+  overflow: visible;
   padding: var(--workspace-pad) var(--workspace-pad-left);
 }
 
@@ -3154,16 +3166,131 @@ button.object-title-row.is-graph-highlighted::before {
 }
 
 @media (max-width: 780px) {
+  body {
+    overflow: auto;
+  }
+
+  body.is-full-page-open {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  body.is-full-page-open::after {
+    content: "";
+    display: block;
+    height: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  body.is-full-page-open .app-shell {
+    display: block;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .app-content {
+    overflow: visible;
+  }
+
+  body.is-full-page-open .app-content,
+  .app-content:has(> .account-page:not([hidden])),
+  .app-content:has(> .auth-screen:not([hidden])) {
+    display: block;
+    overflow: visible;
+    overscroll-behavior: auto;
+    -webkit-overflow-scrolling: auto;
+  }
+
   .topbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
+    display: contents;
+  }
+
+  .brand-row {
+    position: sticky;
+    z-index: 80;
+    top: 0;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px 10px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(21, 27, 32, 0.98);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    order: 0;
+  }
+
+  .brand-row h1 {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .site-title {
+    white-space: normal;
+  }
+
+  .version-chip {
+    flex: 0 0 auto;
   }
 
   .topbar-tools {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
     width: 100%;
+    padding: 8px 10px 10px;
+    background: rgba(21, 27, 32, 0.98);
+    row-gap: 8px;
+    order: 2;
+  }
+
+  .topbar-tools:has(.public-visualization-nav:not([hidden])) {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    column-gap: 0;
+    width: 100%;
+  }
+
+  .topbar-tools:not(:has(> :not([hidden]))) {
+    display: none;
+  }
+
+  .public-visualization-nav {
+    width: 100%;
+  }
+
+  .public-visualization-nav .nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .timeframe-control {
+    grid-template-columns: auto minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .timeframe-compact {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .timeframe-value {
+    flex: 1 1 120px;
+    width: auto;
+    max-width: none;
+  }
+
+  .timeframe-clear {
+    flex: 0 0 auto;
   }
 
   .visualization-summary {
@@ -3175,27 +3302,58 @@ button.object-title-row.is-graph-highlighted::before {
     flex-direction: column;
   }
 
-  .topbar-actions {
-    grid-column: 2;
-    grid-row: 1;
-    position: relative;
-    justify-content: flex-end;
-    width: auto;
+  #view-people .panel-header,
+  #view-groups .panel-header,
+  #view-group-types .panel-header,
+  #view-roles .panel-header,
+  #view-timepoints .panel-header,
+  #view-users .panel-header {
+    min-height: 0;
+    gap: 8px;
+    padding-block: 4px 8px;
   }
 
-  .global-search {
+  .topbar-actions {
+    position: relative;
+    justify-content: flex-start;
+    width: 100%;
+    padding: 8px 10px 0;
+    background: rgba(21, 27, 32, 0.98);
+    gap: 6px;
+    order: 1;
+  }
+
+  .topbar-actions .button,
+  .status-pill {
+    flex: 0 0 auto;
+    max-width: 100%;
+  }
+
+  .global-search,
+  .source-control {
     position: relative;
     top: auto;
     left: auto;
     transform: none;
+    width: 100%;
+    align-items: stretch;
+    flex-wrap: wrap;
   }
 
   .global-search input {
-    width: min(100%, 320px);
+    flex: 1 1 180px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .source-input-wrap {
+    flex: 1 1 180px;
+    width: 100%;
   }
 
   .source-control input {
-    width: min(100%, 220px);
+    min-width: 0;
+    width: 100%;
   }
 
   .global-search-results {
@@ -3214,6 +3372,20 @@ button.object-title-row.is-graph-highlighted::before {
 
   .collection-heading {
     grid-template-columns: 1fr;
+    gap: 8px;
+    min-width: 0;
+    flex-basis: auto;
+  }
+
+  .collection-header,
+  .collection-controls,
+  .collection-filter-controls {
+    gap: 8px;
+  }
+
+  .object-list,
+  .user-list {
+    gap: 8px;
   }
 
   .workspace,
@@ -3222,6 +3394,38 @@ button.object-title-row.is-graph-highlighted::before {
   .public-hero,
   .public-grid {
     grid-template-columns: 1fr;
+  }
+
+  .workspace {
+    grid-template-rows: auto minmax(0, 1fr);
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .app-content {
+    order: 3;
+    width: 100%;
+  }
+
+  .content-area,
+  .workspace[data-active-view="tree"] .content-area,
+  .workspace[data-active-view="timeline"] .content-area {
+    height: auto;
+    max-height: none;
+    padding-inline-end: 0;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .back-to-top {
+    position: fixed;
+    top: auto;
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    transform: none;
   }
 
   .public-section-heading,
@@ -3250,6 +3454,58 @@ button.object-title-row.is-graph-highlighted::before {
     height: var(--tree-graph-height, 68vh);
   }
 
+  #view-tree.is-active,
+  #view-timeline.is-active {
+    height: auto;
+  }
+
+  #view-tree .public-map,
+  #view-timeline .public-map {
+    height: auto;
+    min-height: 0;
+  }
+
+  #view-tree .panel-header,
+  #view-tree [data-tree-graph-status],
+  #view-tree .tree-summary {
+    position: static;
+    width: 100%;
+    max-width: none;
+  }
+
+  #view-tree .panel-header {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  #view-tree .public-graph {
+    flex: 0 0 auto;
+    height: min(68dvh, 620px);
+    min-height: 360px;
+  }
+
+  .timeline-visualization {
+    max-height: 68dvh;
+  }
+
+  .timeline-chart {
+    min-width: 640px;
+    padding: 38px 12px 14px 128px;
+  }
+
+  .timeline-axis {
+    right: 12px;
+    left: 128px;
+  }
+
+  .timeline-lane-label {
+    right: calc(100% + 10px);
+    width: 108px;
+  }
+
   .auth-screen {
     width: min(100% - 28px, 860px);
   }
@@ -3260,16 +3516,23 @@ button.object-title-row.is-graph-highlighted::before {
   }
 
   .account-page {
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
     padding-inline: 14px;
+    padding-bottom: 18px;
   }
 
   .sidebar {
-    position: sticky;
-    top: var(--workspace-pad);
+    position: static;
+    top: auto;
     z-index: 20;
     flex-direction: row;
     align-items: center;
     gap: 10px;
+    width: 100%;
+    max-height: none;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 8px 0;
@@ -3294,9 +3557,77 @@ button.object-title-row.is-graph-highlighted::before {
 }
 
 @media (max-width: 460px) {
+  .topbar {
+    padding-inline: 10px;
+  }
+
+  .brand-row {
+    align-items: center;
+    flex-direction: row;
+    gap: 5px 9px;
+    padding-inline: 10px;
+  }
+
+  .topbar-actions {
+    width: 100%;
+  }
+
+  .topbar-actions .button,
+  .status-pill {
+    width: auto;
+    justify-content: center;
+  }
+
+  .user-pill {
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  #currentUserName {
+    min-width: 0;
+    max-width: min(42vw, 12rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .timeframe-control {
+    grid-template-columns: 1fr;
+  }
+
+  .timeframe-compact {
+    width: 100%;
+  }
+
+  .icon-button {
+    flex: 0 0 32px;
+  }
+
   .sidebar {
     margin-inline: -6px;
     padding-inline: 6px;
+  }
+
+  .nav-item {
+    min-height: 34px;
+    padding: 8px 10px;
+  }
+
+  #view-tree .public-graph {
+    height: 62dvh;
+    min-height: 320px;
+  }
+
+  .timeline-chart {
+    min-width: 560px;
+    padding-left: 108px;
+  }
+
+  .timeline-axis {
+    left: 108px;
+  }
+
+  .timeline-lane-label {
+    width: 90px;
   }
 
   .object-editor-layout,

@@ -323,7 +323,6 @@ const auditList = document.querySelector('#auditList');
 const auditControls = document.querySelector('#auditControls');
 const changeLogControls = document.querySelector('#changeLogControls');
 const changeLogList = document.querySelector('#changeLogList');
-const appContent = document.querySelector('.app-content');
 const contentArea = document.querySelector('.content-area');
 const backToTopButton = document.querySelector('#backToTopButton');
 const contextResizer = document.querySelector('#contextResizer');
@@ -440,7 +439,9 @@ backToTopButton?.addEventListener('click', scrollBackToTop);
 contextResizer?.addEventListener('pointerdown', beginContextResize);
 window.addEventListener('beforeunload', handleBeforeUnload);
 window.addEventListener('pagehide', clearIncomingSetupToken);
+window.addEventListener('scroll', updateBackToTopButton, { passive: true });
 window.addEventListener('resize', handleContextLayoutResize);
+window.addEventListener('resize', updateBackToTopButton);
 window.addEventListener('resize', scheduleContextGraphRender);
 window.addEventListener('resize', scheduleTreeGraphRender);
 window.addEventListener('hashchange', handleAuthFragmentChange);
@@ -481,11 +482,26 @@ function updateBackToTopButton() {
     return;
   }
 
-  backToTopButton.hidden = appScrollRoot().scrollTop <= 4;
+  if (!workspace || workspace.hidden) {
+    backToTopButton.hidden = true;
+    return;
+  }
+
+  const root = appScrollRoot();
+  const scrollTop = root === document.scrollingElement
+    ? window.scrollY || root.scrollTop || 0
+    : root.scrollTop || 0;
+  backToTopButton.hidden = scrollTop <= 80;
 }
 
 function scrollBackToTop() {
-  appScrollRoot().scrollTo({ top: 0, behavior: 'smooth' });
+  const root = appScrollRoot();
+  if (root === document.scrollingElement) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+
+  root.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function beginContextResize(event) {
@@ -1625,6 +1641,8 @@ async function refresh() {
 function renderShell() {
   const user = state.status?.auth?.user || null;
   const accountOpen = Boolean(user && state.accountOpen);
+  const fullPageOpen = accountOpen || isSetupPage || state.loginOpen || isLoginLinkPage;
+  document.body.classList.toggle('is-full-page-open', fullPageOpen);
   if (!user && accessControlWarning) {
     accessControlWarning.hidden = true;
   }
@@ -7666,11 +7684,15 @@ function scrollObjectEditorIntoView(type, id, listId = '') {
 }
 
 function appScrollRoot() {
-  if (workspace && !workspace.hidden && contentArea) {
+  if (workspace && !workspace.hidden && contentArea && !usesDocumentScrollRoot()) {
     return contentArea;
   }
 
-  return appContent || document.documentElement;
+  return document.scrollingElement || document.documentElement;
+}
+
+function usesDocumentScrollRoot() {
+  return window.matchMedia?.('(max-width: 780px)')?.matches === true;
 }
 
 async function handlePeriodModeAction(button) {
