@@ -96,6 +96,7 @@ const contextNavigationLinkSelector = [
 const contextEdgeTargetSelector = '[data-graph-edge-type][data-graph-edge-id][data-graph-edge-edit]';
 const collectionTypes = [...objectCollections, 'users'];
 const collectionVisibleStep = 100;
+const timeframeAnimationMs = 260;
 const sortCollator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const pickerActionShowAllGroups = '__picker_show_all_groups__';
 const pickerActionShowAllRoles = '__picker_show_all_roles__';
@@ -343,6 +344,14 @@ let isSetupPage = false;
 let isLoginLinkPage = Boolean(urlLoginToken);
 let publicNetwork = null;
 let publicGraphSignature = '';
+const publicGraphSync = {
+  nodeDataSet: null,
+  edgeDataSet: null,
+  graph: null,
+  animationFrame: 0,
+  generation: 0,
+  clickHandler: null,
+};
 let contextNetwork = null;
 let contextGraphSignature = '';
 let contextGraphFrame = 0;
@@ -2789,6 +2798,7 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
       publicNetwork.destroy();
       publicNetwork = null;
       publicGraphSignature = '';
+      resetPublicGraphSync();
     }
     setTreeGraphStatus(status, 'Noch keine öffentliche Struktur.');
     return;
@@ -2803,28 +2813,252 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
   publicGraphSignature = signature;
   setTreeGraphStatus(status, '');
 
-  if (publicNetwork) {
-    publicNetwork.destroy();
+  if (publicNetwork && publicGraphSync.nodeDataSet && publicGraphSync.edgeDataSet) {
+    updatePublicGraphData(graph);
+    bindVisualizationNetwork(publicNetwork, graph);
+    return;
   }
 
+  resetPublicGraphSync();
+  publicGraphSync.nodeDataSet = new visNetwork.DataSet(graph.nodes);
+  publicGraphSync.edgeDataSet = new visNetwork.DataSet(graph.edges);
+  publicGraphSync.graph = graph;
   publicNetwork = new visNetwork.Network(container, {
-    nodes: new visNetwork.DataSet(graph.nodes),
-    edges: new visNetwork.DataSet(graph.edges),
+    nodes: publicGraphSync.nodeDataSet,
+    edges: publicGraphSync.edgeDataSet,
   }, publicGraphOptions(graph));
 
   bindVisualizationNetwork(publicNetwork, graph);
   settleGraph(publicNetwork, graph);
 }
 
+function resetPublicGraphSync() {
+  if (publicGraphSync.animationFrame) {
+    window.cancelAnimationFrame(publicGraphSync.animationFrame);
+  }
+  publicGraphSync.nodeDataSet = null;
+  publicGraphSync.edgeDataSet = null;
+  publicGraphSync.graph = null;
+  publicGraphSync.animationFrame = 0;
+  publicGraphSync.generation += 1;
+  publicGraphSync.clickHandler = null;
+}
+
+function updatePublicGraphData(graph) {
+  const currentNodeIds = new Set(publicGraphSync.nodeDataSet.getIds());
+  const currentEdgeIds = new Set(publicGraphSync.edgeDataSet.getIds());
+  const positions = publicNetwork?.getPositions?.(Array.from(currentNodeIds)) || {};
+  const viewport = publicNetwork ? {
+    position: publicNetwork.getViewPosition(),
+    scale: publicNetwork.getScale(),
+  } : null;
+  const generation = publicGraphSync.generation + 1;
+  const animate = shouldAnimateTimeframeChange();
+
+  publicGraphSync.generation = generation;
+  if (publicGraphSync.animationFrame) {
+    window.cancelAnimationFrame(publicGraphSync.animationFrame);
+    publicGraphSync.animationFrame = 0;
+  }
+
+  if (animate) {
+    animatePublicGraphToData(graph, positions, viewport, generation);
+    return;
+  }
+
+  const nextNodes = graph.nodes.map((node) => ({
+    ...node,
+    ...(positions[node.id] || {}),
+    opacity: 1,
+  }));
+  const nextEdges = graph.edges.map((edge) => ({
+    ...edge,
+    opacity: 1,
+  }));
+
+  publicGraphSync.nodeDataSet.remove([...currentNodeIds]);
+  publicGraphSync.edgeDataSet.remove([...currentEdgeIds]);
+  publicGraphSync.nodeDataSet.update(nextNodes);
+  publicGraphSync.edgeDataSet.update(nextEdges);
+  publicGraphSync.graph = graph;
+  settleGraph(publicNetwork, graph);
+}
+
+function shouldAnimateTimeframeChange() {
+  return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
+async function animatePublicGraphToData(graph, startPositions, viewport, generation) {
+  const targetPositions = await publicGraphTargetPositions(graph);
+  if (publicGraphSync.generation !== generation || !publicNetwork) {
+    return;
+  }
+
+  const nextNodeIds = new Set(graph.nodes.map((node) => node.id));
+  const nextEdgeIds = new Set(graph.edges.map((edge) => edge.id));
+  const currentNodes = publicGraphSync.nodeDataSet.get();
+  const currentEdges = publicGraphSync.edgeDataSet.get();
+  const currentNodeIds = new Set(currentNodes.map((node) => node.id));
+  const currentEdgeIds = new Set(currentEdges.map((edge) => edge.id));
+  const removedNodeIds = [...currentNodeIds].filter((id) => !nextNodeIds.has(id));
+  const removedEdgeIds = [...currentEdgeIds].filter((id) => !nextEdgeIds.has(id));
+  const enteringNodeIds = graph.nodes.filter((node) => !currentNodeIds.has(node.id)).map((node) => node.id);
+  const enteringEdgeIds = graph.edges.filter((edge) => !currentEdgeIds.has(edge.id)).map((edge) => edge.id);
+  const starts = new Map();
+  const targets = new Map();
+
+  currentNodes.forEach((node) => {
+    const position = startPositions[node.id] || { x: node.x || 0, y: node.y || 0 };
+    starts.set(node.id, position);
+    targets.set(node.id, position);
+  });
+  graph.nodes.forEach((node) => {
+    const target = targetPositions[node.id] || startPositions[node.id] || { x: 0, y: 0 };
+    const start = startPositions[node.id] || publicGraphNodeAnchor(node.id, graph.edges, startPositions, target);
+    starts.set(node.id, start);
+    targets.set(node.id, target);
+  });
+
+  publicNetwork.stopSimulation();
+  publicNetwork.setOptions({ physics: { enabled: false } });
+  if (viewport) {
+    publicNetwork.moveTo({ position: viewport.position, scale: viewport.scale, animation: false });
+  }
+
+  publicGraphSync.nodeDataSet.update(currentNodes.map((node) => ({
+    id: node.id,
+    ...(starts.get(node.id) || {}),
+    fixed: { x: true, y: true },
+    opacity: 1,
+  })));
+  publicGraphSync.nodeDataSet.update(graph.nodes.map((node) => ({
+    ...node,
+    ...(starts.get(node.id) || {}),
+    fixed: { x: true, y: true },
+    opacity: enteringNodeIds.includes(node.id) ? 0 : 1,
+  })));
+  publicGraphSync.edgeDataSet.update(graph.edges.map((edge) => ({
+    ...edge,
+    opacity: enteringEdgeIds.includes(edge.id) ? 0 : 1,
+  })));
+
+  const start = performance.now();
+  const ease = (value) => value * (2 - value);
+  const tick = (now) => {
+    if (publicGraphSync.generation !== generation) {
+      return;
+    }
+
+    const progress = ease(Math.min(1, (now - start) / timeframeAnimationMs));
+    publicGraphSync.nodeDataSet.update(graph.nodes.map((node) => {
+      const from = starts.get(node.id) || targets.get(node.id) || { x: 0, y: 0 };
+      const to = targets.get(node.id) || from;
+      return {
+        id: node.id,
+        x: from.x + ((to.x - from.x) * progress),
+        y: from.y + ((to.y - from.y) * progress),
+        opacity: enteringNodeIds.includes(node.id) ? progress : 1,
+      };
+    }));
+    if (removedNodeIds.length) {
+      publicGraphSync.nodeDataSet.update(removedNodeIds.map((id) => ({ id, opacity: 1 - progress })));
+    }
+    if (enteringEdgeIds.length) {
+      publicGraphSync.edgeDataSet.update(enteringEdgeIds.map((id) => ({ id, opacity: progress })));
+    }
+    if (removedEdgeIds.length) {
+      publicGraphSync.edgeDataSet.update(removedEdgeIds.map((id) => ({ id, opacity: 1 - progress })));
+    }
+
+    if (progress < 1) {
+      publicGraphSync.animationFrame = window.requestAnimationFrame(tick);
+      return;
+    }
+
+    publicGraphSync.animationFrame = 0;
+    publicGraphSync.nodeDataSet.remove(removedNodeIds);
+    publicGraphSync.edgeDataSet.remove(removedEdgeIds);
+    publicGraphSync.nodeDataSet.update(graph.nodes.map((node) => ({
+      ...node,
+      ...(targets.get(node.id) || {}),
+      fixed: { x: false, y: false },
+      opacity: 1,
+    })));
+    publicGraphSync.edgeDataSet.update(graph.edges.map((edge) => ({ ...edge, opacity: 1 })));
+    publicGraphSync.graph = graph;
+    publicNetwork.setOptions({ physics: { enabled: false } });
+    if (viewport) {
+      publicNetwork.fit({ animation: { duration: 180, easingFunction: 'easeInOutQuad' }, maxZoomLevel: 1.15 });
+    }
+  };
+
+  publicGraphSync.animationFrame = window.requestAnimationFrame(tick);
+}
+
+function publicGraphNodeAnchor(nodeId, edges, positions, fallback) {
+  const edge = edges.find((entry) => entry.from === nodeId || entry.to === nodeId);
+  const neighborId = edge?.from === nodeId ? edge.to : edge?.from;
+  return positions[neighborId] || fallback;
+}
+
+function publicGraphTargetPositions(graph) {
+  const visNetwork = window.vis;
+  const sourceContainer = publicNetwork?.body?.container;
+  if (!visNetwork?.Network || !visNetwork?.DataSet || !sourceContainer) {
+    return Promise.resolve({});
+  }
+
+  const probe = document.createElement('div');
+  probe.className = 'public-graph-layout-probe';
+  probe.style.width = `${sourceContainer.clientWidth || 800}px`;
+  probe.style.height = `${sourceContainer.clientHeight || 600}px`;
+  sourceContainer.append(probe);
+
+  return new Promise((resolve) => {
+    const network = new visNetwork.Network(probe, {
+      nodes: new visNetwork.DataSet(graph.nodes),
+      edges: new visNetwork.DataSet(graph.edges),
+    }, publicGraphLayoutProbeOptions(graph));
+    let done = false;
+    const finish = () => {
+      if (done) {
+        return;
+      }
+      done = true;
+      network.stopSimulation();
+      resolve(network.getPositions(graph.nodes.map((node) => node.id)));
+      network.destroy();
+      probe.remove();
+    };
+
+    window.requestAnimationFrame(() => window.requestAnimationFrame(finish));
+  });
+}
+
+function publicGraphLayoutProbeOptions(graph) {
+  const options = publicGraphOptions(graph);
+  return {
+    ...options,
+    physics: {
+      enabled: false,
+      stabilization: { enabled: false, fit: false },
+    },
+  };
+}
+
 function bindVisualizationNetwork(network, graph) {
+  if (publicGraphSync.clickHandler) {
+    network.off?.('click', publicGraphSync.clickHandler);
+  }
   const nodes = new Map((graph.nodes || []).map((node) => [node.id, node]));
   const edges = new Map((graph.edges || []).map((edge) => [edge.id, edge]));
-  network.on('click', (event) => {
+  publicGraphSync.clickHandler = (event) => {
     const entry = event.edges?.length ? edges.get(event.edges[0]) : nodes.get(event.nodes?.[0]);
     if (entry?.navigation) {
       navigateToVisualizationTarget(entry.navigation);
     }
-  });
+  };
+  network.on('click', publicGraphSync.clickHandler);
 }
 
 async function navigateToVisualizationTarget(target) {
@@ -2862,13 +3096,13 @@ function renderTimelineVisualization() {
     `${data.leadershipCount} bekannte Stammesführungen`,
   ]);
   if (!data.lanes.length) {
-    root.innerHTML = '';
+    replaceTimelineVisualizationContent(root, '');
     setTreeGraphStatus(status, 'Keine datierten Gruppen oder Stammesführungen im gewählten Zeitraum.');
     return;
   }
   setTreeGraphStatus(status, '');
   const ticks = timelineTicks(data.start, data.end);
-  root.innerHTML = `
+  replaceTimelineVisualizationContent(root, `
     <div class="timeline-chart">
       <div class="timeline-axis">${ticks.map((tick) => `<span class="timeline-tick" style="left:${tick.left}%"><span>${tick.label}</span></span>`).join('')}</div>
       ${data.lanes.map((lane) => `
@@ -2885,7 +3119,40 @@ function renderTimelineVisualization() {
         </div>
       `).join('')}
     </div>
-  `;
+  `);
+}
+
+function replaceTimelineVisualizationContent(root, html) {
+  const previousChart = root.querySelector('.timeline-chart');
+  const animate = shouldAnimateTimeframeChange() && previousChart && html;
+  const scrollLeft = root.scrollLeft;
+  const scrollTop = root.scrollTop;
+
+  if (!animate) {
+    root.innerHTML = html;
+    root.scrollLeft = scrollLeft;
+    root.scrollTop = scrollTop;
+    return;
+  }
+
+  const exiting = previousChart.cloneNode(true);
+  exiting.classList.add('timeline-chart-exit');
+  previousChart.remove();
+  root.innerHTML = html;
+  const entering = root.querySelector('.timeline-chart');
+  if (!entering) {
+    return;
+  }
+
+  root.scrollLeft = scrollLeft;
+  root.scrollTop = scrollTop;
+  entering.classList.add('timeline-chart-enter');
+  root.append(exiting);
+  window.requestAnimationFrame(() => {
+    entering.classList.add('is-active');
+    exiting.classList.add('is-active');
+  });
+  window.setTimeout(() => exiting.remove(), timeframeAnimationMs);
 }
 
 function timelineVisualizationData() {
@@ -3200,12 +3467,15 @@ function resetContextGraphSync() {
   contextGraphSync.hover = emptyContextGraphHover();
 }
 
-function settleGraph(network, graph) {
+function settleGraph(network, graph, animateViewport = false, startViewport = null, onSettled = null) {
   if (!network) {
     return;
   }
 
   let didSettle = false;
+  const viewportAnimation = animateViewport && shouldAnimateTimeframeChange()
+    ? { duration: 220, easingFunction: 'easeInOutQuad' }
+    : false;
   const finish = () => {
     if (didSettle || !network) {
       return;
@@ -3213,10 +3483,18 @@ function settleGraph(network, graph) {
 
     didSettle = true;
     network.stopSimulation();
-    network.fit({ animation: false, maxZoomLevel: 1.15 });
-    if (network.getScale() < 0.72) {
-      network.moveTo({ scale: 0.72, animation: false });
+    if (viewportAnimation && startViewport) {
+      network.moveTo({
+        position: startViewport.position,
+        scale: startViewport.scale,
+        animation: false,
+      });
     }
+    network.fit({ animation: viewportAnimation, maxZoomLevel: 1.15 });
+    if (!viewportAnimation && network.getScale() < 0.72) {
+      network.moveTo({ scale: 0.72, animation: viewportAnimation });
+    }
+    onSettled?.();
   };
 
   network.once?.('stabilizationIterationsDone', finish);
@@ -3247,7 +3525,7 @@ function graphPhysicsOptions(graph) {
       enabled: true,
       iterations: graphStabilizationIterations(graph),
       updateInterval: 10,
-      fit: true,
+      fit: false,
     },
   };
 }

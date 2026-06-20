@@ -744,6 +744,7 @@ h3 {
 }
 
 .public-graph {
+  position: relative;
   height: var(--tree-graph-height, min(72vh, 760px));
   min-height: 520px;
   border: 1px solid var(--line);
@@ -754,6 +755,15 @@ h3 {
     rgba(21, 27, 32, 0.78);
   background-size: 42px 42px;
   overflow: hidden;
+}
+
+.public-graph-layout-probe {
+  position: absolute;
+  inset: auto;
+  left: -10000px;
+  top: -10000px;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .public-graph .vis-navigation {
@@ -1344,6 +1354,7 @@ body.is-context-resizing {
 }
 
 .timeline-visualization {
+  position: relative;
   flex: 1 1 auto;
   min-height: 420px;
   overflow: auto;
@@ -1356,6 +1367,40 @@ body.is-context-resizing {
   position: relative;
   min-width: 760px;
   padding: 42px 18px 18px 180px;
+}
+
+.timeline-chart-enter,
+.timeline-chart-exit {
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.timeline-chart-enter {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.timeline-chart-enter.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.timeline-chart-exit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.timeline-chart-exit.is-active {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-chart-enter,
+  .timeline-chart-exit {
+    transition: none;
+  }
 }
 
 .timeline-axis {
