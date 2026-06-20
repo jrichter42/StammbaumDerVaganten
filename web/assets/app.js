@@ -394,7 +394,7 @@ loginButton.addEventListener('click', beginLogin);
 passkeyLoginButton.addEventListener('click', beginLogin);
 loginEmailForm?.addEventListener('submit', requestEmailLoginLink);
 logoutButton.addEventListener('click', logout);
-globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
+globalSearchInput?.addEventListener('input', () => renderGlobalSearchResults(activeSearchResultKey(globalSearchResults)));
 globalSearchInput?.addEventListener('focus', renderGlobalSearchResults);
 globalSearchInput?.addEventListener('keydown', handleGlobalSearchKeydown);
 sourceInput?.addEventListener('input', handleSourceInput);
@@ -1881,7 +1881,7 @@ function objectListItem(type, id) {
   return document.querySelector(`[data-object-type="${cssEscape(type)}"][data-object-id="${cssEscape(id)}"]`);
 }
 
-function renderGlobalSearchResults() {
+function renderGlobalSearchResults(preferredKey = '') {
   if (!globalSearchResults) {
     return;
   }
@@ -1900,19 +1900,19 @@ function renderGlobalSearchResults() {
 
   globalSearchResults.hidden = false;
   const matchHtml = matches.map(({ type, object }) => `
-    <button type="button" data-global-search-result data-global-search-type="${escapeAttribute(type)}" data-global-search-id="${escapeAttribute(objectId(object))}">
+    <button type="button" data-global-search-result data-search-result-key="${escapeAttribute(searchResultKey('object', type, objectId(object)))}" data-global-search-type="${escapeAttribute(type)}" data-global-search-id="${escapeAttribute(objectId(object))}">
       <strong>${escapeHtml(objectListTitle(type, object))}</strong>
       <span>${escapeHtml([objectTypeLabels[type] || type, objectListMeta(type, object)].filter(Boolean).join(' · '))}</span>
     </button>
   `).join('');
   const createHtml = createCandidates.map((candidate) => `
-    <button class="global-search-create" type="button" data-global-search-result data-global-search-create-type="${escapeAttribute(candidate.type)}" data-global-search-create-payload="${escapeAttribute(JSON.stringify(candidate.payload))}">
+    <button class="global-search-create" type="button" data-global-search-result data-search-result-key="${escapeAttribute(searchResultKey('create', candidate.type, JSON.stringify(candidate.payload)))}" data-global-search-create-type="${escapeAttribute(candidate.type)}" data-global-search-create-payload="${escapeAttribute(JSON.stringify(candidate.payload))}">
       <strong>${escapeHtml(candidate.title)}</strong>
       <span>${escapeHtml(candidate.detail)}</span>
     </button>
   `).join('');
   globalSearchResults.innerHTML = matchHtml + createHtml || '<div class="global-search-empty">Keine Treffer</div>';
-  resetSearchResultActive(globalSearchResults);
+  resetSearchResultActive(globalSearchResults, preferredKey);
 }
 
 function handleSearchResultKeyboard(event, results) {
@@ -1960,11 +1960,24 @@ function setActiveSearchResult(results, items, index) {
   });
 }
 
-function resetSearchResultActive(results) {
-  results.querySelectorAll('button.is-active').forEach((item) => {
-    item.classList.remove('is-active');
-    item.removeAttribute('aria-selected');
-  });
+function activeSearchResultKey(results) {
+  return results?.querySelector('button.is-active')?.dataset.searchResultKey || '';
+}
+
+function searchResultKey(kind, type, value) {
+  return `${kind}:${type}:${value}`;
+}
+
+function resetSearchResultActive(results, preferredKey = '') {
+  const items = searchResultButtons(results);
+  if (!items.length) {
+    return;
+  }
+
+  const preferredIndex = preferredKey
+    ? items.findIndex((item) => item.dataset.searchResultKey === preferredKey)
+    : -1;
+  setActiveSearchResult(results, items, preferredIndex === -1 ? 0 : preferredIndex);
 }
 
 function globalSearchCreateCandidates(query) {
@@ -9557,8 +9570,10 @@ function handleReferenceFilterInput(event) {
   }
 
   const select = input.closest('[data-reference-field]')?.querySelector('[data-reference-input]');
+  const results = input.closest('[data-reference-field]')?.querySelector('[data-reference-filter-results]');
+  const preferredKey = activeSearchResultKey(results);
   filterReferenceOptions(select, input.value);
-  renderReferenceFilterResults(input);
+  renderReferenceFilterResults(input, preferredKey);
 }
 
 function handleReferenceFilterFocus(event) {
@@ -9615,7 +9630,7 @@ function updateReferenceControlLink(select) {
   link.hidden = !canLink;
 }
 
-function renderReferenceFilterResults(input) {
+function renderReferenceFilterResults(input, preferredKey = '') {
   const field = input.closest('[data-reference-field]');
   const results = field?.querySelector('[data-reference-filter-results]');
   const select = field?.querySelector('[data-reference-input]');
@@ -9643,7 +9658,7 @@ function renderReferenceFilterResults(input) {
 
   results.innerHTML = resultHtml + createHtml || '<div class="reference-filter-empty">Keine Treffer</div>';
   results.hidden = false;
-  resetSearchResultActive(results);
+  resetSearchResultActive(results, preferredKey);
 }
 
 function referenceObjectMatchesQuery(collection, object, query, objects = [], showIds = false) {
@@ -9658,7 +9673,7 @@ function referenceObjectMatchesQuery(collection, object, query, objects = [], sh
 function referenceResultHtml(collection, object) {
   const id = objectId(object);
   return `
-    <button class="reference-filter-result" type="button" data-reference-result-value="${escapeAttribute(id)}">
+    <button class="reference-filter-result" type="button" data-search-result-key="${escapeAttribute(searchResultKey('object', collection, id))}" data-reference-result-value="${escapeAttribute(id)}">
       <strong>${escapeHtml(referenceOptionMainLabel(object, collection, id))}</strong>
       <span>${escapeHtml([objectTypeLabels[collection] || collection, referenceOptionDetail(object, collection)].filter(Boolean).join(' · '))}</span>
     </button>
@@ -9667,7 +9682,7 @@ function referenceResultHtml(collection, object) {
 
 function smartReferenceCreateHtml(candidate) {
   return `
-    <button class="reference-filter-result reference-filter-create" type="button" data-reference-create-type="${escapeAttribute(candidate.type)}" data-reference-create-payload="${escapeAttribute(JSON.stringify(candidate.payload))}">
+    <button class="reference-filter-result reference-filter-create" type="button" data-search-result-key="${escapeAttribute(searchResultKey('create', candidate.type, JSON.stringify(candidate.payload)))}" data-reference-create-type="${escapeAttribute(candidate.type)}" data-reference-create-payload="${escapeAttribute(JSON.stringify(candidate.payload))}">
       <strong>${escapeHtml(candidate.title)}</strong>
       <span>${escapeHtml(candidate.detail)}</span>
     </button>
