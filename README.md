@@ -157,6 +157,8 @@ class GroupPhase {
 class GroupType {
   +String label
   +UUID parentGroupType
+  %% Years (0 = no assumption); used as implicit end for phases missing end date
+  +Number assumedLifetime
 }
 GroupType ..|> Object
 

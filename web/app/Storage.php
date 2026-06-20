@@ -44,6 +44,7 @@ final class Storage
             'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             'label' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
             'parentGroupType' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
+            'assumedLifetime' => ['type' => 'number', 'default' => 0, 'visibility' => 'public'],
         ],
         'roles' => [
             'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
@@ -648,6 +649,9 @@ final class Storage
 
             case 'json':
                 return $value;
+
+            case 'number':
+                return is_numeric($value) ? (float) $value : 0.0;
 
             default:
                 throw new RuntimeException('Unknown field type.');

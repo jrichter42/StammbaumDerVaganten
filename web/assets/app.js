@@ -169,6 +169,7 @@ const objectConfigs = {
     fields: [
       { name: 'label', label: 'Name' },
       { name: 'parentGroupType', label: 'Übergeordnete Gruppenart', kind: 'reference', collection: 'group-types', picker: 'parent-group-type' },
+      { name: 'assumedLifetime', label: 'Angenommene Dauer (Jahre)' },
       { name: 'description', label: 'Beschreibung', kind: 'textarea' },
       { name: 'notes', label: 'Notizen', kind: 'textarea', visibility: 'private' },
     ],
@@ -3676,7 +3677,7 @@ function timelineVisualizationData() {
         left,
         width,
         openStart: segment.bounds.start === null || segment.bounds.start < domain.start,
-        openEnd: segment.bounds.end === null || segment.bounds.end > domain.end,
+        openEnd: segment.bounds.end === null || segment.bounds.end > domain.end || segment.bounds.endIsAssumed,
       }];
     });
     const packed = packTimelineSegments(segments);
@@ -6134,7 +6135,26 @@ function objectTimeBounds(type, object) {
 }
 
 function effectivePhaseBounds(phase) {
-  return periodBounds(phase?.period, resolveTimepointDate);
+  const bounds = periodBounds(phase?.period, resolveTimepointDate);
+  if (!bounds || bounds.start == null || bounds.end != null) {
+    return bounds;
+  }
+
+  const typeId = groupPhaseTypeId(phase);
+  const groupType = findReferenceObject('group-types', typeId);
+  const assumedLifetime = Number(groupType?.assumedLifetime || 0);
+  if (assumedLifetime <= 0) {
+    return bounds;
+  }
+
+  const startParts = dateKeyToParts(bounds.start);
+  if (!startParts) {
+    return bounds;
+  }
+
+  const endYear = Math.min(startParts.year + assumedLifetime, 9999);
+  const end = endYear * 10000 + startParts.month * 100 + startParts.day;
+  return { start: bounds.start, end, endIsAssumed: true };
 }
 
 function effectiveGroupBounds(groupOrId) {
@@ -11638,6 +11658,10 @@ function collectGroupTypeWarnings(warnings, groupType) {
     if (parentTypeId === objectId(groupType)) {
       warnings.push('Übergeordnete Gruppenart darf nicht dieselbe Gruppenart sein.');
     }
+  }
+  const lifetime = Number(groupType?.assumedLifetime || 0);
+  if (lifetime < 0) {
+    warnings.push('Angenommene Dauer darf nicht negativ sein.');
   }
 }
 
