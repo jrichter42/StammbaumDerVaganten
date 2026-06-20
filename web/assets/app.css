@@ -417,6 +417,16 @@ h3 {
   outline: 0;
 }
 
+.global-search-results .global-search-create {
+  border-left: 3px solid var(--brand-strong);
+  background: transparent;
+}
+
+.global-search-results .global-search-create strong::before {
+  content: "+ ";
+  color: var(--brand-strong);
+}
+
 .global-search-results span,
 .global-search-empty {
   color: var(--muted);
@@ -2437,7 +2447,7 @@ button.object-title-row.is-graph-highlighted::before {
 
 .reference-filter-create {
   border-left: 3px solid var(--brand-strong);
-  background: rgba(var(--brand-rgb), 0.08);
+  background: transparent;
 }
 
 .reference-filter-create strong::before {

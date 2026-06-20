@@ -1782,6 +1782,11 @@ async function handleGlobalSearchClick(event) {
     return;
   }
 
+  if (button.dataset.globalSearchCreatePayload) {
+    await handleGlobalSearchCreateClick(button);
+    return;
+  }
+
   const type = button.dataset.globalSearchType;
   const id = button.dataset.globalSearchId;
   if (!type || !id) {
@@ -1814,6 +1819,53 @@ async function handleGlobalSearchClick(event) {
   }
 }
 
+async function handleGlobalSearchCreateClick(button) {
+  const type = button.dataset.globalSearchCreateType || '';
+  let payload = null;
+  try {
+    payload = JSON.parse(button.dataset.globalSearchCreatePayload || 'null');
+  } catch (_error) {
+    payload = null;
+  }
+
+  if (!objectCollections.includes(type) || !payload || button.dataset.creating === '1') {
+    return;
+  }
+  if (openCreateForm() && !(await resolveOpenCreateFormBeforeSwitch())) {
+    return;
+  }
+  if (!(await closeOpenEditorsBeforeSwitch())) {
+    return;
+  }
+
+  button.dataset.creating = '1';
+  button.disabled = true;
+  const previousText = button.querySelector('strong')?.textContent || button.textContent;
+  button.querySelector('strong')?.replaceChildren('Wird erstellt ...');
+
+  try {
+    const response = await postJson('object-create', { type, object: payload });
+    const created = response.object;
+    const id = objectId(created);
+    updateObjectInState(type, created);
+    expandTimeframeToIncludeObject(type, created);
+    hideGlobalSearchResults();
+    globalSearchInput.value = '';
+    activateView(type);
+    expandCollectionVisibleCountToObject(type, id);
+    renderCollectionControls();
+    renderObjectCollection(type);
+    const item = objectListItem(type, id);
+    if (item) {
+      await focusObjectEditor(item);
+    }
+  } catch (error) {
+    button.disabled = false;
+    button.dataset.creating = '';
+    button.querySelector('strong')?.replaceChildren(localizeErrorMessage(error.message || previousText || 'Erstellen fehlgeschlagen'));
+  }
+}
+
 function objectListItem(type, id) {
   return document.querySelector(`[data-object-type="${cssEscape(type)}"][data-object-id="${cssEscape(id)}"]`);
 }
@@ -1833,14 +1885,85 @@ function renderGlobalSearchResults() {
     .filter(({ type, object }) => objectRelevantToTimeframe(type, object))
     .filter(({ type, object }) => collectionSearchText(type, object).toLocaleLowerCase('de').includes(query))
     .slice(0, 10);
+  const createCandidates = globalSearchCreateCandidates(globalSearchInput.value);
 
   globalSearchResults.hidden = false;
-  globalSearchResults.innerHTML = matches.map(({ type, object }) => `
+  const matchHtml = matches.map(({ type, object }) => `
     <button type="button" data-global-search-result data-global-search-type="${escapeAttribute(type)}" data-global-search-id="${escapeAttribute(objectId(object))}">
       <strong>${escapeHtml(objectListTitle(type, object))}</strong>
       <span>${escapeHtml([objectTypeLabels[type] || type, objectListMeta(type, object)].filter(Boolean).join(' · '))}</span>
     </button>
-  `).join('') || '<div class="global-search-empty">Keine Treffer</div>';
+  `).join('');
+  const createHtml = createCandidates.map((candidate) => `
+    <button class="global-search-create" type="button" data-global-search-result data-global-search-create-type="${escapeAttribute(candidate.type)}" data-global-search-create-payload="${escapeAttribute(JSON.stringify(candidate.payload))}">
+      <strong>${escapeHtml(candidate.title)}</strong>
+      <span>${escapeHtml(candidate.detail)}</span>
+    </button>
+  `).join('');
+  globalSearchResults.innerHTML = matchHtml + createHtml || '<div class="global-search-empty">Keine Treffer</div>';
+}
+
+function globalSearchCreateCandidates(query) {
+  if (!hasPermission('write')) {
+    return [];
+  }
+
+  const text = String(query || '').trim();
+  if (text.length < 2) {
+    return [];
+  }
+
+  const groupCandidate = smartReferenceCreateCandidate(
+    'groups',
+    text,
+    {},
+    (state.objects.groups || []).filter((object) => !object._deleted),
+    false,
+  );
+  if (groupCandidate && matchingGroupTypePrefix(text)) {
+    return [groupCandidate];
+  }
+
+  return [
+    groupCandidate,
+    ...['people', 'timepoints']
+    .map((collection) => smartReferenceCreateCandidate(
+      collection,
+      text,
+      {},
+      (state.objects[collection] || []).filter((object) => !object._deleted),
+      false,
+    )),
+  ]
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+function expandTimeframeToIncludeObject(type, object) {
+  const scope = timeframeBounds(state.timeframe);
+  const bounds = objectTimeBounds(type, object);
+  if (!scope || !bounds || boundsOverlap(bounds, scope)) {
+    return;
+  }
+
+  const finiteStarts = [scope.start, bounds.start].filter(Number.isFinite);
+  const finiteEnds = [scope.end, bounds.end].filter(Number.isFinite);
+  if (!finiteStarts.length && !finiteEnds.length) {
+    return;
+  }
+
+  const startKey = finiteStarts.length ? Math.min(...finiteStarts) : Math.min(...finiteEnds);
+  const endKey = finiteEnds.length ? Math.max(...finiteEnds) : Math.max(...finiteStarts);
+  state.timeframe = {
+    start: timeframeYearPointFromDateKey(startKey),
+    end: endKey > startKey ? timeframeYearPointFromDateKey(endKey) : null,
+  };
+  renderTimeframeControl();
+}
+
+function timeframeYearPointFromDateKey(key) {
+  const parts = dateKeyToParts(key);
+  return { year: parts?.year || new Date().getFullYear(), month: null, day: null, precision: 'year' };
 }
 
 function hideGlobalSearchResults() {
@@ -5731,10 +5854,7 @@ function renderObjectCollection(type) {
   const more = objects.length > visibleObjects.length
     ? renderCollectionMoreButton(type, objects.length - visibleObjects.length)
     : '';
-  const unknownNotice = state.timeframe.start && sourceObjects.some((object) => !objectHasTimeData(type, object))
-    ? '<p class="timeframe-notice">Einträge ohne ausreichende Zeitangabe sind ausgeblendet.</p>'
-    : '';
-  list.innerHTML = renderObjectListItems(type, visibleObjects) + more + unknownNotice
+  list.innerHTML = renderObjectListItems(type, visibleObjects) + more
     || `<div class="empty-state">${sourceObjects.length ? 'Keine Treffer.' : `Noch keine ${escapeHtml(emptyCollectionLabels[type] || labels[type] || type)}.`}</div>`;
   applyContextSplitRatio();
   scheduleContextGraphRender();
@@ -5848,59 +5968,58 @@ function objectRelevantToTimeframe(type, object) {
   }
 
   if (type === 'groups') {
-    return groupPhaseEntries(object).some(({ phase }) => boundsOverlap(effectivePhaseBounds(phase), scope));
+    const entries = groupPhaseEntries(object);
+    return !entries.length || entries.some(({ phase }) => unknownBoundsOrOverlap(effectivePhaseBounds(phase), scope));
   }
   if (type === 'people') {
-    return (Array.isArray(object.memberships) ? object.memberships : [])
-      .some((membership) => boundsOverlap(effectiveMembershipBounds(membership), scope))
-      || (Array.isArray(object.activities) ? object.activities : [])
-        .some((activity) => boundsOverlap(effectiveActivityBounds(activity), scope));
+    const relationships = [
+      ...(Array.isArray(object.memberships) ? object.memberships.map((membership) => effectiveMembershipBounds(membership)) : []),
+      ...(Array.isArray(object.activities) ? object.activities.map((activity) => effectiveActivityBounds(activity)) : []),
+    ];
+    return !relationships.length || relationships.some((bounds) => unknownBoundsOrOverlap(bounds, scope));
   }
   if (type === 'timepoints') {
-    return boundsOverlap(dateValueBounds(object.date), scope);
+    return unknownBoundsOrOverlap(dateValueBounds(object.date), scope);
   }
   if (type === 'roles') {
     const roleId = objectId(object);
-    return (state.objects.people || []).some((person) => (
+    const boundsList = (state.objects.people || []).flatMap((person) => (
       (Array.isArray(person.activities) ? person.activities : [])
-        .some((activity) => activityRoleId(activity) === roleId && boundsOverlap(effectiveActivityBounds(activity), scope))
+        .filter((activity) => activityRoleId(activity) === roleId)
+        .map((activity) => effectiveActivityBounds(activity))
     ));
+    return !boundsList.length || boundsList.some((bounds) => unknownBoundsOrOverlap(bounds, scope));
   }
   if (type === 'group-types') {
     const typeId = objectId(object);
-    return (state.objects.groups || []).some((group) => (
-      groupPhaseEntries(group).some(({ phase }) => (
-        groupPhaseTypeId(phase) === typeId && boundsOverlap(effectivePhaseBounds(phase), scope)
-      ))
+    const boundsList = (state.objects.groups || []).flatMap((group) => (
+      groupPhaseEntries(group)
+        .filter(({ phase }) => groupPhaseTypeId(phase) === typeId)
+        .map(({ phase }) => effectivePhaseBounds(phase))
     ));
+    return !boundsList.length || boundsList.some((bounds) => unknownBoundsOrOverlap(bounds, scope));
   }
   return true;
 }
 
-function objectHasTimeData(type, object) {
+function unknownBoundsOrOverlap(bounds, scope) {
+  return !bounds || boundsOverlap(bounds, scope);
+}
+
+function objectTimeBounds(type, object) {
   if (type === 'groups') {
-    return groupPhaseEntries(object).some(({ phase }) => Boolean(effectivePhaseBounds(phase)));
+    return combineBounds(groupPhaseEntries(object).map(({ phase }) => effectivePhaseBounds(phase)));
   }
   if (type === 'people') {
-    return (Array.isArray(object.memberships) ? object.memberships : []).some((entry) => Boolean(effectiveMembershipBounds(entry)))
-      || (Array.isArray(object.activities) ? object.activities : []).some((entry) => Boolean(effectiveActivityBounds(entry)));
+    return combineBounds([
+      ...(Array.isArray(object.memberships) ? object.memberships.map((entry) => effectiveMembershipBounds(entry)) : []),
+      ...(Array.isArray(object.activities) ? object.activities.map((entry) => effectiveActivityBounds(entry)) : []),
+    ]);
   }
   if (type === 'timepoints') {
-    return Boolean(dateValueBounds(object.date));
+    return dateValueBounds(object.date);
   }
-  if (type === 'roles') {
-    return (state.objects.people || []).some((person) => (
-      (Array.isArray(person.activities) ? person.activities : [])
-        .some((entry) => activityRoleId(entry) === objectId(object) && Boolean(effectiveActivityBounds(entry)))
-    ));
-  }
-  if (type === 'group-types') {
-    return (state.objects.groups || []).some((group) => (
-      groupPhaseEntries(group)
-        .some(({ phase }) => groupPhaseTypeId(phase) === objectId(object) && Boolean(effectivePhaseBounds(phase)))
-    ));
-  }
-  return true;
+  return null;
 }
 
 function effectivePhaseBounds(phase) {
@@ -5942,12 +6061,12 @@ function relationshipRelevantToTimeframe(kind, value) {
     return true;
   }
   if (kind === 'membership') {
-    return boundsOverlap(effectiveMembershipBounds(value), scope);
+    return unknownBoundsOrOverlap(effectiveMembershipBounds(value), scope);
   }
   if (kind === 'activity') {
-    return boundsOverlap(effectiveActivityBounds(value), scope);
+    return unknownBoundsOrOverlap(effectiveActivityBounds(value), scope);
   }
-  return boundsOverlap(effectivePhaseBounds(value), scope);
+  return unknownBoundsOrOverlap(effectivePhaseBounds(value), scope);
 }
 
 function relationshipRowRelevantToTimeframe(type, object, rowKey) {
