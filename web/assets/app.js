@@ -1261,8 +1261,7 @@ function applyTimeframeToOpenEditors() {
     item.hidden = false;
     item.classList.toggle('is-outside-timeframe', !objectRelevantToTimeframe(type, object));
     item.querySelectorAll('[data-relationship-row-key]').forEach((row) => {
-      const relevant = relationshipRowRelevantToTimeframe(type, object, row.dataset.relationshipRowKey);
-      row.hidden = !relevant && item.dataset.dirty !== '1' && row.dataset.dirty !== '1';
+      row.hidden = false;
     });
   });
 }
@@ -4677,7 +4676,7 @@ function collectionContextGraphData(type, objects) {
 
 function objectContextGraphData(type, object, options = {}) {
   const graph = createContextGraph(options.status || objectListTitle(type, object));
-  addObjectRelations(graph, type, object, { ...options, compact: false });
+  addObjectRelations(graph, type, object, { ...options, compact: false, ignoreTimeframe: true });
   return finishContextGraph(graph);
 }
 
@@ -4853,6 +4852,10 @@ function contextPeriodCompare(leftPeriod, rightPeriod, leftLabel = '', rightLabe
   return sortCollator.compare(String(leftLabel || ''), String(rightLabel || ''));
 }
 
+function contextRelationshipRelevant(options, kind, value) {
+  return options.ignoreTimeframe || relationshipRelevantToTimeframe(kind, value);
+}
+
 function addPersonContext(graph, person, options = {}) {
   const personNode = addContextNode(graph, 'people', person, options.focus);
   placePrimaryContextNode(graph, personNode, options);
@@ -4860,10 +4863,10 @@ function addPersonContext(graph, person, options = {}) {
   const activities = Array.isArray(person.activities) ? person.activities : [];
 
   const membershipEntries = contextPeriodEntries(memberships, 'groups', periodEntryGroupId)
-    .filter(({ value }) => relationshipRelevantToTimeframe('membership', value))
+    .filter(({ value }) => contextRelationshipRelevant(options, 'membership', value))
     .slice(0, options.compact ? 4 : 16);
   const activityEntries = contextPeriodEntries(activities, 'groups', periodEntryGroupId, (activity) => objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles'))
-    .filter(({ value }) => relationshipRelevantToTimeframe('activity', value))
+    .filter(({ value }) => contextRelationshipRelevant(options, 'activity', value))
     .slice(0, options.compact ? 4 : 16);
 
   membershipEntries.forEach(({ value: membership, index }, slot) => {
@@ -4894,7 +4897,7 @@ function addGroupContext(graph, group, options = {}) {
   const groupNode = addContextNode(graph, 'groups', group, options.focus);
   placePrimaryContextNode(graph, groupNode, options);
   const phaseEntries = groupPhaseEntries(group)
-    .filter(({ phase }) => relationshipRelevantToTimeframe('phase', phase))
+    .filter(({ phase }) => contextRelationshipRelevant(options, 'phase', phase))
     .sort((left, right) => contextPeriodCompare(left.phase?.period, right.phase?.period, objectLabel(findReferenceObject('group-types', groupPhaseTypeId(left.phase)), 'group-types'), objectLabel(findReferenceObject('group-types', groupPhaseTypeId(right.phase)), 'group-types')));
   phaseEntries.forEach(({ phase, rowKey }, slot) => {
     const typeNode = addContextNode(graph, 'group-types', findReferenceObject('group-types', groupPhaseTypeId(phase)));
@@ -4913,7 +4916,7 @@ function addGroupContext(graph, group, options = {}) {
     const personNode = addContextNode(graph, 'people', person);
     let matched = false;
     (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
-      if (periodEntryGroupId(membership) === objectId(group) && relationshipRelevantToTimeframe('membership', membership)) {
+      if (periodEntryGroupId(membership) === objectId(group) && contextRelationshipRelevant(options, 'membership', membership)) {
         matched = true;
         placeRelationContextNode(graph, personNode, options, 'membership', used, limit);
         addContextEdge(graph, personNode, groupNode, ['Mitgliedschaft', relationshipPeriodLabel(membership.period)].filter(Boolean).join('\n'), 'membership', {
@@ -4924,7 +4927,7 @@ function addGroupContext(graph, group, options = {}) {
       }
     });
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
-      if (periodEntryGroupId(activity) === objectId(group) && relationshipRelevantToTimeframe('activity', activity)) {
+      if (periodEntryGroupId(activity) === objectId(group) && contextRelationshipRelevant(options, 'activity', activity)) {
         matched = true;
         const role = objectLabel(findReferenceObject('roles', activityRoleId(activity)), 'roles') || 'Aktivität';
         placeRelationContextNode(graph, personNode, options, 'activity', used, limit);
@@ -4965,7 +4968,7 @@ function addGroupTypeContext(graph, groupType, options = {}) {
   });
 
   (state.objects.groups || [])
-    .filter((group) => objectRelevantToTimeframe('groups', group) && groupTypeIds(group).includes(objectId(groupType)))
+    .filter((group) => (options.ignoreTimeframe || objectRelevantToTimeframe('groups', group)) && groupTypeIds(group).includes(objectId(groupType)))
     .sort((left, right) => compareCollectionObjects('groups', left, right))
     .slice(0, options.compact ? 5 : 18)
     .forEach((group, index) => {
@@ -5004,7 +5007,7 @@ function addRoleContext(graph, role, options = {}) {
   let used = 0;
   (state.objects.people || []).some((person) => {
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
-      if (activityRoleId(activity) !== objectId(role) || used >= limit || !relationshipRelevantToTimeframe('activity', activity)) {
+      if (activityRoleId(activity) !== objectId(role) || used >= limit || !contextRelationshipRelevant(options, 'activity', activity)) {
         return;
       }
       used += 1;
@@ -5028,7 +5031,7 @@ function addTimepointContext(graph, timepoint, options = {}) {
 
   (state.objects.groups || []).some((group) => {
     groupPhaseEntries(group).forEach(({ phase, rowKey }) => {
-      if (used >= limit || !relationshipRelevantToTimeframe('phase', phase) || !periodTouchesTimepoint(timepoint, phase.period)) {
+      if (used >= limit || !contextRelationshipRelevant(options, 'phase', phase) || !periodTouchesTimepoint(timepoint, phase.period)) {
         return;
       }
       used += 1;
@@ -5045,7 +5048,7 @@ function addTimepointContext(graph, timepoint, options = {}) {
 
   (state.objects.people || []).some((person) => {
     (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
-      if (used >= limit || !relationshipRelevantToTimeframe('membership', membership) || !periodTouchesTimepoint(timepoint, membership.period)) {
+      if (used >= limit || !contextRelationshipRelevant(options, 'membership', membership) || !periodTouchesTimepoint(timepoint, membership.period)) {
         return;
       }
       used += 1;
@@ -5058,7 +5061,7 @@ function addTimepointContext(graph, timepoint, options = {}) {
       });
     });
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
-      if (used >= limit || !relationshipRelevantToTimeframe('activity', activity) || !periodTouchesTimepoint(timepoint, activity.period)) {
+      if (used >= limit || !contextRelationshipRelevant(options, 'activity', activity) || !periodTouchesTimepoint(timepoint, activity.period)) {
         return;
       }
       used += 1;
@@ -6069,22 +6072,6 @@ function relationshipRelevantToTimeframe(kind, value) {
     return unknownBoundsOrOverlap(effectiveActivityBounds(value), scope);
   }
   return unknownBoundsOrOverlap(effectivePhaseBounds(value), scope);
-}
-
-function relationshipRowRelevantToTimeframe(type, object, rowKey) {
-  if (!rowKey || !state.timeframe.start) {
-    return true;
-  }
-  if (rowKey === 'mainPhase') {
-    return relationshipRelevantToTimeframe('phase', object.mainPhase);
-  }
-  const match = /^(additionalPhases|memberships|activities):(\d+)$/.exec(rowKey);
-  if (!match) {
-    return true;
-  }
-  const value = object[match[1]]?.[Number(match[2])];
-  const kind = match[1] === 'memberships' ? 'membership' : (match[1] === 'activities' ? 'activity' : 'phase');
-  return relationshipRelevantToTimeframe(kind, value);
 }
 
 function collectionSearchText(type, object) {
@@ -7454,9 +7441,8 @@ function renderGroupTypeAddSelect(selectedValues = []) {
 }
 
 function renderGroupPhaseField(field, value, context = {}) {
-  const hidden = value && !relationshipRelevantToTimeframe('phase', value);
   return `
-    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}" ${hidden ? 'hidden' : ''}>
+    <section class="object-field object-field-wide composite-field" data-object-field="${escapeAttribute(field.name)}" data-field-kind="${escapeAttribute(field.kind)}">
       <div class="composite-header">
         <span>${escapeHtml(field.label)}</span>
       </div>
@@ -7484,19 +7470,6 @@ function renderObjectListField(field, value, context = {}) {
   `;
 }
 
-function complexItemRelevantToTimeframe(kind, value) {
-  if (kind === 'membership-list') {
-    return relationshipRelevantToTimeframe('membership', value);
-  }
-  if (kind === 'activity-list') {
-    return relationshipRelevantToTimeframe('activity', value);
-  }
-  if (kind === 'group-phase-list' || kind === 'group-phase') {
-    return relationshipRelevantToTimeframe('phase', value);
-  }
-  return true;
-}
-
 function renderComplexListItem(kind, value = {}, context = {}) {
   const hasValue = complexItemHasValue(kind, value);
   const rowKey = relationshipRowKey(context);
@@ -7510,9 +7483,8 @@ function renderComplexListItem(kind, value = {}, context = {}) {
   const canRemove = !context.disableRemove;
   const deleteLabel = hasEditToggle ? `${summary} löschen` : '';
   const referenceLink = relationshipReferenceLinkHtml(kind, value);
-  const hidden = hasValue && !complexItemRelevantToTimeframe(kind, value);
   return `
-    <div class="composite-item ${summary ? 'has-summary' : ''} ${referenceLink ? 'has-navigation' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}" ${hidden ? 'hidden' : ''}>
+    <div class="composite-item ${summary ? 'has-summary' : ''} ${referenceLink ? 'has-navigation' : ''} ${isCollapsed ? 'is-collapsed' : ''}" data-list-item data-list-collapsible="${(hasValue || rowKey) ? '1' : '0'}" data-relationship-row-key="${escapeAttribute(rowKey)}">
       ${summary ? `
         <button class="composite-summary" type="button" data-list-action="toggle" aria-expanded="${isCollapsed ? 'false' : 'true'}">
           ${compositeSummaryHtml(summary, warnings)}
