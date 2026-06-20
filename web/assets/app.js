@@ -3622,11 +3622,11 @@ function renderTimelineVisualization() {
   renderVisualizationSummary(summary, [
     data.periodLabel,
     `${data.groupCount} Gruppen`,
-    `${data.activityCount} Aktivitäten`,
+    `${data.activityCount} Stammesführungen`,
   ]);
   if (!data.lanes.length) {
     replaceTimelineVisualizationContent(root, '');
-    setTreeGraphStatus(status, 'Keine datierten Gruppen oder Aktivitäten im gewählten Zeitraum.');
+    setTreeGraphStatus(status, 'Keine datierten Gruppen oder Stammesführungen im gewählten Zeitraum.');
     return;
   }
   setTreeGraphStatus(status, '');
@@ -3709,7 +3709,7 @@ function timelineVisualizationData() {
     });
   });
   if (leadershipSegments.length) {
-    rawLanes.push({ label: 'Aktivitäten', segments: leadershipSegments });
+    rawLanes.push({ label: 'Stammesführung', segments: leadershipSegments });
   }
 
   (state.objects.groups || []).forEach((group) => {
@@ -3764,7 +3764,7 @@ function timelineVisualizationData() {
     lanes,
     start: domain.start,
     end: domain.end,
-    groupCount: lanes.filter((lane) => lane.label !== 'Aktivitäten').length,
+    groupCount: lanes.filter((lane) => lane.label !== 'Stammesführung').length,
     activityCount: leadershipSegments.length,
     periodLabel: `${dateKeyLabel(domain.start)}–${dateKeyLabel(domain.end)}`,
   };
