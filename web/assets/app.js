@@ -282,6 +282,7 @@ const state = {
   exampleDataCreating: false,
   publicGraphGroupType: '',
   timeframe: emptyTimeframe(),
+  preferredSpan: null,
   sourceOverride: readStoredSourceOverride(),
 };
 
@@ -829,8 +830,8 @@ function renderTimeframeControl() {
     slider.max = String(bounds.max);
     slider.value = String(selectedYear);
   }
-  timeframeControl.querySelector('[data-timeframe-action="previous"]')?.toggleAttribute('disabled', selectedYear <= bounds.min);
-  timeframeControl.querySelector('[data-timeframe-action="next"]')?.toggleAttribute('disabled', selectedYear >= bounds.max);
+  timeframeControl.querySelector('[data-timeframe-action="previous"]')?.toggleAttribute('disabled', selectedYear <= bounds.min && !state.timeframe.end);
+  timeframeControl.querySelector('[data-timeframe-action="next"]')?.toggleAttribute('disabled', selectedYear >= bounds.max && !state.timeframe.end);
   updateTimeframeCompactValue();
 }
 
@@ -854,8 +855,43 @@ function handleTimeframeClick(event) {
   if (action === 'clear') {
     state.timeframe = emptyTimeframe();
   } else if (action === 'previous' || action === 'next') {
-    const delta = action === 'previous' ? -1 : 1;
-    setSimpleTimeframeYear((state.timeframe.start || defaultTimeframePoint()).year + delta);
+    shiftTimeframeYear(action === 'previous' ? -1 : 1);
+  } else if (action === 'expand') {
+    const year = state.timeframe.start?.year || defaultTimeframePoint().year;
+    const bounds = availableDataYearBounds();
+    if (!state.timeframe.end) {
+      state.timeframe = {
+        start: { year: Math.max(bounds.min, year - 1), month: null, day: null, precision: 'year' },
+        end: { year: Math.min(bounds.max, year + 1), month: null, day: null, precision: 'year' },
+      };
+    } else {
+      state.timeframe = {
+        start: { year: Math.max(bounds.min, state.timeframe.start.year - 1), month: null, day: null, precision: 'year' },
+        end: { year: Math.min(bounds.max, state.timeframe.end.year + 1), month: null, day: null, precision: 'year' },
+      };
+    }
+    if (state.timeframe.end) {
+      state.preferredSpan = state.timeframe.end.year - state.timeframe.start.year;
+    }
+  } else if (action === 'shrink') {
+    if (!state.timeframe.end) {
+      return;
+    }
+    const newStart = state.timeframe.start.year + 1;
+    const newEnd = state.timeframe.end.year - 1;
+    if (newStart >= newEnd) {
+      state.timeframe = {
+        start: { year: newStart, month: null, day: null, precision: 'year' },
+        end: null,
+      };
+      state.preferredSpan = null;
+    } else {
+      state.timeframe = {
+        start: { year: newStart, month: null, day: null, precision: 'year' },
+        end: { year: newEnd, month: null, day: null, precision: 'year' },
+      };
+      state.preferredSpan = newEnd - newStart;
+    }
   }
   applyTimeframeChange(true, event.type !== 'input');
 }
@@ -871,7 +907,28 @@ function handleTimeframeInput(event) {
     return;
   }
   if (event.target.matches('[data-timeframe-slider]')) {
-    setSimpleTimeframeYear(event.target.value);
+    const newYear = Number(event.target.value);
+    if (!state.timeframe.start) {
+      setSimpleTimeframeYear(newYear);
+    } else if (state.timeframe.end) {
+      const bounds = availableDataYearBounds();
+      const delta = newYear - state.timeframe.start.year;
+      const newStart = Math.max(bounds.min, Math.min(bounds.max, state.timeframe.start.year + delta));
+      const newEnd = Math.max(bounds.min, Math.min(bounds.max, state.timeframe.end.year + delta));
+      if (newStart >= newEnd) {
+        state.timeframe = {
+          start: { year: newStart, month: null, day: null, precision: 'year' },
+          end: null,
+        };
+      } else {
+        state.timeframe = {
+          start: { year: newStart, month: null, day: null, precision: 'year' },
+          end: { year: newEnd, month: null, day: null, precision: 'year' },
+        };
+      }
+    } else {
+      setSimpleTimeframeYear(newYear);
+    }
     applyTimeframeChange(true, event.type !== 'input');
   }
 }
@@ -881,8 +938,7 @@ function handleTimeframeWheel(event) {
     return;
   }
   event.preventDefault();
-  const delta = event.deltaY > 0 ? -1 : 1;
-  setSimpleTimeframeYear((state.timeframe.start || defaultTimeframePoint()).year + delta);
+  shiftTimeframeYear(event.deltaY > 0 ? -1 : 1);
   applyTimeframeChange();
 }
 
@@ -898,8 +954,7 @@ function handleTimeframeKeydown(event) {
     return;
   }
   event.preventDefault();
-  const delta = event.key === 'ArrowLeft' ? -1 : 1;
-  setSimpleTimeframeYear((state.timeframe.start || defaultTimeframePoint()).year + delta);
+  shiftTimeframeYear(event.key === 'ArrowLeft' ? -1 : 1);
   applyTimeframeChange();
 }
 
@@ -912,6 +967,76 @@ function handleTimeframeFocus(event) {
 function handleTimeframeBlur(event) {
   if (event.target.matches('.timeframe-value')) {
     event.target.value = timeframeLabel(state.timeframe);
+  }
+}
+
+function shiftTimeframeYear(delta) {
+  if (!state.timeframe.start) {
+    const bounds = availableDataYearBounds();
+    setSimpleTimeframeYear(delta > 0 ? bounds.max : bounds.min);
+    return;
+  }
+  if (!state.timeframe.end) {
+    if (state.preferredSpan != null) {
+      const bounds = availableDataYearBounds();
+      const atMin = state.timeframe.start.year <= bounds.min;
+      const atMax = state.timeframe.start.year >= bounds.max;
+      if ((delta > 0 && atMin) || (delta < 0 && atMax)) {
+        const newStart = Math.max(bounds.min, Math.min(bounds.max, state.timeframe.start.year + delta));
+        const newEnd = Math.min(bounds.max, newStart + state.preferredSpan);
+        if (newStart < newEnd) {
+          state.timeframe = {
+            start: { year: newStart, month: null, day: null, precision: 'year' },
+            end: { year: newEnd, month: null, day: null, precision: 'year' },
+          };
+          return;
+        }
+      }
+    }
+    setSimpleTimeframeYear(state.timeframe.start.year + delta);
+    return;
+  }
+  const bounds = availableDataYearBounds();
+  const currentSpan = state.timeframe.end.year - state.timeframe.start.year;
+  const targetSpan = state.preferredSpan ?? currentSpan;
+  const atMin = state.timeframe.start.year <= bounds.min;
+  const atMax = state.timeframe.end.year >= bounds.max;
+
+  // Moving away from left bound while squished: expand right end first
+  if (atMin && delta > 0 && currentSpan < targetSpan) {
+    const newEnd = Math.min(bounds.max, state.timeframe.end.year + 1);
+    if (newEnd > state.timeframe.start.year) {
+      state.timeframe = {
+        start: { year: state.timeframe.start.year, month: null, day: null, precision: 'year' },
+        end: { year: newEnd, month: null, day: null, precision: 'year' },
+      };
+      return;
+    }
+  }
+  // Moving away from right bound while squished: expand left end first
+  if (atMax && delta < 0 && currentSpan < targetSpan) {
+    const newStart = Math.max(bounds.min, state.timeframe.start.year - 1);
+    if (state.timeframe.end.year > newStart) {
+      state.timeframe = {
+        start: { year: newStart, month: null, day: null, precision: 'year' },
+        end: { year: state.timeframe.end.year, month: null, day: null, precision: 'year' },
+      };
+      return;
+    }
+  }
+
+  const newStart = Math.max(bounds.min, Math.min(bounds.max, state.timeframe.start.year + delta));
+  const newEnd = Math.max(bounds.min, Math.min(bounds.max, state.timeframe.end.year + delta));
+  if (newStart >= newEnd) {
+    state.timeframe = {
+      start: { year: newStart, month: null, day: null, precision: 'year' },
+      end: null,
+    };
+  } else {
+    state.timeframe = {
+      start: { year: newStart, month: null, day: null, precision: 'year' },
+      end: { year: newEnd, month: null, day: null, precision: 'year' },
+    };
   }
 }
 

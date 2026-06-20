@@ -302,6 +302,21 @@ h3 {
   accent-color: var(--brand-primary);
 }
 
+.timeframe-width-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 3px;
+}
+
+.timeframe-width-buttons .icon-button {
+  width: 28px;
+  height: 20px;
+  min-height: 20px;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
 .timeframe-notice {
   margin: 0;
   color: var(--muted);
@@ -3335,6 +3350,10 @@ button.object-title-row.is-graph-highlighted::before {
   }
 
   .timeframe-clear {
+    flex: 0 0 auto;
+  }
+
+  .timeframe-width-buttons {
     flex: 0 0 auto;
   }
 

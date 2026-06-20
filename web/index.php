@@ -45,16 +45,20 @@ $configWarnings = array_map(
             <button class="nav-item" type="button" data-view="tree">Baum</button>
             <button class="nav-item" type="button" data-view="timeline">Zeitstrahl</button>
           </nav>
-          <div class="timeframe-control" id="timeframeControl" hidden>
-            <span class="tool-label">Zeitraum</span>
-            <div class="timeframe-compact">
-              <button class="icon-button" type="button" data-timeframe-action="previous" aria-label="Ein Jahr früher">‹</button>
-              <input class="timeframe-value" type="text" value="Gesamte Zeit" inputmode="numeric" autocomplete="off" aria-label="Jahr">
-              <button class="icon-button" type="button" data-timeframe-action="next" aria-label="Ein Jahr später">›</button>
-              <button class="period-toggle timeframe-clear" type="button" data-timeframe-action="clear" disabled>(reset)</button>
+            <div class="timeframe-control" id="timeframeControl" hidden>
+              <span class="tool-label">Zeitraum</span>
+              <div class="timeframe-compact">
+                <button class="icon-button" type="button" data-timeframe-action="previous" aria-label="Ein Jahr früher">‹</button>
+                <input class="timeframe-value" type="text" value="Gesamte Zeit" inputmode="numeric" autocomplete="off" aria-label="Jahr">
+                <button class="icon-button" type="button" data-timeframe-action="next" aria-label="Ein Jahr später">›</button>
+                <button class="period-toggle timeframe-clear" type="button" data-timeframe-action="clear" disabled>(reset)</button>
+                <div class="timeframe-width-buttons">
+                  <button class="icon-button" type="button" data-timeframe-action="expand" aria-label="Zeitraum erweitern">▲</button>
+                  <button class="icon-button" type="button" data-timeframe-action="shrink" aria-label="Zeitraum verkleinern">▼</button>
+                </div>
+              </div>
+              <input class="timeframe-slider" type="range" min="2000" max="<?= date('Y') ?>" value="<?= date('Y') ?>" step="1" data-timeframe-slider aria-label="Jahr">
             </div>
-            <input class="timeframe-slider" type="range" min="2000" max="<?= date('Y') ?>" value="<?= date('Y') ?>" step="1" data-timeframe-slider aria-label="Jahr">
-          </div>
           <div class="global-search" id="globalSearch" hidden>
             <label class="tool-label" for="globalSearchInput">Suche</label>
             <input id="globalSearchInput" type="search" autocomplete="off" aria-label="Alle Daten durchsuchen">
