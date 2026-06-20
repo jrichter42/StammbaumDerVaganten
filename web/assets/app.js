@@ -4934,12 +4934,6 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
         `${groupCounts.members.size} bekannte Mitglieder`,
         `${groupCounts.leaders.size} bekannte Leitungen`,
       ]),
-      title: publicGraphTitle([
-        publicGroupName(group, index),
-        groupStats.span ? `Zeitraum: ${groupStats.span}` : '',
-        `${groupCounts.members.size} bekannte Mitglieder`,
-        `${groupCounts.leaders.size} bekannte Leitungen`,
-      ]),
       group: 'group',
       level: levels.get(id) || 0,
       shape: 'box',
@@ -4959,10 +4953,6 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
           from: `group:${parentId}`,
           to: `group:${objectId(group)}`,
           label: publicGraphEdgeLabel(['Phase', periodYearLabel(phase.period)]),
-          title: publicGraphTitle([
-            'Formale Gruppenzuordnung',
-            relationshipPeriodLabel(phase.period),
-          ]),
           arrows: 'to',
           group: 'type',
           navigation: { type: 'groups', id: objectId(group), edit: rowKey },
@@ -4977,7 +4967,6 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
       from: edge.from,
       to: edge.to,
       label: publicGraphEdgeLabel([names.length === 1 ? names[0] : `${names.length} Personen`, 'Verbindung']),
-      title: publicGraphTitle(edge.connections.map((entry) => [entry.personLabel, entry.role, entry.period].filter(Boolean).join(' · '))),
       group: 'activity',
       arrows: 'to',
       width: 2.1,
@@ -5216,11 +5205,6 @@ function publicGraphEntryLabel(lines) {
 
 function publicGraphEdgeLabel(lines) {
   return lines.map((line) => publicGraphShortLabel(line, 30)).filter(Boolean).join('\n');
-}
-
-function publicGraphTitle(lines) {
-  const content = (lines || []).map((line) => String(line || '').trim()).filter(Boolean);
-  return content.length ? content.map(escapeHtml).join('<br>') : undefined;
 }
 
 function renderCreateForm(type, fields) {
