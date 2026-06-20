@@ -6142,7 +6142,6 @@ function collectionSearchText(type, object) {
     objectListTitle(type, object),
     objectListMeta(type, object),
     objectPropertyTags(type, object).join(' '),
-    objectMeta(object),
     objectSummary(type, object),
     objectId(object),
     object.name,
