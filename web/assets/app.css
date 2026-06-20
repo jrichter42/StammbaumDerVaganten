@@ -412,7 +412,8 @@ h3 {
 }
 
 .global-search-results button:hover,
-.global-search-results button:focus-visible {
+.global-search-results button:focus-visible,
+.global-search-results button.is-active {
   background: var(--surface-raised);
   outline: 0;
 }
@@ -2434,7 +2435,8 @@ button.object-title-row.is-graph-highlighted::before {
 }
 
 .reference-filter-result:hover,
-.reference-filter-result:focus-visible {
+.reference-filter-result:focus-visible,
+.reference-filter-result.is-active {
   background: var(--surface-raised);
   outline: 0;
 }

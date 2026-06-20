@@ -396,6 +396,7 @@ loginEmailForm?.addEventListener('submit', requestEmailLoginLink);
 logoutButton.addEventListener('click', logout);
 globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
 globalSearchInput?.addEventListener('focus', renderGlobalSearchResults);
+globalSearchInput?.addEventListener('keydown', handleGlobalSearchKeydown);
 sourceInput?.addEventListener('input', handleSourceInput);
 sourceInput?.addEventListener('blur', () => updateSourceControl());
 timeframeControl?.addEventListener('click', handleTimeframeClick);
@@ -439,6 +440,7 @@ document.addEventListener('change', handleAuditControlChange);
 document.addEventListener('change', handleChangeLogControlChange);
 document.addEventListener('input', handleReferenceFilterInput);
 document.addEventListener('focusin', handleReferenceFilterFocus);
+document.addEventListener('keydown', handleReferenceFilterKeydown);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleCollectionControlChange);
 document.addEventListener('change', handleReferencePickerChange);
@@ -1820,6 +1822,14 @@ async function handleGlobalSearchClick(event) {
   }
 }
 
+function handleGlobalSearchKeydown(event) {
+  if (!globalSearchResults || globalSearchResults.hidden) {
+    return;
+  }
+
+  handleSearchResultKeyboard(event, globalSearchResults);
+}
+
 async function handleGlobalSearchCreateClick(button) {
   const type = button.dataset.globalSearchCreateType || '';
   let payload = null;
@@ -1902,6 +1912,59 @@ function renderGlobalSearchResults() {
     </button>
   `).join('');
   globalSearchResults.innerHTML = matchHtml + createHtml || '<div class="global-search-empty">Keine Treffer</div>';
+  resetSearchResultActive(globalSearchResults);
+}
+
+function handleSearchResultKeyboard(event, results) {
+  const items = searchResultButtons(results);
+  if (!items.length) {
+    return;
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const current = activeSearchResultIndex(results, items);
+    const fallback = event.key === 'ArrowDown' ? -1 : 0;
+    const delta = event.key === 'ArrowDown' ? 1 : -1;
+    const next = (current === -1 ? fallback : current) + delta;
+    setActiveSearchResult(results, items, (next + items.length) % items.length);
+    return;
+  }
+
+  if (event.key === 'Enter') {
+    const current = activeSearchResultIndex(results, items);
+    if (current !== -1) {
+      event.preventDefault();
+      items[current].click();
+    }
+  }
+}
+
+function searchResultButtons(results) {
+  return Array.from(results.querySelectorAll('button:not(:disabled)'));
+}
+
+function activeSearchResultIndex(results, items = searchResultButtons(results)) {
+  const active = results.querySelector('button.is-active');
+  return active ? items.indexOf(active) : -1;
+}
+
+function setActiveSearchResult(results, items, index) {
+  items.forEach((item, itemIndex) => {
+    const active = itemIndex === index;
+    item.classList.toggle('is-active', active);
+    item.setAttribute('aria-selected', active ? 'true' : 'false');
+    if (active) {
+      item.scrollIntoView({ block: 'nearest' });
+    }
+  });
+}
+
+function resetSearchResultActive(results) {
+  results.querySelectorAll('button.is-active').forEach((item) => {
+    item.classList.remove('is-active');
+    item.removeAttribute('aria-selected');
+  });
 }
 
 function globalSearchCreateCandidates(query) {
@@ -9510,6 +9573,20 @@ function handleReferenceFilterFocus(event) {
   renderReferenceFilterResults(input);
 }
 
+function handleReferenceFilterKeydown(event) {
+  const input = event.target.closest('[data-reference-filter]');
+  if (!input) {
+    return;
+  }
+
+  const results = input.closest('[data-reference-field]')?.querySelector('[data-reference-filter-results]');
+  if (!results || results.hidden) {
+    return;
+  }
+
+  handleSearchResultKeyboard(event, results);
+}
+
 function updateReferenceSelectOptions(select) {
   const current = referenceSelectValue(select);
   const collection = select.dataset.referenceCollection || '';
@@ -9567,6 +9644,7 @@ function renderReferenceFilterResults(input) {
 
   results.innerHTML = resultHtml + createHtml || '<div class="reference-filter-empty">Keine Treffer</div>';
   results.hidden = false;
+  resetSearchResultActive(results);
 }
 
 function referenceObjectMatchesQuery(collection, object, query, objects = [], showIds = false) {
