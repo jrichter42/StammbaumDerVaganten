@@ -830,8 +830,8 @@ function renderTimeframeControl() {
     slider.max = String(bounds.max);
     slider.value = String(selectedYear);
   }
-  timeframeControl.querySelector('[data-timeframe-action="previous"]')?.toggleAttribute('disabled', selectedYear <= bounds.min && !state.timeframe.end);
-  timeframeControl.querySelector('[data-timeframe-action="next"]')?.toggleAttribute('disabled', selectedYear >= bounds.max && !state.timeframe.end);
+  timeframeControl.querySelector('[data-timeframe-action="previous"]')?.toggleAttribute('disabled', state.timeframe.start && selectedYear <= bounds.min && !state.timeframe.end);
+  timeframeControl.querySelector('[data-timeframe-action="next"]')?.toggleAttribute('disabled', state.timeframe.start && selectedYear >= bounds.max && !state.timeframe.end);
   updateTimeframeCompactValue();
 }
 
@@ -973,7 +973,7 @@ function handleTimeframeBlur(event) {
 function shiftTimeframeYear(delta) {
   if (!state.timeframe.start) {
     const bounds = availableDataYearBounds();
-    setSimpleTimeframeYear(delta > 0 ? bounds.max : bounds.min);
+    setSimpleTimeframeYear(delta > 0 ? bounds.min : bounds.max);
     return;
   }
   if (!state.timeframe.end) {
