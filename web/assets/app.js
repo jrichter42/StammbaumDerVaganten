@@ -395,6 +395,7 @@ passkeyLoginButton.addEventListener('click', beginLogin);
 loginEmailForm?.addEventListener('submit', requestEmailLoginLink);
 logoutButton.addEventListener('click', logout);
 globalSearchInput?.addEventListener('input', renderGlobalSearchResults);
+globalSearchInput?.addEventListener('focus', renderGlobalSearchResults);
 sourceInput?.addEventListener('input', handleSourceInput);
 sourceInput?.addEventListener('blur', () => updateSourceControl());
 timeframeControl?.addEventListener('click', handleTimeframeClick);
@@ -437,6 +438,7 @@ document.addEventListener('input', handleCollectionControlInput);
 document.addEventListener('change', handleAuditControlChange);
 document.addEventListener('change', handleChangeLogControlChange);
 document.addEventListener('input', handleReferenceFilterInput);
+document.addEventListener('focusin', handleReferenceFilterFocus);
 document.addEventListener('input', handleObjectInput);
 document.addEventListener('change', handleCollectionControlChange);
 document.addEventListener('change', handleReferencePickerChange);
@@ -9515,6 +9517,17 @@ function clearActivityPicker(editor, nestedField) {
 }
 
 function handleReferenceFilterInput(event) {
+  const input = event.target.closest('[data-reference-filter]');
+  if (!input) {
+    return;
+  }
+
+  const select = input.closest('[data-reference-field]')?.querySelector('[data-reference-input]');
+  filterReferenceOptions(select, input.value);
+  renderReferenceFilterResults(input);
+}
+
+function handleReferenceFilterFocus(event) {
   const input = event.target.closest('[data-reference-filter]');
   if (!input) {
     return;
