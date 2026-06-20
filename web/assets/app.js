@@ -6508,13 +6508,13 @@ function renderGroupReverseView(group, options = {}) {
 
   (state.objects.people || []).forEach((person) => {
     (Array.isArray(person.memberships) ? person.memberships : []).forEach((membership, index) => {
-      if (periodEntryGroupId(membership) === groupId && relationshipRelevantToTimeframe('membership', membership)) {
+      if (periodEntryGroupId(membership) === groupId) {
         memberships.push({ person, value: membership, period: membership.period, rowKey: `memberships:${index}`, index });
       }
     });
 
     (Array.isArray(person.activities) ? person.activities : []).forEach((activity, index) => {
-      if (periodEntryGroupId(activity) === groupId && relationshipRelevantToTimeframe('activity', activity)) {
+      if (periodEntryGroupId(activity) === groupId) {
         activities.push({ person, value: activity, role: findReferenceObject('roles', activityRoleId(activity)), period: activity.period, rowKey: `activities:${index}`, index });
       }
     });
