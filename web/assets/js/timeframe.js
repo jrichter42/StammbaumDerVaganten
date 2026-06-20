@@ -59,8 +59,8 @@ export function serializeTimeframePoint(point) {
 }
 
 export function timeframeFromSearchParams(params) {
-  const start = parseTimeframePoint(params.get('zeit') || params.get('from') || '');
-  const end = parseTimeframePoint(params.get('bis') || params.get('to') || '');
+  const start = parseTimeframePoint(params.get('from') || '');
+  const end = parseTimeframePoint(params.get('to') || '');
   if (!start) {
     return emptyTimeframe();
   }
@@ -70,14 +70,14 @@ export function timeframeFromSearchParams(params) {
 }
 
 export function writeTimeframeSearchParams(params, timeframe) {
-  ['zeit', 'bis', 'from', 'to'].forEach((name) => params.delete(name));
+  ['from', 'to'].forEach((name) => params.delete(name));
   if (!timeframe?.start) {
     return params;
   }
 
-  params.set('zeit', serializeTimeframePoint(timeframe.start));
+  params.set('from', serializeTimeframePoint(timeframe.start));
   if (timeframe.end) {
-    params.set('bis', serializeTimeframePoint(timeframe.end));
+    params.set('to', serializeTimeframePoint(timeframe.end));
   }
   return params;
 }
