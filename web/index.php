@@ -72,6 +72,18 @@ $configWarnings = array_map(
               <input id="sourceInput" type="search" autocomplete="off" aria-label="Quelle für Änderungen">
             </div>
           </div>
+          <div class="edit-certainty-control" id="editCertaintyControl" hidden>
+            <label class="tool-label" for="editCertaintyInput">Gewissheit</label>
+            <select id="editCertaintyInput" aria-label="Gewissheit fuer neue Daten">
+              <option value="none">0 - Keine Angabe</option>
+              <option value="no_idea">1 - Unbekannt / sehr unsicher</option>
+              <option value="estimation_bad">2 - Grobe Schaetzung</option>
+              <option value="estimation_medium">3 - Plausible Schaetzung</option>
+              <option value="estimation_good">4 - Gute Schaetzung</option>
+              <option value="confident">5 - Sicher</option>
+              <option value="set_in_stone">6 - Belegt / gesichert</option>
+            </select>
+          </div>
         </div>
         <div class="topbar-actions" aria-label="App-Status">
           <span class="status-pill" id="connectionStatus">Lädt</span>

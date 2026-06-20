@@ -58,6 +58,7 @@ final class Storage
             'description' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
             'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             '_certainty' => ['type' => 'string', 'default' => 'none', 'visibility' => 'public'],
+            '_dateCertainty' => ['type' => 'string', 'default' => 'none', 'visibility' => 'public'],
             '_sources' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             'name' => ['type' => 'string', 'default' => '', 'visibility' => 'public'],
             'date' => ['type' => 'json', 'default' => null, 'visibility' => 'public'],

@@ -109,6 +109,7 @@ const certaintyOptions = [
   ['confident', '5 - Sicher'],
   ['set_in_stone', '6 - Belegt / gesichert'],
 ];
+const certaintyRanks = Object.fromEntries(certaintyOptions.map(([value], index) => [value, index]));
 
 const stockGroupTypeLabelGroups = [
   ['Stamm'],
@@ -255,6 +256,7 @@ const collectionDefaultSortDirections = {
 };
 
 const editSourceStorageKey = 'stammbaum.editSource';
+const editCertaintyStorageKey = 'stammbaum.editCertainty';
 
 const state = {
   status: null,
@@ -285,6 +287,7 @@ const state = {
   timeframe: emptyTimeframe(),
   preferredSpan: null,
   sourceOverride: readStoredSourceOverride(),
+  certaintyOverride: readStoredCertaintyOverride(),
 };
 
 const connectionStatus = document.querySelector('#connectionStatus');
@@ -313,6 +316,8 @@ const globalSearchResults = document.querySelector('#globalSearchResults');
 const timeframeControl = document.querySelector('#timeframeControl');
 const sourceControl = document.querySelector('#sourceControl');
 const sourceInput = document.querySelector('#sourceInput');
+const editCertaintyControl = document.querySelector('#editCertaintyControl');
+const editCertaintyInput = document.querySelector('#editCertaintyInput');
 const setupForm = document.querySelector('#setupForm');
 const setupPanel = document.querySelector('#setupPanel');
 const usersNav = document.querySelector('#usersNav');
@@ -400,6 +405,7 @@ globalSearchInput?.addEventListener('focus', renderGlobalSearchResults);
 globalSearchInput?.addEventListener('keydown', handleGlobalSearchKeydown);
 sourceInput?.addEventListener('input', handleSourceInput);
 sourceInput?.addEventListener('blur', () => updateSourceControl());
+editCertaintyInput?.addEventListener('change', handleEditCertaintyChange);
 timeframeControl?.addEventListener('click', handleTimeframeClick);
 timeframeControl?.addEventListener('input', handleTimeframeInput);
 timeframeControl?.addEventListener('change', handleTimeframeInput);
@@ -1618,7 +1624,8 @@ function openNestedEditRow(type, id, edit) {
   }
   row.classList.remove('is-collapsed');
   row.querySelector('[data-list-action="toggle"]')?.setAttribute('aria-expanded', 'true');
-  scrollElementIntoView(row);
+  scrollObjectEditorIntoView(type, id, item.parentElement?.id || '');
+  scrollElementIntoView(row, 'nearest');
   return true;
 }
 
@@ -2124,6 +2131,9 @@ function renderShell() {
   if (sourceControl) {
     sourceControl.hidden = !user || accountOpen || !hasPermission('write');
   }
+  if (editCertaintyControl) {
+    editCertaintyControl.hidden = !user || accountOpen || !hasPermission('write');
+  }
   if (timeframeControl) {
     timeframeControl.hidden = accountOpen || isSetupPage || state.loginOpen || isLoginLinkPage;
   }
@@ -2145,6 +2155,7 @@ function renderShell() {
   }
   renderTimeframeControl();
   updateSourceControl();
+  updateEditCertaintyControl();
 
   const canManageUsers = hasPermission('manage_users');
   usersNavGroup.hidden = !canManageUsers;
@@ -2195,6 +2206,42 @@ function currentEditSource() {
   return String(state.sourceOverride || defaultEditSource()).replace(/,/g, '').trim();
 }
 
+function handleEditCertaintyChange() {
+  const value = normalizeCertaintyValue(editCertaintyInput?.value || 'none');
+  state.certaintyOverride = value;
+  writeStoredCertaintyOverride(value);
+  updateEditCertaintyControl();
+}
+
+function updateEditCertaintyControl() {
+  if (!editCertaintyInput) {
+    return;
+  }
+
+  editCertaintyInput.value = normalizeCertaintyValue(state.certaintyOverride);
+}
+
+function currentEditCertainty() {
+  return normalizeCertaintyValue(state.certaintyOverride);
+}
+
+function normalizeCertaintyValue(value) {
+  const normalized = String(value || 'none').trim();
+  return Object.prototype.hasOwnProperty.call(certaintyRanks, normalized) ? normalized : 'none';
+}
+
+function certaintyRank(value) {
+  return certaintyRanks[normalizeCertaintyValue(value)] || 0;
+}
+
+function higherCertainty(left, right) {
+  return certaintyRank(right) > certaintyRank(left) ? normalizeCertaintyValue(right) : normalizeCertaintyValue(left);
+}
+
+function certaintyNumber(value) {
+  return String(certaintyRank(value));
+}
+
 function defaultEditSource() {
   const user = state.status?.auth?.user || {};
   return String(user.username || user.display_name || '').trim();
@@ -2219,6 +2266,35 @@ function writeStoredSourceOverride(value) {
   } catch (_error) {
     // Storage can be unavailable in strict privacy modes.
   }
+}
+
+function readStoredCertaintyOverride() {
+  try {
+    return normalizeCertaintyValue(window.sessionStorage?.getItem(editCertaintyStorageKey) || 'none');
+  } catch (_error) {
+    return 'none';
+  }
+}
+
+function writeStoredCertaintyOverride(value) {
+  try {
+    const clean = normalizeCertaintyValue(value);
+    if (clean !== 'none') {
+      window.sessionStorage?.setItem(editCertaintyStorageKey, clean);
+    } else {
+      window.sessionStorage?.removeItem(editCertaintyStorageKey);
+    }
+  } catch (_error) {
+    // Storage can be unavailable in strict privacy modes.
+  }
+}
+
+function dateUsageCertaintyValue(object, fieldName) {
+  if (fieldName === 'date') {
+    return normalizeCertaintyValue(object?._dateCertainty || object?.date?._certainty || 'none');
+  }
+
+  return 'none';
 }
 
 function showBootstrapHint() {
@@ -3243,8 +3319,8 @@ function renderPublicGraph(root, groups, people, roles, groupTypes) {
   renderVisualizationSummary(root.querySelector('[data-visualization-summary="tree"]'), [
     `${graph.nodes.length} Gruppen`,
     `${graph.edges.length} Verbindungen`,
-    `${graph.memberCount} bekannte Mitglieder`,
-    `${graph.leaderCount} bekannte Leitungen`,
+    `${graph.memberCount} Mitglieder`,
+    `${graph.activityCount} Aktivitäten`,
   ]);
   if (!graph.nodes.length) {
     if (publicNetwork) {
@@ -3546,11 +3622,11 @@ function renderTimelineVisualization() {
   renderVisualizationSummary(summary, [
     data.periodLabel,
     `${data.groupCount} Gruppen`,
-    `${data.leadershipCount} bekannte Stammesführungen`,
+    `${data.activityCount} Aktivitäten`,
   ]);
   if (!data.lanes.length) {
     replaceTimelineVisualizationContent(root, '');
-    setTreeGraphStatus(status, 'Keine datierten Gruppen oder Stammesführungen im gewählten Zeitraum.');
+    setTreeGraphStatus(status, 'Keine datierten Gruppen oder Aktivitäten im gewählten Zeitraum.');
     return;
   }
   setTreeGraphStatus(status, '');
@@ -3633,7 +3709,7 @@ function timelineVisualizationData() {
     });
   });
   if (leadershipSegments.length) {
-    rawLanes.push({ label: 'Stammesführung', segments: leadershipSegments });
+    rawLanes.push({ label: 'Aktivitäten', segments: leadershipSegments });
   }
 
   (state.objects.groups || []).forEach((group) => {
@@ -3659,7 +3735,7 @@ function timelineVisualizationData() {
 
   const domain = timelineDomain(allBounds);
   if (!domain) {
-    return { lanes: [], start: 0, end: 0, groupCount: 0, leadershipCount: 0, periodLabel: timeframeLabel(state.timeframe) };
+    return { lanes: [], start: 0, end: 0, groupCount: 0, activityCount: 0, periodLabel: timeframeLabel(state.timeframe) };
   }
   const startMs = dateKeyTimestamp(domain.start);
   const endMs = dateKeyTimestamp(domain.end);
@@ -3688,8 +3764,8 @@ function timelineVisualizationData() {
     lanes,
     start: domain.start,
     end: domain.end,
-    groupCount: lanes.filter((lane) => lane.label !== 'Stammesführung').length,
-    leadershipCount: leadershipSegments.length,
+    groupCount: lanes.filter((lane) => lane.label !== 'Aktivitäten').length,
+    activityCount: leadershipSegments.length,
     periodLabel: `${dateKeyLabel(domain.start)}–${dateKeyLabel(domain.end)}`,
   };
 }
@@ -5315,10 +5391,10 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
   const groupIds = new Set(visibleGroups.map(objectId));
   const stats = publicGroupStats(visibleGroups, people);
   const memberIds = new Set();
-  const leaderIds = new Set();
+  const activityIds = new Set();
   const counts = new Map(visibleGroups.map((group) => [objectId(group), {
     members: new Set(),
-    leaders: new Set(),
+    activities: new Set(),
   }]));
   const levels = publicGraphGroupDateLevels(visibleGroups);
   const edgeMap = new Map();
@@ -5328,18 +5404,15 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
     const memberships = (Array.isArray(person.memberships) ? person.memberships : [])
       .map((membership, index) => ({ membership, index, groupId: periodEntryGroupId(membership) }))
       .filter((entry) => groupIds.has(entry.groupId) && relationshipRelevantToTimeframe('membership', entry.membership));
-    const activities = (Array.isArray(person.activities) ? person.activities : [])
+    const allActivities = (Array.isArray(person.activities) ? person.activities : [])
       .map((activity, index) => ({
         activity,
         index,
         groupId: periodEntryGroupId(activity),
         role: roles.find((candidate) => objectId(candidate) === activityRoleId(activity)),
       }))
-      .filter((entry) => (
-        groupIds.has(entry.groupId)
-        && isLeadershipRole(entry.role)
-        && relationshipRelevantToTimeframe('activity', entry.activity)
-      ));
+      .filter((entry) => groupIds.has(entry.groupId) && relationshipRelevantToTimeframe('activity', entry.activity));
+    const lineageActivities = allActivities.filter((entry) => isLeadershipRole(entry.role));
 
     memberships.forEach(({ groupId }) => {
       if (personId) {
@@ -5347,14 +5420,14 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
         memberIds.add(personId);
       }
     });
-    activities.forEach(({ groupId }) => {
+    allActivities.forEach(({ groupId, index }) => {
       if (personId) {
-        counts.get(groupId).leaders.add(personId);
-        leaderIds.add(personId);
+        counts.get(groupId).activities.add(`${personId}:${index}`);
+        activityIds.add(`${personId}:${index}`);
       }
     });
 
-    activities.forEach((activityEntry) => {
+    lineageActivities.forEach((activityEntry) => {
       memberships.forEach((membershipEntry) => {
         if (!supportsGroupLineage(membershipEntry, activityEntry)) {
           return;
@@ -5391,8 +5464,8 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
       label: publicGraphEntryLabel([
         publicGroupName(group, index),
         [type || 'Gruppe', groupStats.span].filter(Boolean).join(' · '),
-        `${groupCounts.members.size} bekannte Mitglieder`,
-        `${groupCounts.leaders.size} bekannte Leitungen`,
+        `${groupCounts.members.size} Mitglieder`,
+        `${groupCounts.activities.size} Aktivitäten`,
       ]),
       group: 'group',
       level: levels.get(id) || 0,
@@ -5463,7 +5536,7 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
     edges: [...compositionEdges, ...lineageEdges],
     layout: 'top-down',
     memberCount: memberIds.size,
-    leaderCount: leaderIds.size,
+    activityCount: activityIds.size,
   };
 }
 
@@ -6947,7 +7020,7 @@ function renderGroupRelationAddSection(kind, group) {
         ${renderReferenceControl({ id: `${idBase}-person`, label: 'Person', value: '', collection: 'people', nestedField: 'person', pickerContext: { ownerType: 'groups', ownerObject: group } })}
         ${roleControl}
         ${renderPeriodEditor(emptyPeriod(), `${idBase}-period`, false, { ownerType: 'groups', ownerObject: group })}
-        ${renderNestedCertaintyField(`${idBase}-certainty`, 'none')}
+        ${renderNestedCertaintyField(`${idBase}-certainty`, currentEditCertainty())}
       </div>
       <p class="object-save-state" data-group-relation-state hidden></p>
     </section>
@@ -7034,11 +7107,15 @@ function renderFieldInput(field, value, isCreate, context = {}) {
   const renderedValue = inputValue(value, field);
 
   if (field.kind === 'date') {
-    return renderDateControl(id, field.label, value, fieldAttrs);
+    const certaintyField = context.ownerType === 'timepoints' && field.name === 'date' ? '_dateCertainty' : '';
+    return renderDateControl(id, field.label, value, fieldAttrs, {
+      certaintyField,
+      certaintyValue: certaintyField ? dateUsageCertaintyValue(context.ownerObject, field.name) : 'none',
+    });
   }
 
   if (field.kind === 'certainty') {
-    return renderCertaintyField(field, renderedValue, fieldAttrs, id);
+    return renderCertaintyField(field, isCreate && renderedValue === 'none' ? currentEditCertainty() : renderedValue, fieldAttrs, id);
   }
 
   if (field.kind === 'boolean') {
@@ -7107,10 +7184,10 @@ function renderFieldInput(field, value, isCreate, context = {}) {
 
 function renderCertaintyField(field, value, fieldAttrs, id) {
   return `
-    <label class="object-field" for="${escapeAttribute(id)}">
+    <label class="object-field certainty-field" for="${escapeAttribute(id)}">
       <span>${escapeHtml(field.label)}</span>
-      <select id="${escapeAttribute(id)}" ${fieldAttrs} data-certainty-input>
-        ${certaintyOptions.map(([optionValue, label]) => `<option value="${escapeAttribute(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+      <select id="${escapeAttribute(id)}" class="compact-certainty-select" ${fieldAttrs} data-certainty-input>
+        ${certaintyOptionsHtml(value)}
       </select>
     </label>
   `;
@@ -7120,20 +7197,26 @@ function renderDateControl(id, label, value, inputAttrs = '', options = {}) {
   const raw = dateRawString(value);
   const detail = dateDetailFromRaw(raw);
   const visibleValue = dateVisibleValueForDetail(raw, detail);
+  const certainty = normalizeCertaintyValue(options.certaintyValue || 'none');
+  const certaintyHtml = options.certaintyField ? dateCertaintySelectHtml(certainty, options.certaintyField) : '';
   const labelHtml = options.hideLabel ? '' : fieldLabelHtml(label, options.labelActionHtml || '');
   const labelAttr = options.hideLabel && label ? `aria-label="${escapeAttribute(label)}"` : '';
-
   return `
     <div class="object-field date-field">
       <div class="date-control" data-date-control-root>
         <label class="date-input-field" for="${escapeAttribute(id)}">
           ${labelHtml}
-        <input id="${escapeAttribute(id)}" ${inputAttrs} ${labelAttr} type="text" inputmode="numeric" data-date-control data-date-detail="${escapeAttribute(detail)}" data-date-raw="${escapeAttribute(raw)}" value="${escapeAttribute(visibleValue)}" placeholder="${escapeAttribute(datePlaceholderForDetail(detail))}" autocomplete="off">
+          <span class="date-input-row">
+            <input id="${escapeAttribute(id)}" ${inputAttrs} ${labelAttr} type="text" inputmode="numeric" data-date-control data-date-detail="${escapeAttribute(detail)}" data-date-raw="${escapeAttribute(raw)}" data-date-original-raw="${escapeAttribute(raw)}" data-date-original-certainty="${escapeAttribute(certainty)}" value="${escapeAttribute(visibleValue)}" placeholder="${escapeAttribute(datePlaceholderForDetail(detail))}" autocomplete="off">
+          </span>
         </label>
         <div class="date-detail-field">
           <span>Granularität</span>
-          <div class="date-detail-actions" data-date-detail-actions>
-            ${dateDetailActionsHtml(detail, '')}
+          <div class="date-detail-row">
+            <div class="date-detail-actions" data-date-detail-actions>
+              ${dateDetailActionsHtml(detail, '')}
+            </div>
+            ${certaintyHtml}
           </div>
         </div>
       </div>
@@ -7595,6 +7678,22 @@ function renderObjectListField(field, value, context = {}) {
   `;
 }
 
+function dateCertaintySelectHtml(value, field = '') {
+  const certainty = normalizeCertaintyValue(value);
+  return `
+    <select class="date-certainty-select" ${field ? `data-nested-field="${escapeAttribute(field)}"` : ''} data-date-certainty data-date-certainty-original="${escapeAttribute(certainty)}" aria-label="Datumsgewissheit">
+      ${certaintyOptionsHtml(certainty)}
+    </select>
+  `;
+}
+
+function certaintyOptionsHtml(selectedValue) {
+  const selected = normalizeCertaintyValue(selectedValue);
+  return certaintyOptions
+    .map(([optionValue, label]) => `<option value="${escapeAttribute(optionValue)}" ${optionValue === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`)
+    .join('');
+}
+
 function renderComplexListItem(kind, value = {}, context = {}) {
   const hasValue = complexItemHasValue(kind, value);
   const rowKey = relationshipRowKey(context);
@@ -7809,11 +7908,12 @@ function renderGroupPhaseEditor(value = {}, compact = false, context = {}) {
 
 function renderMembershipEditor(value = {}, context = {}) {
   const idBase = `membership-${Math.random().toString(36).slice(2)}`;
+  const certainty = value._certainty || (context.isCreate || context.isNewComplexItem ? currentEditCertainty() : 'none');
   return `
     <div class="nested-editor" data-membership-editor>
       ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'membership-group', period: value.period } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, context)}
-      ${renderNestedCertaintyField(`${idBase}-certainty`, value._certainty || 'none')}
+      ${renderNestedCertaintyField(`${idBase}-certainty`, certainty)}
       ${renderNestedSourceDisplayField(`${idBase}-sources`, value._sources || '')}
     </div>
   `;
@@ -7821,12 +7921,13 @@ function renderMembershipEditor(value = {}, context = {}) {
 
 function renderActivityEditor(value = {}, context = {}) {
   const idBase = `activity-${Math.random().toString(36).slice(2)}`;
+  const certainty = value._certainty || (context.isCreate || context.isNewComplexItem ? currentEditCertainty() : 'none');
   return `
     <div class="nested-editor" data-activity-editor>
       ${renderReferenceControl({ id: `${idBase}-role`, label: 'Rolle', value: value.role || '', collection: 'roles', nestedField: 'role', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-role', activity: value } })}
       ${renderReferenceControl({ id: `${idBase}-group`, label: 'Gruppe', value: value.group || '', collection: 'groups', nestedField: 'group', pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker: 'activity-group', activity: value } })}
       ${renderPeriodEditor(value.period || {}, `${idBase}-period`, false, context)}
-      ${renderNestedCertaintyField(`${idBase}-certainty`, value._certainty || 'none')}
+      ${renderNestedCertaintyField(`${idBase}-certainty`, certainty)}
       ${renderNestedSourceDisplayField(`${idBase}-sources`, value._sources || '')}
     </div>
   `;
@@ -7834,10 +7935,10 @@ function renderActivityEditor(value = {}, context = {}) {
 
 function renderNestedCertaintyField(id, value = 'none') {
   return `
-    <label class="object-field" for="${escapeAttribute(id)}">
+    <label class="object-field certainty-field" for="${escapeAttribute(id)}">
       <span>Gewissheit</span>
-      <select id="${escapeAttribute(id)}" data-nested-field="_certainty" data-certainty-input>
-        ${certaintyOptions.map(([optionValue, label]) => `<option value="${escapeAttribute(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+      <select id="${escapeAttribute(id)}" class="compact-certainty-select" data-nested-field="_certainty" data-certainty-input>
+        ${certaintyOptionsHtml(value)}
       </select>
     </label>
   `;
@@ -7857,13 +7958,13 @@ function renderPeriodEditor(value = {}, idBase = `period-${Math.random().toStrin
   return `
     <fieldset class="period-editor ${compact ? 'is-rough' : ''}" data-period-editor>
       <legend>Zeitraum</legend>
-      ${renderPeriodBoundary({ idBase: `${idBase}-start`, label: 'Start', timepointField: 'startTimepoint', dateField: 'customStart', timepointValue: value.startTimepoint || '', dateValue: value.customStart, showReferenceIds, picker: 'period-start-timepoint', period: value, context })}
-      ${renderPeriodBoundary({ idBase: `${idBase}-end`, label: 'Ende', timepointField: 'endTimepoint', dateField: 'customEnd', timepointValue: value.endTimepoint || '', dateValue: value.customEnd, showReferenceIds, picker: 'period-end-timepoint', period: value, context })}
+      ${renderPeriodBoundary({ idBase: `${idBase}-start`, label: 'Start', timepointField: 'startTimepoint', dateField: 'customStart', certaintyField: '_startCertainty', timepointValue: value.startTimepoint || '', boundaryCertainty: value._startCertainty || value.startTimepointCertainty || value.customStart?._certainty || 'none', dateValue: value.customStart, showReferenceIds, picker: 'period-start-timepoint', period: value, context })}
+      ${renderPeriodBoundary({ idBase: `${idBase}-end`, label: 'Ende', timepointField: 'endTimepoint', dateField: 'customEnd', certaintyField: '_endCertainty', timepointValue: value.endTimepoint || '', boundaryCertainty: value._endCertainty || value.endTimepointCertainty || value.customEnd?._certainty || 'none', dateValue: value.customEnd, showReferenceIds, picker: 'period-end-timepoint', period: value, context })}
     </fieldset>
   `;
 }
 
-function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepointValue, dateValue, showReferenceIds = true, picker = '', period = {}, context = {} }) {
+function renderPeriodBoundary({ idBase, label, timepointField, dateField, certaintyField, timepointValue, boundaryCertainty = 'none', dateValue, showReferenceIds = true, picker = '', period = {}, context = {} }) {
   const hasCustomDate = Boolean(dateInputValue(dateValue));
   const mode = !timepointValue && hasCustomDate ? 'custom' : 'timepoint';
   const timepointHidden = mode === 'custom' ? ' hidden' : '';
@@ -7878,10 +7979,16 @@ function renderPeriodBoundary({ idBase, label, timepointField, dateField, timepo
   return `
     <div class="period-boundary" data-period-boundary="${escapeAttribute(timepointField)}" data-period-mode="${escapeAttribute(mode)}">
       <div data-period-timepoint${timepointHidden}>
-        ${renderReferenceControl({ id: `${idBase}-timepoint`, label, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds, pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker, period, labelActionHtml: actionHtml } })}
+        <div class="period-timepoint-row">
+          ${renderReferenceControl({ id: `${idBase}-timepoint`, label, value: timepointValue || '', collection: 'timepoints', nestedField: timepointField, showIds: showReferenceIds, pickerContext: { ownerType: context.ownerType, ownerObject: context.ownerObject, picker, period, labelActionHtml: actionHtml } })}
+          ${renderTimepointReferenceCertainty(`${idBase}-timepoint-certainty`, certaintyField, boundaryCertainty)}
+        </div>
       </div>
       <div data-period-custom${customHidden}>
-        ${renderNestedDateControl(`${idBase}-custom`, label, dateValue, dateField, false, actionHtml)}
+        <div class="period-custom-row">
+          ${renderNestedDateControl(`${idBase}-custom`, label, dateValue, dateField, false, actionHtml)}
+          ${renderTimepointReferenceCertainty(`${idBase}-custom-certainty`, certaintyField, boundaryCertainty)}
+        </div>
         ${saveTimepointHtml}
       </div>
     </div>
@@ -7933,6 +8040,53 @@ function handleDateDetailAction(button) {
   }
 }
 
+function dateControlInputForEventTarget(target) {
+  if (target?.matches?.('[data-date-control]')) {
+    return target;
+  }
+
+  return target?.closest?.('[data-date-control-root]')?.querySelector('[data-date-control]') || null;
+}
+
+function markDateCertaintySelected(select) {
+  if (!select?.matches?.('[data-date-certainty]')) {
+    return;
+  }
+
+  select.dataset.certaintyChanged = '1';
+}
+
+function markBoundaryCertaintySelected(select) {
+  if (!select?.matches?.('[data-timepoint-reference-certainty]')) {
+    return;
+  }
+
+  select.dataset.certaintyChanged = '1';
+}
+
+function applyEditCertaintyToDateControl(input) {
+  const select = input?.closest('[data-date-control-root]')?.querySelector('[data-date-certainty]');
+  if (!select || select.dataset.certaintyChanged === '1' || !readDateControlRaw(input)) {
+    return;
+  }
+
+  select.value = higherCertainty(select.value, currentEditCertainty());
+}
+
+function applyEditCertaintyToPeriodBoundary(boundary) {
+  if (!boundary || !periodBoundaryHasValue(boundary)) {
+    return;
+  }
+
+  const modeRoot = boundary.dataset.periodMode === 'custom'
+    ? boundary.querySelector('[data-period-custom]')
+    : boundary.querySelector('[data-period-timepoint]');
+  const select = modeRoot?.querySelector('[data-timepoint-reference-certainty]');
+  if (select && select.dataset.certaintyChanged !== '1') {
+    select.value = higherCertainty(select.value, currentEditCertainty());
+  }
+}
+
 function setDateControlDetail(input, detail, truncate) {
   const raw = truncate ? dateRawForDetail(input.dataset.dateRaw || readDateControlRaw(input), detail) : (input.dataset.dateRaw || readDateControlRaw(input));
   input.dataset.dateDetail = detail;
@@ -7942,6 +8096,7 @@ function setDateControlDetail(input, detail, truncate) {
   input.value = dateVisibleValueForDetail(raw, detail);
   input.placeholder = datePlaceholderForDetail(detail);
   updateDateDetailButtons(input);
+  applyEditCertaintyToDateControl(input);
 }
 
 function selectExpandedDatePart(input, previousDetail, detail) {
@@ -8505,9 +8660,11 @@ async function saveBoundaryTimepoint(boundary) {
   const name = boundaryTimepointName(boundary, raw);
   const dateField = dateInput.dataset.nestedField || '';
   const timepointField = boundary.dataset.periodBoundary || '';
+  const certaintyField = timepointField === 'endTimepoint' ? '_endCertainty' : '_startCertainty';
+  const certainty = boundaryCertaintyValue(boundary, certaintyField);
   const response = await postJson('object-create', {
     type: 'timepoints',
-    object: { name, date: readDateValue(raw), _certainty: 'confident' },
+    object: { name, date: readDateValue(raw), _dateCertainty: certainty, _certainty: 'confident' },
   });
 
   await loadObjects();
@@ -9312,9 +9469,9 @@ function showInlineActionFeedback(trigger, text) {
   }, 2400);
 }
 
-function scrollElementIntoView(element) {
+function scrollElementIntoView(element, block = 'start') {
   window.requestAnimationFrame(() => {
-    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    element.scrollIntoView({ behavior: 'smooth', block });
   });
 }
 
@@ -9771,7 +9928,7 @@ function smartReferenceCreateCandidate(collection, query, config = {}, objects =
   if (collection === 'people') {
     return {
       type: 'people',
-      payload: { scoutname: text },
+      payload: { scoutname: text, _certainty: currentEditCertainty() },
       title: `Person "${text}" erstellen`,
       detail: 'Neuer Eintrag wird angelegt und ausgewählt',
     };
@@ -9779,6 +9936,9 @@ function smartReferenceCreateCandidate(collection, query, config = {}, objects =
 
   const field = collection === 'roles' || collection === 'group-types' ? 'label' : 'name';
   const payload = { [field]: text };
+  if (collection !== 'group-types') {
+    payload._certainty = currentEditCertainty();
+  }
   if (collection === 'roles') {
     const group = findReferenceObject('groups', config.groupId || '');
     const groupTypes = groupTypeIds(group);
@@ -9803,7 +9963,7 @@ function smartGroupCreateCandidate(query, config = {}, objects = [], showIds = f
   const parsed = parseGroupCreateQuery(query, config);
   const name = parsed.name || (parsed.groupTypeId ? '' : query);
   const displayName = [parsed.groupTypeLabel, name].filter(Boolean).join(' ') || query;
-  const payload = { name };
+  const payload = { name, _certainty: currentEditCertainty() };
   if (parsed.groupTypeId) {
     payload.mainPhase = {
       groupType: parsed.groupTypeId,
@@ -9913,6 +10073,8 @@ function smartTimepointCreateCandidate(query, objects, showIds, config = {}) {
   const payload = {
     name: parsed.name,
     date: parsed.rawDate ? readDateValue(parsed.rawDate) : null,
+    _dateCertainty: parsed.rawDate ? currentEditCertainty() : 'none',
+    _certainty: currentEditCertainty(),
   };
   const title = parsed.name || parsed.rawDate;
   const detail = parsed.rawDate
@@ -10247,31 +10409,45 @@ async function handleObjectInput(event) {
 
   const groupRelationDraft = event.target.closest('[data-group-relation-add]');
   if (groupRelationDraft) {
-    const dateInput = event.target.closest('[data-date-control]');
+    const dateInput = dateControlInputForEventTarget(event.target);
     if (dateInput) {
       syncDateControlRaw(dateInput);
+      applyEditCertaintyToDateControl(dateInput);
       refreshPeriodDependentPickers(dateInput.closest('[data-period-editor]'), dateInput);
     }
+    applyEditCertaintyToPeriodBoundary(event.target.closest('[data-period-boundary]'));
     markGroupRelationDraftChanged(groupRelationDraft, 1400);
     return;
   }
 
   const groupReverseRow = event.target.closest('[data-group-reverse-row]');
   if (groupReverseRow) {
-    const dateInput = event.target.closest('[data-date-control]');
+    const dateInput = dateControlInputForEventTarget(event.target);
     if (dateInput) {
       syncDateControlRaw(dateInput);
+      applyEditCertaintyToDateControl(dateInput);
       refreshPeriodDependentPickers(dateInput.closest('[data-period-editor]'), dateInput);
     }
+    applyEditCertaintyToPeriodBoundary(event.target.closest('[data-period-boundary]'));
     markGroupReverseRowChanged(groupReverseRow, 1400);
     return;
   }
 
-  const dateInput = event.target.closest('[data-date-control]');
+  const dateInput = dateControlInputForEventTarget(event.target);
   if (dateInput) {
     syncDateControlRaw(dateInput);
+    applyEditCertaintyToDateControl(dateInput);
     if (!dateInput.closest('[data-object-field]')) {
       markDateControlChanged(dateInput);
+    }
+    applyEditCertaintyToPeriodBoundary(dateInput.closest('[data-period-boundary]'));
+    if (event.target.closest('[data-date-certainty]') && dateInput.matches('[data-object-field]')) {
+      const item = dateInput.closest('[data-object-type][data-object-id]');
+      if (item) {
+        markObjectDirty(item);
+        scheduleObjectSave(item, 600);
+      }
+      return;
     }
   }
 
@@ -10296,34 +10472,59 @@ async function handleObjectChange(event) {
 
   const groupRelationDraft = event.target.closest('[data-group-relation-add]');
   if (groupRelationDraft) {
-    const dateInput = event.target.closest('[data-date-control]');
+    const certaintySelect = event.target.closest('[data-date-certainty]');
+    markDateCertaintySelected(certaintySelect);
+    markBoundaryCertaintySelected(event.target.closest('[data-timepoint-reference-certainty]'));
+    const dateInput = dateControlInputForEventTarget(event.target);
     if (dateInput) {
       syncDateControlRaw(dateInput);
+      applyEditCertaintyToDateControl(dateInput);
       refreshPeriodDependentPickers(dateInput.closest('[data-period-editor]'), dateInput);
     }
+    applyEditCertaintyToPeriodBoundary(event.target.closest('[data-period-boundary]'));
     markGroupRelationDraftChanged(groupRelationDraft, 500);
     return;
   }
 
   const groupReverseRow = event.target.closest('[data-group-reverse-row]');
   if (groupReverseRow) {
-    const dateInput = event.target.closest('[data-date-control]');
+    const certaintySelect = event.target.closest('[data-date-certainty]');
+    markDateCertaintySelected(certaintySelect);
+    markBoundaryCertaintySelected(event.target.closest('[data-timepoint-reference-certainty]'));
+    const dateInput = dateControlInputForEventTarget(event.target);
     if (dateInput) {
       syncDateControlRaw(dateInput);
+      applyEditCertaintyToDateControl(dateInput);
       refreshPeriodDependentPickers(dateInput.closest('[data-period-editor]'), dateInput);
     }
+    applyEditCertaintyToPeriodBoundary(event.target.closest('[data-period-boundary]'));
     markGroupReverseRowChanged(groupReverseRow, 600);
     return;
   }
 
-  const dateInput = event.target.closest('[data-date-control]');
+  const certaintySelect = event.target.closest('[data-date-certainty]');
+  markDateCertaintySelected(certaintySelect);
+  markBoundaryCertaintySelected(event.target.closest('[data-timepoint-reference-certainty]'));
+  const dateInput = dateControlInputForEventTarget(event.target);
   if (dateInput) {
     syncDateControlRaw(dateInput);
+    applyEditCertaintyToDateControl(dateInput);
     if (!dateInput.closest('[data-object-field]')) {
       markDateControlChanged(dateInput);
       return;
     }
+    if (event.target.closest('[data-date-certainty]') && dateInput.matches('[data-object-field]')) {
+      const item = dateInput.closest('[data-object-type][data-object-id]');
+      if (item) {
+        markObjectDirty(item);
+        scheduleObjectSave(item, 600);
+      }
+      return;
+    }
+    applyEditCertaintyToPeriodBoundary(dateInput.closest('[data-period-boundary]'));
   }
+
+  applyEditCertaintyToPeriodBoundary(event.target.closest('[data-period-boundary]'));
 
   const input = event.target.closest('[data-object-field]');
   if (!input) {
@@ -10621,8 +10822,10 @@ async function createExampleData() {
     const date = (rawValue) => ({ rawValue });
     const period = (startTimepoint = '', customStart = null, endTimepoint = '', customEnd = null) => ({
       startTimepoint,
+      _startCertainty: startTimepoint || customStart ? 'confident' : 'none',
       customStart,
       endTimepoint,
+      _endCertainty: endTimepoint || customEnd ? 'confident' : 'none',
       customEnd,
     });
     const phase = (groupType, phasePeriod) => ({ groupType, period: phasePeriod });
@@ -10661,13 +10864,13 @@ async function createExampleData() {
     await ensureRoleGroupTypes('roleKreisleit', ['typeKreis']);
     await create('roles', 'roleMatihueschlue', { label: 'Matihüschlüwa', groupTypes: [id('typeStamm')], _certainty: 'confident' });
 
-    await create('timepoints', 'timepointStamm', { name: 'Stammesgründung', date: date('1952-01-01'), _certainty: 'confident' });
-    await create('timepoints', 'timepointPfila06', { name: 'Pfingstlager', date: date('2006-06-02'), _certainty: 'confident' });
-    await create('timepoints', 'timepointNiko06', { name: 'Nikofahrt', date: date('2006-11-16'), _certainty: 'confident' });
-    await create('timepoints', 'timepointNiko07', { name: 'Nikofahrt', date: date('2007-12-05'), _certainty: 'confident' });
-    await create('timepoints', 'timepointPfila08', { name: 'Pfingstlager', date: date('2008-05-06'), _certainty: 'confident' });
-    await create('timepoints', 'timepointNiko08', { name: 'Nikofahrt', date: date('2008-11-22'), _certainty: 'confident' });
-    await create('timepoints', 'timepointPfila12', { name: 'Pfingstlager', date: date('2012-06-01'), _certainty: 'confident' });
+    await create('timepoints', 'timepointStamm', { name: 'Stammesgründung', date: date('1952-01-01'), _dateCertainty: 'confident', _certainty: 'confident' });
+    await create('timepoints', 'timepointPfila06', { name: 'Pfingstlager', date: date('2006-06-02'), _dateCertainty: 'confident', _certainty: 'confident' });
+    await create('timepoints', 'timepointNiko06', { name: 'Nikofahrt', date: date('2006-11-16'), _dateCertainty: 'confident', _certainty: 'confident' });
+    await create('timepoints', 'timepointNiko07', { name: 'Nikofahrt', date: date('2007-12-05'), _dateCertainty: 'confident', _certainty: 'confident' });
+    await create('timepoints', 'timepointPfila08', { name: 'Pfingstlager', date: date('2008-05-06'), _dateCertainty: 'confident', _certainty: 'confident' });
+    await create('timepoints', 'timepointNiko08', { name: 'Nikofahrt', date: date('2008-11-22'), _dateCertainty: 'confident', _certainty: 'confident' });
+    await create('timepoints', 'timepointPfila12', { name: 'Pfingstlager', date: date('2012-06-01'), _dateCertainty: 'confident', _certainty: 'confident' });
 
     await create('groups', 'groupStamm', {
       name: 'der Vaganten',
@@ -10754,6 +10957,9 @@ function collectObjectFields(root) {
     }
 
     payload[field.name] = readFieldValue(input, field);
+    if (type === 'timepoints' && field.name === 'date') {
+      payload._dateCertainty = readDateUsageCertainty(input);
+    }
   });
 
   return payload;
@@ -10810,7 +11016,7 @@ function readFieldValue(input, field) {
   }
 
   if (field.kind === 'date') {
-    return readDateValue(readDateControlRaw(input));
+    return readDateControlValue(input);
   }
 
   if (field.kind === 'reference') {
@@ -10867,8 +11073,10 @@ function readPeriod(root) {
 
   return {
     startTimepoint: boundaryTimepointValue(startBoundary, 'startTimepoint'),
+    _startCertainty: boundaryCertaintyValue(startBoundary, '_startCertainty'),
     customStart: boundaryDateValue(startBoundary, 'customStart'),
     endTimepoint: boundaryTimepointValue(endBoundary, 'endTimepoint'),
+    _endCertainty: boundaryCertaintyValue(endBoundary, '_endCertainty'),
     customEnd: boundaryDateValue(endBoundary, 'customEnd'),
   };
 }
@@ -10881,12 +11089,36 @@ function boundaryTimepointValue(boundary, field) {
   return nestedValue(boundary, field);
 }
 
+function boundaryCertaintyValue(boundary, field) {
+  if (!periodBoundaryHasValue(boundary)) {
+    return 'none';
+  }
+
+  const modeRoot = boundary.dataset.periodMode === 'custom'
+    ? boundary.querySelector('[data-period-custom]')
+    : boundary.querySelector('[data-period-timepoint]');
+  const value = nestedValue(modeRoot || boundary, field);
+  return higherCertainty(value, currentEditCertainty());
+}
+
+function periodBoundaryHasValue(boundary) {
+  if (!boundary) {
+    return false;
+  }
+
+  if (boundary.dataset.periodMode === 'custom') {
+    return Boolean(nestedValue(boundary, boundary.dataset.periodBoundary === 'endTimepoint' ? 'customEnd' : 'customStart'));
+  }
+
+  return Boolean(boundaryTimepointValue(boundary, boundary.dataset.periodBoundary || ''));
+}
+
 function boundaryDateValue(boundary, field) {
   if (boundary?.dataset.periodMode !== 'custom') {
     return null;
   }
 
-  return readDateValue(nestedValue(boundary, field));
+  return nestedValue(boundary, field);
 }
 
 function nestedValue(root, field) {
@@ -10900,7 +11132,7 @@ function nestedValue(root, field) {
   }
 
   if (input.matches('[data-date-control]')) {
-    return readDateControlRaw(input);
+    return readDateControlValue(input);
   }
 
   if (input.matches('.source-display-text')) {
@@ -10911,8 +11143,26 @@ function nestedValue(root, field) {
 }
 
 function readDateValue(value) {
-  const raw = normalizeDateRaw(value);
+  const raw = normalizeDateRaw(dateRawString(value) || value);
   return raw ? { rawValue: raw } : null;
+}
+
+function readDateControlValue(input) {
+  const raw = normalizeDateRaw(readDateControlRaw(input));
+  return raw ? { rawValue: raw } : null;
+}
+
+function readDateUsageCertainty(input) {
+  const raw = normalizeDateRaw(readDateControlRaw(input));
+  if (!raw) {
+    return 'none';
+  }
+  const selector = input?.closest('[data-date-control-root]')?.querySelector('[data-date-certainty]');
+  const selected = normalizeCertaintyValue(selector?.value || input?.dataset.dateOriginalCertainty || 'none');
+  const original = normalizeCertaintyValue(input?.dataset.dateOriginalCertainty || selector?.dataset.dateCertaintyOriginal || 'none');
+  const rawChanged = raw !== (input?.dataset.dateOriginalRaw || '');
+  const certaintyChanged = selector?.dataset.certaintyChanged === '1';
+  return certaintyChanged ? selected : (rawChanged ? higherCertainty(selected || original, currentEditCertainty()) : selected);
 }
 
 function emptyPeriod() {
@@ -12659,6 +12909,18 @@ function renderUserSetupResult(user) {
     </label>
     <small>Läuft ab ${escapeHtml(formatDateTime(state.setupResult.expires_at))}</small>
     </div>
+  `;
+}
+
+function renderTimepointReferenceCertainty(id, field, value = 'none') {
+  const certainty = normalizeCertaintyValue(value);
+  return `
+    <label class="timepoint-reference-certainty" for="${escapeAttribute(id)}">
+      <span class="visually-hidden">Zeitpunkt-Gewissheit</span>
+      <select id="${escapeAttribute(id)}" data-nested-field="${escapeAttribute(field)}" data-timepoint-reference-certainty aria-label="Zeitpunkt-Gewissheit">
+        ${certaintyOptionsHtml(certainty)}
+      </select>
+    </label>
   `;
 }
 

@@ -346,7 +346,8 @@ h3 {
   outline-offset: 2px;
 }
 
-.source-control {
+.source-control,
+.edit-certainty-control {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -364,7 +365,8 @@ h3 {
   min-width: 0;
 }
 
-.source-control input {
+.source-control input,
+.edit-certainty-control select {
   width: clamp(150px, 18vw, 220px);
   min-height: 32px;
   padding: 5px 9px;
@@ -380,6 +382,20 @@ h3 {
 }
 
 .source-control input:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+.edit-certainty-control select {
+  width: 30px;
+  padding: 5px 3px 5px 8px;
+  appearance: none;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.edit-certainty-control select:focus-visible {
   outline: 2px solid var(--brand-strong);
   outline-offset: 2px;
 }
@@ -514,12 +530,9 @@ h3 {
 }
 
 .back-to-top {
-  grid-column: 1;
-  grid-row: 1;
-  position: sticky;
-  justify-self: end;
-  align-self: start;
-  top: 50%;
+  position: fixed;
+  right: clamp(12px, 2vw, 24px);
+  bottom: clamp(12px, 2vw, 24px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -532,7 +545,6 @@ h3 {
   color: var(--brand-strong);
   border-color: rgba(var(--brand-rgb), 0.38);
   background: rgba(15, 20, 24, 0.9);
-  transform: translateY(-50%);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
   font-size: 1.5rem;
   font-weight: 800;
@@ -2347,10 +2359,20 @@ button.object-title-row.is-graph-highlighted::before {
 
 .object-editor-side {
   display: grid;
-  gap: 12px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: start;
   min-width: 0;
   padding-left: 12px;
   border-left: 1px solid var(--line);
+}
+
+.object-editor-side > .source-display-field {
+  min-width: 0;
+}
+
+.object-editor-side > .object-field:has(textarea) {
+  grid-column: 1 / -1;
 }
 
 .object-editor-side .object-field-wide {
@@ -2556,8 +2578,128 @@ button.object-title-row.is-graph-highlighted::before {
   min-width: 0;
 }
 
+.date-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.compact-certainty-select,
+.date-certainty-select {
+  width: 30px;
+  min-height: 36px;
+  padding: 0 3px 0 8px;
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f1418;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.certainty-field {
+  justify-items: start;
+  width: 30px;
+  max-width: 30px;
+}
+
+.period-timepoint-row,
+.period-custom-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 8px;
+  align-items: end;
+}
+
+.period-custom-row > .date-field {
+  min-width: 0;
+}
+
+.timepoint-reference-certainty {
+  display: grid;
+  gap: 6px;
+}
+
+.timepoint-reference-certainty select {
+  width: 30px;
+  min-height: 36px;
+  padding: 0 3px 0 8px;
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0f1418;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.period-editor .date-control {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.edit-certainty-control select:has(option[value="none"]:checked),
+.compact-certainty-select:has(option[value="none"]:checked),
+.date-certainty-select:has(option[value="none"]:checked),
+.timepoint-reference-certainty select:has(option[value="none"]:checked) {
+  color: var(--brand-strong);
+}
+
+.edit-certainty-control select:has(option[value="no_idea"]:checked),
+.edit-certainty-control select:has(option[value="estimation_bad"]:checked),
+.compact-certainty-select:has(option[value="no_idea"]:checked),
+.compact-certainty-select:has(option[value="estimation_bad"]:checked),
+.date-certainty-select:has(option[value="no_idea"]:checked),
+.date-certainty-select:has(option[value="estimation_bad"]:checked),
+.timepoint-reference-certainty select:has(option[value="no_idea"]:checked),
+.timepoint-reference-certainty select:has(option[value="estimation_bad"]:checked) {
+  color: var(--danger);
+}
+
+.edit-certainty-control select:has(option[value="estimation_medium"]:checked),
+.edit-certainty-control select:has(option[value="estimation_good"]:checked),
+.compact-certainty-select:has(option[value="estimation_medium"]:checked),
+.compact-certainty-select:has(option[value="estimation_good"]:checked),
+.date-certainty-select:has(option[value="estimation_medium"]:checked),
+.date-certainty-select:has(option[value="estimation_good"]:checked),
+.timepoint-reference-certainty select:has(option[value="estimation_medium"]:checked),
+.timepoint-reference-certainty select:has(option[value="estimation_good"]:checked) {
+  color: var(--lagerfeuerorange);
+}
+
+.edit-certainty-control select:has(option[value="confident"]:checked),
+.edit-certainty-control select:has(option[value="set_in_stone"]:checked),
+.compact-certainty-select:has(option[value="confident"]:checked),
+.compact-certainty-select:has(option[value="set_in_stone"]:checked),
+.date-certainty-select:has(option[value="confident"]:checked),
+.date-certainty-select:has(option[value="set_in_stone"]:checked),
+.timepoint-reference-certainty select:has(option[value="confident"]:checked),
+.timepoint-reference-certainty select:has(option[value="set_in_stone"]:checked) {
+  color: var(--good);
+}
+
+.compact-certainty-select:focus-visible,
+.date-certainty-select:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+.timepoint-reference-certainty select:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
 .date-detail-actions {
   display: flex;
+  align-items: stretch;
+}
+
+.date-detail-row {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 6px;
   align-items: stretch;
 }
 
@@ -2890,9 +3032,18 @@ button.object-title-row.is-graph-highlighted::before {
 
 .nested-editor {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   min-width: 0;
+}
+
+.nested-editor > .period-editor {
+  grid-column: 1 / -1;
+}
+
+.nested-editor > .source-display-field {
+  min-width: 0;
+  max-width: 220px;
 }
 
 .nested-editor.is-compact {

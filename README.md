@@ -166,14 +166,17 @@ class Period {
   +UUID startTimepoint
   %% Only valid when no startTimepoint is set
   +Date customStart
+  +CertaintyLevel _startCertainty
   +UUID endTimepoint
   %% Only valid when no endTimepoint is set
   +Date customEnd
+  +CertaintyLevel _endCertainty
 }
 
 class Timepoint {
   +String name
   +Date date
+  +CertaintyLevel _dateCertainty
   +String location
 }
 Timepoint ..|> Object
@@ -330,4 +333,4 @@ The application deletes users hard through `admin-delete-user`:
 - The main tree visualization is not implemented yet.
 - Automated tests are still missing.
 - Search, validation, import/export, duplicate handling, and source tracking need more work.
-- Partial dates and certainty need deeper UI support.
+- Partial dates and non-date certainty workflows need deeper UI support.
