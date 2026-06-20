@@ -18,6 +18,8 @@ $appJsRevision = (string) max(array_map(
 ));
 $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
 $appTitle = preg_replace('/(der Vaganten)/u', '<span class="logo-word">$1</span>', $appName, 1);
+$treeIcon = '<svg class="nav-visual-icon nav-visual-svg" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M9 4.5 5 13M9 4.5 13 13M5 13h8"/><circle cx="9" cy="4.5" r="2.1"/><circle cx="5" cy="13" r="2.1"/><circle cx="13" cy="13" r="2.1"/></svg>';
+$timelineIcon = '<svg class="nav-visual-icon nav-visual-svg" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M3 9h12"/><circle cx="4" cy="9" r="1.4"/><circle cx="9" cy="9" r="1.4"/><circle cx="14" cy="9" r="1.4"/></svg>';
 $configWarnings = array_map(
     static fn (string $warning): string => htmlspecialchars($warning, ENT_QUOTES, 'UTF-8'),
     $currentUser !== null && $config['show_warnings'] ? ($config['warnings'] ?? []) : []
@@ -42,8 +44,8 @@ $configWarnings = array_map(
         </div>
         <div class="topbar-tools" aria-label="Datenwerkzeuge">
           <nav class="public-visualization-nav" id="publicVisualizationNav" aria-label="Visualisierungen" hidden>
-            <button class="nav-item" type="button" data-view="tree">Baum</button>
-            <button class="nav-item" type="button" data-view="timeline">Zeitstrahl</button>
+            <button class="nav-item" type="button" data-view="tree"><?= $treeIcon ?><span>Baum</span></button>
+            <button class="nav-item" type="button" data-view="timeline"><?= $timelineIcon ?><span>Zeitstrahl</span></button>
           </nav>
             <div class="timeframe-control" id="timeframeControl" hidden>
               <span class="tool-label">Zeitraum</span>
@@ -136,8 +138,8 @@ $configWarnings = array_map(
         <nav class="sidebar editor-nav" aria-label="Editorbereiche">
           <div class="nav-group">
             <span class="nav-label">Visualisierung</span>
-            <button class="nav-item" type="button" data-view="tree"><span class="nav-count"></span><span>Baum</span></button>
-            <button class="nav-item" type="button" data-view="timeline"><span class="nav-count"></span><span>Zeitstrahl</span></button>
+            <button class="nav-item" type="button" data-view="tree"><span class="nav-count"><?= $treeIcon ?></span><span>Baum</span></button>
+            <button class="nav-item" type="button" data-view="timeline"><span class="nav-count"><?= $timelineIcon ?></span><span>Zeitstrahl</span></button>
           </div>
           <div class="nav-group">
             <span class="nav-label">Daten</span>

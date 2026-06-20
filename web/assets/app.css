@@ -1076,6 +1076,39 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+.nav-visual-icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  color: var(--brand-strong);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.nav-visual-svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-visual-svg circle {
+  fill: var(--surface);
+}
+
+.nav-count .nav-visual-icon {
+  display: block;
+  margin-inline-start: auto;
+}
+
+.nav-count:has(.nav-visual-icon) {
+  flex-basis: 18px;
+}
+
 .nav-item:hover,
 .nav-item.is-active {
   border-color: var(--line);
