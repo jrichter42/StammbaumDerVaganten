@@ -3935,6 +3935,7 @@ function settleGraph(network, graph, animateViewport = false, startViewport = nu
 
     didSettle = true;
     network.stopSimulation();
+    network.setOptions({ physics: { enabled: false } });
     if (viewportAnimation && startViewport) {
       network.moveTo({
         position: startViewport.position,
@@ -5370,8 +5371,10 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
           personId,
           personLabel: publicPersonLabel(person, personIndex),
           role: publicRoleLabel(activityEntry.role),
+          roleEntry: activityEntry.role,
           activityIndex: activityEntry.index,
           period: relationshipPeriodLabel(activityEntry.activity.period),
+          periodStart: periodStartSortKey(activityEntry.activity.period),
         });
       });
     });
@@ -5404,11 +5407,12 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
         if (!parentId || !groupIds.has(parentId)) {
           return [];
         }
+        const phaseTypeLabel = objectLabel(findReferenceObject('group-types', groupPhaseTypeId(phase)), 'group-types') || '';
         return [{
           id: `composition:${parentId}:${objectId(group)}:${rowKey}`,
           from: `group:${parentId}`,
           to: `group:${objectId(group)}`,
-          label: publicGraphEdgeLabel(['Phase', periodYearLabel(phase.period)]),
+          label: publicGraphEdgeLabel([phaseTypeLabel, periodYearLabel(phase.period)].filter(Boolean)),
           arrows: 'to',
           group: 'type',
           navigation: { type: 'groups', id: objectId(group), edit: rowKey },
@@ -5416,13 +5420,36 @@ function lineageGraphData(groups, people, roles, groupTypes, groupTypeFilter = '
       })
   ));
   const lineageEdges = Array.from(edgeMap.values()).map((edge) => {
-    const names = uniqueStrings(edge.connections.map((entry) => entry.personLabel));
+    const targetGroupId = edge.to.replace(/^group:/, '');
+    const targetGroup = visibleGroups.find((g) => objectId(g) === targetGroupId);
+    const sortedConnections = [...edge.connections].sort((a, b) => {
+      const aIsMain = targetGroup ? roleUsableForGroup(a.roleEntry, targetGroup) : true;
+      const bIsMain = targetGroup ? roleUsableForGroup(b.roleEntry, targetGroup) : true;
+      if (aIsMain !== bIsMain) {
+        return aIsMain ? -1 : 1;
+      }
+      const aStart = a.periodStart ?? '';
+      const bStart = b.periodStart ?? '';
+      return aStart < bStart ? -1 : aStart > bStart ? 1 : 0;
+    });
+    const roleGroups = new Map();
+    sortedConnections.forEach((entry) => {
+      const role = entry.role || 'Verbindung';
+      if (!roleGroups.has(role)) {
+        roleGroups.set(role, []);
+      }
+      roleGroups.get(role).push(entry.personLabel);
+    });
+    const lines = Array.from(roleGroups.entries()).map(([role, names]) => {
+      const uniqueNames = uniqueStrings(names);
+      return uniqueNames.length === 1 ? `${role} · ${uniqueNames[0]}` : `${role} · ${uniqueNames.join(', ')}`;
+    });
     const first = edge.connections[0];
     return {
       id: edge.id,
       from: edge.from,
       to: edge.to,
-      label: publicGraphEdgeLabel([names.length === 1 ? names[0] : `${names.length} Personen`, 'Verbindung']),
+      label: publicGraphEdgeLabel(lines),
       group: 'activity',
       arrows: 'to',
       width: 2.1,
@@ -5644,6 +5671,9 @@ function publicPeriodSpan(periods) {
 }
 
 function publicPersonLabel(person, index) {
+  if (state.status?.auth?.user) {
+    return personDisplayName(person, objectId(person));
+  }
   return String(person.description || `Person ${index + 1}`).trim();
 }
 
@@ -5705,7 +5735,7 @@ function publicGroupName(group, index) {
 }
 
 function relationshipPeriodLabel(period) {
-  return periodYearLabel(period) || 'gesamte Gruppenlaufzeit';
+  return periodYearLabel(period) || '';
 }
 
 function referenceYear(collection, id) {
