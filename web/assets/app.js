@@ -372,6 +372,7 @@ const contextGraphSync = {
 let contextResizeActive = false;
 let contextPanelRatio = 0.4;
 let treeGraphFrame = 0;
+let restoringUrlState = false;
 captureAuthFragment();
 
 restoreUrlState();
@@ -383,7 +384,7 @@ document.querySelectorAll('[data-view]').forEach((button) => {
     if (!(await canSwitchToView(viewName))) {
       return;
     }
-    activateView(viewName);
+    activateView(viewName, { history: 'push' });
     await refreshActivatedView(viewName);
   });
 });
@@ -749,10 +750,11 @@ function restoreUrlState() {
 }
 
 function writeUrlState(extra = {}) {
-  if (isSetupPage) {
+  if (isSetupPage || restoringUrlState) {
     return;
   }
 
+  const historyMode = extra.history === 'push' ? 'push' : 'replace';
   const activeView = extra.view || document.querySelector('[data-view].is-active')?.dataset.view || 'people';
   if (visualizationViews.includes(activeView)) {
     const params = new URLSearchParams();
@@ -761,7 +763,7 @@ function writeUrlState(extra = {}) {
       params.set('group-type', state.publicGraphGroupType);
     }
     writeTimeframeSearchParams(params, state.timeframe);
-    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    writeBrowserUrl(`${window.location.pathname}?${params.toString()}`, historyMode);
     return;
   }
 
@@ -787,11 +789,11 @@ function writeUrlState(extra = {}) {
   }
   writeTimeframeSearchParams(params, state.timeframe);
 
-  window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+  writeBrowserUrl(`${window.location.pathname}?${params.toString()}`, historyMode);
 }
 
 function writeTreeGraphUrlState() {
-  if (isSetupPage) {
+  if (isSetupPage || restoringUrlState) {
     return;
   }
 
@@ -807,14 +809,139 @@ function writeTreeGraphUrlState() {
   writeTimeframeSearchParams(params, state.timeframe);
 
   const query = params.toString();
-  window.history.replaceState(null, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
+  writeBrowserUrl(query ? `${window.location.pathname}?${query}` : window.location.pathname, 'replace');
 }
 
-function handleUrlStateChange() {
+function writeBrowserUrl(url, mode = 'replace') {
+  const current = `${window.location.pathname}${window.location.search}`;
+  if (url === current) {
+    return;
+  }
+
+  if (mode === 'push') {
+    window.history.pushState(null, '', url);
+  } else {
+    window.history.replaceState(null, '', url);
+  }
+}
+
+async function handleUrlStateChange() {
   const params = new URLSearchParams(window.location.search);
-  state.timeframe = timeframeFromSearchParams(params);
-  renderTimeframeControl();
-  applyTimeframeChange(false);
+  const view = params.get('view') || '';
+  const id = params.get('id') || '';
+  const edit = id ? readNestedEditParam(params) : '';
+
+  restoringUrlState = true;
+  try {
+    state.timeframe = timeframeFromSearchParams(params);
+    state.publicGraphGroupType = params.get('group-type') || params.get('gruppenart') || params.get('groupType') || '';
+    renderTimeframeControl();
+
+    if (state.accountOpen && view !== 'account') {
+      await flushAccountEdit(true);
+      state.accountOpen = false;
+      renderShell();
+    }
+
+    if (visualizationViews.includes(view) || view === 'tribe') {
+      const targetView = view === 'tribe' ? 'tree' : view;
+      if (await canSwitchToView(targetView)) {
+        activateView(targetView, { silent: true });
+        await refreshActivatedView(targetView);
+      }
+      applyTimeframeChange(false);
+      return;
+    }
+
+    if (view === 'account') {
+      if (!(await resolveOpenCreateFormBeforeSwitch()) || !(await closeOpenEditorsBeforeSwitch())) {
+        return;
+      }
+      clearAdminSetupResult();
+      state.accountOpen = true;
+      state.loginOpen = false;
+      renderShell();
+      await loadAccount();
+      return;
+    }
+
+    if (view === 'audit' || view === 'log') {
+      if (await canSwitchToView(view)) {
+        activateView(view, { silent: true });
+        await refreshActivatedView(view);
+      }
+      return;
+    }
+
+    if (view && (objectCollections.includes(view) || view === 'users')) {
+      await restoreCollectionUrlState(view, id, edit, params);
+      return;
+    }
+
+    const defaultView = state.status?.auth?.user ? 'people' : 'tree';
+    if (await canSwitchToView(defaultView)) {
+      activateView(defaultView, { silent: true });
+      await refreshActivatedView(defaultView);
+    }
+    applyTimeframeChange(false);
+  } finally {
+    restoringUrlState = false;
+  }
+}
+
+async function restoreCollectionUrlState(view, id, edit, params) {
+  const collectionType = viewCollectionType(view);
+  if (!(await canSwitchToView(view))) {
+    return;
+  }
+
+  const urlSort = readUrlSortState(collectionType, params);
+  state.collectionUi[collectionType] = {
+    ...collectionUi(collectionType),
+    sort: urlSort.sort,
+    sortDirection: urlSort.direction,
+    search: params.get('q') || '',
+    sortExplicit: urlSort.explicit,
+  };
+
+  if (id && objectCollections.includes(view)) {
+    state.deepLinkTarget = { view, id, edit };
+    expandCollectionVisibleCountToObject(view, id);
+  } else {
+    state.deepLinkTarget = null;
+    if (!(await closeOpenEditorsBeforeSwitch())) {
+      return;
+    }
+  }
+
+  activateView(view, { silent: true });
+  await refreshActivatedView(view);
+  renderCollectionControls();
+
+  if (!id || !objectCollections.includes(view)) {
+    return;
+  }
+
+  let item = objectItemElement(view, id);
+  if (!item) {
+    renderObjectCollection(view);
+    item = objectItemElement(view, id);
+  }
+  if (!item) {
+    return;
+  }
+
+  if (edit) {
+    state.relationshipEditing[objectKey(view, id)] = edit;
+  }
+  if (!state.editing[objectKey(view, id)]) {
+    await focusObjectEditor(item);
+  } else {
+    scrollObjectEditorIntoView(view, id, item.parentElement?.id || '');
+  }
+  if (edit) {
+    openNestedEditRow(view, id, edit);
+  }
 }
 
 function renderTimeframeControl() {
@@ -1259,7 +1386,7 @@ async function followReferenceLink(link) {
   }
 
   clearCollectionNarrowingForDeepLink(type);
-  activateView(type, { id, edit: '' });
+  activateView(type, { id, edit: '', history: 'push' });
   await refreshActivatedView(type);
 
   const item = objectItemElement(type, id);
@@ -1369,7 +1496,7 @@ async function followNestedEditLink(link) {
   }
 
   clearCollectionNarrowingForDeepLink(type);
-  activateView(type, { id, edit });
+  activateView(type, { id, edit, history: 'push' });
   await refreshActivatedView(type);
 
   const item = objectItemElement(type, id);
@@ -1441,7 +1568,7 @@ async function handleChangeLogClick(event) {
   }
 
   clearCollectionNarrowingForDeepLink(type);
-  activateView(type, edit ? { id, edit } : { id });
+  activateView(type, edit ? { id, edit, history: 'push' } : { id, history: 'push' });
   await refreshActivatedView(type);
 
   const item = objectItemElement(type, id);
@@ -2183,7 +2310,7 @@ async function openAccountPage(event) {
   state.loginOpen = false;
   clearAuthMessage();
   clearAccountMessage();
-  window.history.replaceState(null, '', `${window.location.pathname}?view=account`);
+  writeBrowserUrl(`${window.location.pathname}?view=account`, 'push');
   renderShell();
   await loadAccount();
 }
@@ -3195,7 +3322,7 @@ async function navigateToVisualizationTarget(target) {
   }
   clearCollectionNarrowingForDeepLink(target.type);
   state.deepLinkTarget = { view: target.type, id: target.id, edit: target.edit || '' };
-  activateView(target.type, { id: target.id, edit: target.edit || '' });
+  activateView(target.type, { id: target.id, edit: target.edit || '', history: 'push' });
   await refreshActivatedView(target.type);
   applyDeepLinkTarget();
 }
@@ -4097,7 +4224,7 @@ async function openContextGraphTarget(target) {
   clearCollectionNarrowingForDeepLink(target.type);
   expandCollectionVisibleCountToObject(target.type, target.id);
   renderCollectionControls();
-  activateView(target.type, { id: target.id, edit });
+  activateView(target.type, { id: target.id, edit, history: 'push' });
   await refreshActivatedView(target.type);
 
   let item = objectItemElement(target.type, target.id);
@@ -8032,7 +8159,7 @@ async function focusObjectEditor(item) {
 
   state.editing = {};
   state.editing[targetKey] = true;
-  writeUrlState({ view: targetType, id: targetId });
+  writeUrlState({ view: targetType, id: targetId, history: 'push' });
   renderObjectCollections();
   scrollObjectEditorIntoView(targetType, targetId, targetListId);
   scheduleContextGraphRender();
