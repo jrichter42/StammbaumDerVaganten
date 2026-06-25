@@ -1,21 +1,27 @@
 @echo off
 setlocal
 
-set "DEST=W:\stammbaumdervaganten"
+set "LIVE=W:\stammbaumdervaganten"
+set "DEST=W:\stammbaumdervaganten.staging"
 set "ROBO=robocopy /NDL /NS /NJH /NJS /NP"
+
+if not exist "%LIVE%" (
+    echo Error: %LIVE% does not exist!
+    exit /b 1
+)
 
 if not exist "%DEST%" (
     echo Error: %DEST% does not exist!
     exit /b 1
 )
 
-if not exist "web\data" (
-    echo Error: web\data does not exist!
+if not exist "%LIVE%\data" (
+    echo Error: %LIVE%\data does not exist!
     exit /b 1
 )
 
-REM Mirror canonical object data. /MIR purges destination files not present locally.
-call :run %ROBO% "web\data" "%DEST%\data" /MIR || exit /b 1
+REM Mirror live object data into staging.
+call :run %ROBO% "%LIVE%\data" "%DEST%\data" /MIR || exit /b 1
 
 exit /b 0
 

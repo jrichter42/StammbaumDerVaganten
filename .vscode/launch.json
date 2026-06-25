@@ -5,7 +5,7 @@
       "name": "Deploy",
       "type": "PowerShell",
       "request": "launch",
-      "script": "${workspaceFolder}\\deploy.bat",
+      "script": "${workspaceFolder}\\deploy-staging.bat",
       "cwd": "${workspaceFolder}",
       "createTemporaryIntegratedConsole": true
     }

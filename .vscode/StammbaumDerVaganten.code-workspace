@@ -4,8 +4,12 @@
 			"path": ".."
 		},
 		{
+			"path": "W:/stammbaumdervaganten.staging",
+			"name": "Webspace (Staging)"
+		},
+		{
 			"path": "W:/stammbaumdervaganten",
-			"name": "Webspace"
+			"name": "Webspace (Live)"
 		}
 	],
 	"settings": {
